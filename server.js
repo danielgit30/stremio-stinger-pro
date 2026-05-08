@@ -51,31 +51,28 @@ async function checkAfterCredits(imdbId) {
         const searchRes = await axios.get(searchUrl, config);
         const $ = cheerio.load(searchRes.data);
         
+        // Remove year if present (e.g., "Iron Man 3 2013" -> "iron man 3")
         const cleanTargetTitle = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        
         let targetUrl = null;
-        const resultLinks = $('.entry-title a, .post-title a, article header h2 a, h2.title a, h2 a');
+        let hasAsterisk = false;
+
+        // Using the selector from the snippet, plus our fallbacks
+        const resultLinks = $('h3.entry-title a, .entry-title a, .post-title a, article header h2 a');
 
         resultLinks.each((i, el) => {
-            const linkText = $(el).text().toLowerCase();
-            const cleanLinkText = linkText.replace(/[^\w\s]/g, '').trim();
-            const href = $(el).attr('href');
+            const rawLinkText = $(el).text().toLowerCase().trim();
+            const isReview = rawLinkText.includes('review');
+            
+            // Clean the text to check for a title match
+            const cleanLinkText = rawLinkText.replace(/[*|?]/g, '').replace(/[^\w\s]/g, '').trim();
 
-            if (cleanLinkText.includes('review')) return true;
-
-            if (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle) {
-                targetUrl = href;
-                return false;
+            if (!isReview && (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle)) {
+                targetUrl = $(el).attr('href');
+                hasAsterisk = rawLinkText.endsWith('*'); // The crucial check
+                return false; 
             }
         });
-
-        if (!targetUrl) {
-            resultLinks.each((i, el) => {
-                if (!$(el).text().toLowerCase().includes('review')) {
-                    targetUrl = $(el).attr('href');
-                    return false;
-                }
-            });
-        }
 
         if (!targetUrl) {
             console.log(`[ERROR] No valid stinger articles found for "${title}"`);
@@ -86,42 +83,49 @@ async function checkAfterCredits(imdbId) {
             targetUrl = `https://aftercredits.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
         }
 
-        console.log(`[3] Scraping target article: ${targetUrl}`);
+        console.log(`[3] Target URL found. Asterisk present? ${hasAsterisk}`);
+
+        // Early Exit: If no asterisk, there are no stingers.
+        if (!hasAsterisk) {
+            console.log(`[3] Success: Evaluated status - No Stinger`);
+            return { message: 'No Stinger', url: targetUrl };
+        }
+
+        // If asterisk exists, fetch details to determine Mid vs Post
+        console.log(`[4] Fetching detail page to classify stinger...`);
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
         
-        // Target multiple potential containers to ensure we don't miss the text
-        const rawText = $$('article, .entry-content, .post-content, .td-post-content').text().toLowerCase();
+        let hasMid = false;
+        let hasPost = false;
+
+        // Use the snippet's .spoiler-head logic
+        const $$spoilers = $$(".spoiler-wrap");
         
-        // Strip ALL punctuation to neutralize HTML/icon interference
-        const cleanText = rawText.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
-
-        // Evaluate exact phrases based on their standardized Q&A format
-        const hasMid = cleanText.includes('during the credits yes');
-        const hasPost = cleanText.includes('after the credits yes');
-        const hasNoMid = cleanText.includes('during the credits no');
-        const hasNoPost = cleanText.includes('after the credits no');
-        
-        const hasNoStingerText = rawText.includes('no stinger') || cleanText.includes('extras during or after the credits no');
-
-        let status = 'Status Unknown';
-
-        if (hasMid && hasPost) {
-            status = 'Mid & Post-Credits Scenes';
-        } else if (hasMid) {
-            status = 'Mid-Credits Scene Only';
-        } else if (hasPost) {
-            status = 'Post-Credits Scene Only';
-        } else if ((hasNoMid && hasNoPost) || hasNoStingerText) {
-            status = 'No Stinger';
+        if ($$spoilers.length > 0) {
+            $$spoilers.each((i, el) => {
+                const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
+                if (headText.includes("during the credits") || headText.includes("mid-credits")) {
+                    hasMid = true;
+                }
+                if (headText.includes("after the credits") || headText.includes("post-credits")) {
+                    hasPost = true;
+                }
+            });
         } else {
-            // Final failsafe using their tagging system
-            const tagsText = $$('.tags-links, .post-tags').text().toLowerCase();
-            if (tagsText.includes('stinger')) status = 'Stinger Found (Position Unspecified)';
-            else if (tagsText.includes('no stinger')) status = 'No Stinger';
+            // Fallback if they didn't use the spoiler class on an older post
+            const rawText = $$('article, .entry-content').text().toLowerCase();
+            const cleanText = rawText.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
+            if (cleanText.includes('during the credits yes')) hasMid = true;
+            if (cleanText.includes('after the credits yes')) hasPost = true;
         }
 
-        console.log(`[3] Success: Evaluated status - ${status}`);
+        let status = 'Stinger Found';
+        if (hasMid && hasPost) status = 'Mid & Post-Credits Scenes';
+        else if (hasMid) status = 'Mid-Credits Scene Only';
+        else if (hasPost) status = 'Post-Credits Scene Only';
+
+        console.log(`[4] Success: Evaluated status - ${status}`);
         return { message: status, url: targetUrl };
 
     } catch (error) {
