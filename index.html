@@ -117,23 +117,23 @@
     <div class="card">
         <h1>Stremio Stinger Pro</h1>
         <p class="description">Find out if a movie has mid and post-credits scenes before you watch it - <em>right from your stream list!</em></p>
-        <p class="description">Configure the optional TMDB fallback below and/or click "Install" to send the addon directly to Stremio or generate your manifest.</p>
+        <p class="description">Configure the addon to use your own TMDB API key (optional) and click "Install" to generate the manifest.</p>
         <div class="input-group">
             <label for="apiKey">Add your TMDB API Key (Optional)</label>
             <input type="password" id="apiKey" placeholder="Enter key or leave blank">
-            <span class="optional-text">If left blank, the addon will only scrape AfterCredits and MediaStinger.</span>
+            <span class="optional-text">If left blank, the addon will use the default community API key.</span>
         </div>
         
         <button onclick="installAddon()">Install</button>
 
         <div id="result-container">
-            <p>If Stremio didn't open automatically or you prefer a different app, copy the manifest below to add it manually to your Addons library:</p>
+            <p>If Stremio didn't open automatically or you use a different app, copy the manifest below to add it manually to your addon library:</p>
             <div class="code-box" id="install-link"></div>
             <button class="copy-btn" onclick="copyLink()">Copy Manifest URL</button>
         </div>
 
         <div class="footer">
-            v1.3.6 | Developed by kiransaldanha
+            v1.3.8 | Developed by kiransaldanha
         </div>
     </div>
 

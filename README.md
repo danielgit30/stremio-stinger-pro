@@ -21,4 +21,4 @@ https://stremio-stinger-pro.onrender.com/configure
 The addon is deployed on a free instance of Render and kept alive with Cronjob.
 
 ## Latest Version
-### 1.3.6
+### 1.3.8

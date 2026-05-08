@@ -10,20 +10,22 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 6000 // 6 seconds timeout for all requests to prevent hanging
+    timeout: 5000 
 };
 
-// --- Caching Layer ---
+// DEFAULT TMDB KEY (Used if user doesn't provide one)
+const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
+
 const streamCache = new Map();
-const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-const MAX_CACHE_SIZE = 1000; // Prevent memory leaks
+const CACHE_TTL = 6 * 60 * 60 * 1000; 
+const MAX_CACHE_SIZE = 1000; 
 
 const mapStatus = (mid, post, no) => {
     if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
     if (mid) return '⏳ Mid-Credits Scene Only.';
     if (post) return '🎬 Post-Credits Scene Only.';
     if (no) return '🏃‍♂️ Show\'s Over When Credits Roll!';
-    return '🕵️‍♂️ Something\'s not right...';
+    return null; // Return null if status is unknown to help the "Race" logic
 };
 
 // --- Routing ---
@@ -34,9 +36,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.3.6',
+        version: '1.3.8',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid and post-credit scenes using multiple sources.',
+        description: 'Detects mid and post-credit scenes instantly using parallel search.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
@@ -58,16 +60,14 @@ async function checkAfterCredits(title) {
     try {
         const searchRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
-        
         const cleanTargetTitle = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
         let targetUrl = null;
         let hasAsterisk = false;
 
-        $('h3.entry-title a, .entry-title a, .post-title a, article header h2 a').each((i, el) => {
+        $('h3.entry-title a, .entry-title a').each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
             const cleanLinkText = rawLinkText.replace(/[*|?]/g, '').replace(/[^\w\s]/g, '').trim();
-
-            if (!rawLinkText.includes('review') && (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle)) {
+            if (!rawLinkText.includes('review') && (cleanLinkText === cleanTargetTitle)) {
                 targetUrl = $(el).attr('href');
                 hasAsterisk = rawLinkText.endsWith('*');
                 return false; 
@@ -75,13 +75,10 @@ async function checkAfterCredits(title) {
         });
 
         if (!targetUrl) return null;
-        if (!targetUrl.startsWith('http')) targetUrl = `https://aftercredits.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
-
-        if (!hasAsterisk) return { message: mapStatus(false, false, true), url: targetUrl };
+        if (!hasAsterisk) return { message: '🏃‍♂️ Show\'s Over When Credits Roll!', url: targetUrl, source: 'AfterCredits' };
 
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
-        
         let hasMid = false, hasPost = false;
         const $$spoilers = $$(".spoiler-wrap");
         
@@ -91,17 +88,10 @@ async function checkAfterCredits(title) {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             });
-        } else {
-            const cleanText = $$('article, .entry-content').text().toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
-            if (cleanText.includes('during the credits yes')) hasMid = true;
-            if (cleanText.includes('after the credits yes')) hasPost = true;
         }
-
-        return { message: mapStatus(hasMid, hasPost, false), url: targetUrl };
-    } catch (error) {
-        console.error(`[AfterCredits Error] ${error.message}`);
-        return null;
-    }
+        const msg = mapStatus(hasMid, hasPost, false);
+        return msg ? { message: msg, url: targetUrl, source: 'AfterCredits' } : null;
+    } catch (e) { return null; }
 }
 
 // --- Source 2: MediaStinger ---
@@ -110,54 +100,31 @@ async function checkMediaStinger(title) {
         const searchRes = await axios.get(`http://www.mediastinger.com/?tab=MOVIES&s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
         const $result = $("ul.highlights li").first();
-
         if ($result.length === 0) return null;
 
-        const resultTitle = $result.find(".title").first().text().trim().toLowerCase();
-        const cleanTargetTitle = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const cleanResultTitle = resultTitle.replace(/[^\w\s]/g, '').trim();
-
-        if (!cleanResultTitle.startsWith(cleanTargetTitle)) return null;
-
-        const url = $result.find("a").first().attr("href") || 'http://www.mediastinger.com';
         const subtitle = $result.find(".subtitle").first().text().trim().toLowerCase();
-
-        const no = subtitle.includes("no");
-        const mid = subtitle.includes("during");
-        const post = subtitle.includes("after");
-
-        return { message: mapStatus(mid, post, no), url };
-    } catch (error) {
-        console.error(`[MediaStinger Error] ${error.message}`);
-        return null;
-    }
+        const msg = mapStatus(subtitle.includes("during"), subtitle.includes("after"), subtitle.includes("no"));
+        return msg ? { message: msg, url: $result.find("a").first().attr("href"), source: 'MediaStinger' } : null;
+    } catch (e) { return null; }
 }
 
 // --- Source 3: TMDB ---
 async function checkTmdb(imdbId, apiKey) {
-    if (!apiKey) return null;
+    const key = apiKey || DEFAULT_TMDB_KEY;
     try {
-        const findUrl = `https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${apiKey}`;
-        const findRes = await axios.get(findUrl);
+        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, config);
         const tmdbId = findRes.data.movie_results?.[0]?.id;
-        
         if (!tmdbId) return null;
 
-        const kwUrl = `https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${apiKey}`;
-        const kwRes = await axios.get(kwUrl);
+        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
         const keywords = kwRes.data.keywords || [];
-        
         const hasMid = keywords.some(k => k.name === 'duringcreditsstinger');
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
-        const hasNo = !hasMid && !hasPost; 
-
-        if (hasNo) return null; 
-
-        return { message: mapStatus(hasMid, hasPost, false), url: `https://www.themoviedb.org/movie/${tmdbId}` };
-    } catch (error) {
-        console.error(`[TMDB Error] ${error.message}`);
-        return null;
-    }
+        
+        const msg = mapStatus(hasMid, hasPost, (!hasMid && !hasPost));
+        // We only return from TMDB if it actually found stinger keywords
+        return (hasMid || hasPost) ? { message: msg, url: `https://www.themoviedb.org/movie/${tmdbId}`, source: 'TMDB' } : null;
+    } catch (e) { return null; }
 }
 
 // --- Main Handler ---
@@ -167,71 +134,63 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
-    // 1. Check Cache
     if (streamCache.has(id)) {
         const cachedData = streamCache.get(id);
-        if (Date.now() - cachedData.timestamp < CACHE_TTL) {
-            console.log(`[CACHE HIT] Serving ${id} from memory.`);
-            return res.json({ streams: [cachedData.stream] });
-        }
-        streamCache.delete(id); // Expired
+        if (Date.now() - cachedData.timestamp < CACHE_TTL) return res.json({ streams: [cachedData.stream] });
+        streamCache.delete(id);
     }
-
-    let finalMessage = '🕵️‍♂️ Something\'s not right...';
-    let finalUrl = 'https://aftercredits.com/';
-    let source = 'Search Failed';
 
     try {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`);
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            const [acResult, msResult, tmdbResult] = await Promise.allSettled([
-                checkAfterCredits(title),
-                checkMediaStinger(title),
-                apiKey ? checkTmdb(id, apiKey) : Promise.resolve(null)
-            ]);
+            // Requirement 2: Race the sources and return the first valid one
+            const result = await new Promise((resolve) => {
+                const sources = [
+                    checkAfterCredits(title),
+                    checkMediaStinger(title),
+                    checkTmdb(id, apiKey) // Requirement 1: Handled inside function
+                ];
 
-            if (acResult.status === 'fulfilled' && acResult.value && !acResult.value.message.includes('No intel')) {
-                finalMessage = acResult.value.message;
-                finalUrl = acResult.value.url;
-                source = 'AfterCredits';
-            } else if (msResult.status === 'fulfilled' && msResult.value && !msResult.value.message.includes('No intel')) {
-                finalMessage = msResult.value.message;
-                finalUrl = msResult.value.url;
-                source = 'MediaStinger';
-            } else if (tmdbResult.status === 'fulfilled' && tmdbResult.value) {
-                finalMessage = tmdbResult.value.message;
-                finalUrl = tmdbResult.value.url;
-                source = 'TMDB';
+                let finished = 0;
+                sources.forEach(p => {
+                    p.then(val => {
+                        finished++;
+                        if (val) resolve(val); // Resolve immediately on first valid result
+                        else if (finished === sources.length) resolve(null); // All failed
+                    });
+                });
+                // Safety timeout
+                setTimeout(() => resolve(null), 5500);
+            });
+
+            const streamConfig = result ? {
+                name: '🎬 Bonus Scenes',
+                title: `${result.message}\nSource: ${result.source}`,
+                externalUrl: result.url
+            } : {
+                name: '🎬 Bonus Scenes',
+                title: `🕵️‍♂️ No info found yet.\nCheck manually at AfterCredits.com`,
+                externalUrl: `https://aftercredits.com/?s=${encodeURIComponent(title)}`
+            };
+
+            if (result) {
+                if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
+                streamCache.set(id, { timestamp: Date.now(), stream: streamConfig });
             }
+
+            return res.json({ streams: [streamConfig] });
         }
     } catch (error) {
-        console.error(`[Stream Handler Error] ${error.message}`);
+        console.error(`[Error] ${error.message}`);
     }
 
-    const streamConfig = { 
-        name: 'After-Credits Scenes', 
-        title: `${finalMessage}\nSource: ${source}`, 
-        externalUrl: finalUrl 
-    };
-
-    // 2. Write to Cache (Only cache if we found a valid result to avoid caching temporary network failures)
-    if (source !== 'Search Failed') {
-        if (streamCache.size >= MAX_CACHE_SIZE) {
-            // Remove the oldest entry to prevent OOM errors
-            const oldestKey = streamCache.keys().next().value;
-            streamCache.delete(oldestKey);
-        }
-        streamCache.set(id, { timestamp: Date.now(), stream: streamConfig });
-    }
-
-    res.json({ streams: [streamConfig] });
+    res.json({ streams: [] });
 };
 
 app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:apiKey/stream/:type/:id.json', streamHandler);
 
-// --- Standard Initialization for Render ---
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Active on port ${PORT}`));
