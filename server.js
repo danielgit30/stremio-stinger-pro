@@ -31,7 +31,7 @@ const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
         version: '1.3.0',
-        name: 'Stinger Alerts Pro',
+        name: 'Stremio Stinger Pro',
         description: 'Detects mid and post-credit scenes using multiple sources.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         
