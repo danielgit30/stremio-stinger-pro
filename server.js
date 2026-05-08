@@ -10,7 +10,7 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000
+    timeout: 12000
 };
 
 const mapStatus = (mid, post, no) => {
@@ -171,28 +171,26 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            // 1. AfterCredits
-            let data = await checkAfterCredits(title);
-            if (data && !data.message.includes('Unknown')) {
-                finalMessage = data.message;
-                finalUrl = data.url;
+            // Execute all requests concurrently
+            const [acResult, msResult, tmdbResult] = await Promise.allSettled([
+                checkAfterCredits(title),
+                checkMediaStinger(title),
+                apiKey ? checkTmdb(id, apiKey) : Promise.resolve(null)
+            ]);
+
+            // Evaluate results in order of priority
+            if (acResult.status === 'fulfilled' && acResult.value && !acResult.value.message.includes('No intel')) {
+                finalMessage = acResult.value.message;
+                finalUrl = acResult.value.url;
                 source = 'AfterCredits';
-            } else {
-                // 2. MediaStinger
-                data = await checkMediaStinger(title);
-                if (data && !data.message.includes('Unknown')) {
-                    finalMessage = data.message;
-                    finalUrl = data.url;
-                    source = 'MediaStinger';
-                } else if (apiKey) {
-                    // 3. TMDB Fallback
-                    data = await checkTmdb(id, apiKey);
-                    if (data) {
-                        finalMessage = data.message;
-                        finalUrl = data.url;
-                        source = 'TMDB';
-                    }
-                }
+            } else if (msResult.status === 'fulfilled' && msResult.value && !msResult.value.message.includes('No intel')) {
+                finalMessage = msResult.value.message;
+                finalUrl = msResult.value.url;
+                source = 'MediaStinger';
+            } else if (tmdbResult.status === 'fulfilled' && tmdbResult.value) {
+                finalMessage = tmdbResult.value.message;
+                finalUrl = tmdbResult.value.url;
+                source = 'TMDB';
             }
         }
     } catch (error) {
