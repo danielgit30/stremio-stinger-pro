@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configure Stremio Stinger Pro</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; text-align: center; background: #121212; color: #fff; }
+        input { width: 100%; padding: 10px; margin: 10px 0 20px 0; border-radius: 5px; border: none; box-sizing: border-box; }
+        button { background: #8a5aE9; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; }
+        .optional-text { font-size: 12px; color: #aaa; display: block; margin-bottom: 10px; text-align: left; }
+    </style>
+</head>
+<body>
+    <h1>Stremio Stinger Pro</h1>
+    <p>Configure your post-credits experience.</p>
+    
+    <div style="text-align: left;">
+        <label for="apiKey">Enter your TMDB API Key (Optional)</label>
+    </div>
+    <input type="text" id="apiKey" placeholder="Enter key or leave blank">
+    <span class="optional-text">If left blank, the addon will rely exclusively on AfterCredits.com.</span>
+    
+    <button onclick="installAddon()">Install in Stremio</button>
+
+    <script>
+        function installAddon() {
+            const key = document.getElementById('apiKey').value.trim();
+            const host = window.location.host;
+            const protocol = 'stremio://';
+            
+            // Generate URL with or without the API key path parameter
+            const installUrl = key 
+                ? `${protocol}${host}/${encodeURIComponent(key)}/manifest.json`
+                : `${protocol}${host}/manifest.json`;
+            
+            window.location.href = installUrl;
+        }
+    </script>
+</body>
+</html>
