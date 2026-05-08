@@ -10,7 +10,7 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 15000
+    timeout: 8000
 };
 
 const mapStatus = (mid, post, no) => {
@@ -18,11 +18,10 @@ const mapStatus = (mid, post, no) => {
     if (mid) return '⏳ Mid-Credits Scene Only!';
     if (post) return '🎬 Post-Credits Scene Only!';
     if (no) return '🏃‍♂️ Nothing to see here.';
-    return '🕵️‍♂️ Something\'s not right.';
+    return '🕵️‍♂️ Something\'s not right...';
 };
 
 // --- Routing ---
-// Serve the configuration page on both the root and Stremio's expected /configure path
 const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
@@ -34,7 +33,6 @@ const manifestHandler = (req, res) => {
         name: 'Stremio Stinger Pro',
         description: 'Detects mid and post-credit scenes using multiple sources.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
-        
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
@@ -146,9 +144,8 @@ async function checkTmdb(imdbId, apiKey) {
         
         const hasMid = keywords.some(k => k.name === 'duringcreditsstinger');
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
-        const hasNo = !hasMid && !hasPost; // TMDB doesn't explicitly tag "no stinger", it just lacks tags.
+        const hasNo = !hasMid && !hasPost; 
 
-        // If TMDB lacks tags, we don't assume "No Stinger", we leave it unknown.
         if (hasNo) return null; 
 
         return { message: mapStatus(hasMid, hasPost, false), url: `https://www.themoviedb.org/movie/${tmdbId}` };
@@ -165,7 +162,7 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
-    let finalMessage = '🕵️‍♂️ Something\'s not right.';
+    let finalMessage = '🕵️‍♂️ Something\'s not right...';
     let finalUrl = 'https://aftercredits.com/';
     let source = 'Search Failed';
 
@@ -204,7 +201,7 @@ const streamHandler = async (req, res) => {
 
     res.json({ 
         streams: [{ 
-            name: 'Should I stick around?', 
+            name: 'Should I Stick Around?', 
             title: `${finalMessage}\nSource: ${source}`, 
             externalUrl: finalUrl 
         }] 
@@ -214,12 +211,6 @@ const streamHandler = async (req, res) => {
 app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:apiKey/stream/:type/:id.json', streamHandler);
 
-// --- Serverless Initialization ---
-if (require.main === module) {
-    // Runs only when executed locally (e.g., npm start)
-    const PORT = process.env.PORT || 7000;
-    app.listen(PORT, () => console.log(`Active on port ${PORT}`));
-}
-
-// Export the app for Vercel's serverless environment
-module.exports = app;
+// --- Standard Initialization for Render ---
+const PORT = process.env.PORT || 7000;
+app.listen(PORT, () => console.log(`Active on port ${PORT}`));
