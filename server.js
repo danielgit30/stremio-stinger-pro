@@ -52,7 +52,21 @@ async function checkAfterCredits(imdbId) {
         const searchRes = await axios.get(searchUrl, config);
         const $ = cheerio.load(searchRes.data);
         
-        const url = $('article header h2 a').first().attr('href');
+        // Cascading selectors to handle varying DOM layouts
+        const possibleSelectors = [
+            '.entry-title a',
+            '.post-title a',
+            'article header h2 a',
+            'h2.title a',
+            'h2 a'
+        ];
+
+        let url = null;
+        for (const selector of possibleSelectors) {
+            url = $(selector).first().attr('href');
+            if (url) break; // Stop at the first successful match
+        }
+
         if (!url) {
             console.log(`[ERROR] No search results found on AfterCredits for "${title}"`);
             return null;
