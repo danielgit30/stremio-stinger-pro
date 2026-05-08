@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stremio Stinger Pro</title>
+    
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/kiransaldanha/YOUR-REPO-NAME/main/icon.png">
+    
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
@@ -24,6 +27,7 @@
             width: 100%; 
             box-shadow: 0 8px 30px rgba(0,0,0,0.5); 
             text-align: center; 
+            position: relative;
         }
         h1 { margin-top: 0; font-size: 24px; color: #fff; }
         p.description { font-size: 14px; color: #a0a0b0; line-height: 1.5; margin-bottom: 30px; }
@@ -78,6 +82,15 @@
         }
         .copy-btn { background: #333; padding: 10px; font-size: 14px; }
         .copy-btn:hover { background: #444; }
+        
+        /* NEW FOOTER STYLING */
+        .footer {
+            margin-top: 30px;
+            font-size: 11px;
+            color: #555;
+            border-top: 1px solid #2a2a35;
+            padding-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -86,7 +99,7 @@
         <p class="description">Automatically detect mid and post-credits scenes before the credits roll. Fill out the configuration below to generate your installation link.</p>
         
         <div class="input-group">
-            <label for="apiKey">Add your TMDB API Key (Optional)</label>
+            <label for="apiKey">TMDB API Key (Optional)</label>
             <input type="password" id="apiKey" placeholder="Enter key or leave blank">
             <span class="optional-text">If left blank, the addon relies on web scraping.</span>
         </div>
@@ -97,6 +110,10 @@
             <p>If Stremio didn't open automatically, copy the link below and paste it into the Stremio Addon search bar:</p>
             <div class="code-box" id="install-link"></div>
             <button class="copy-btn" onclick="copyLink()">Copy Manifest URL</button>
+        </div>
+
+        <div class="footer">
+            v1.3.0 | Developed by kiransaldanha
         </div>
     </div>
 

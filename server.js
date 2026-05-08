@@ -22,7 +22,10 @@ const mapStatus = (mid, post, no) => {
 };
 
 // --- Routing ---
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// Serve the configuration page on both the root and Stremio's expected /configure path
+const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
+app.get('/', serveConfig);
+app.get('/configure', serveConfig);
 
 const manifestHandler = (req, res) => {
     res.json({
@@ -30,11 +33,19 @@ const manifestHandler = (req, res) => {
         version: '1.3.0',
         name: 'Stinger Alerts Pro',
         description: 'Detects mid and post-credit scenes using multiple sources.',
+        
+        // ADD YOUR GITHUB RAW IMAGE URL HERE
+        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png', 
+        
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
         idPrefixes: ['tt'],
-        behaviorHints: { configurable: true, configurationRequired: false }
+        behaviorHints: { configurable: true, configurationRequired: false },
+        stremioAddonsConfig: {
+            issuer: "https://stremio-addons.net",
+            signature: "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..n_u_i56Tfdzf0d9bIjfzhg.R0YjWt5F9CnsFb4nAW0u-VZvtsRfGU-NFZplto8hRGt5Z3nausiSD78QYpmec-MTgijYqf9pxE7dNBL4OSmRPt1nmnl3_a_RF0I3CNwiLw5-1Vs7oFKI8JgQrQ7vfd1w.MuVPXQBechXx_LPURQZaaA"
+        }
     });
 };
 
