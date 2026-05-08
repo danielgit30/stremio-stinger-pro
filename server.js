@@ -214,5 +214,12 @@ const streamHandler = async (req, res) => {
 app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:apiKey/stream/:type/:id.json', streamHandler);
 
-const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Active on port ${PORT}`));
+// --- Serverless Initialization ---
+if (require.main === module) {
+    // Runs only when executed locally (e.g., npm start)
+    const PORT = process.env.PORT || 7000;
+    app.listen(PORT, () => console.log(`Active on port ${PORT}`));
+}
+
+// Export the app for Vercel's serverless environment
+module.exports = app;
