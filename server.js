@@ -166,11 +166,11 @@ const streamHandler = async (req, res) => {
             });
 
             const streamConfig = result ? {
-                name: '🎬 Bonus Scenes',
+                name: 'After-Credits Scenes',
                 title: `${result.message}\nSource: ${result.source}`,
                 externalUrl: result.url
             } : {
-                name: '🎬 Bonus Scenes',
+                name: 'After-Credits Scenes',
                 title: `🕵️‍♂️ No info found yet.\nCheck manually at AfterCredits.com`,
                 externalUrl: `https://aftercredits.com/?s=${encodeURIComponent(title)}`
             };
