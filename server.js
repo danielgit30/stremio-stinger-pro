@@ -17,8 +17,8 @@ const mapStatus = (mid, post, no) => {
     if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
     if (mid) return '⏳ Mid-Credits Scene Only!';
     if (post) return '🎬 Post-Credits Scene Only!';
-    if (no) return '🏃‍♂️ No Stinger!';
-    return '🕵️‍♂️ Nothing to see here.';
+    if (no) return '🏃‍♂️ Nothing to see here.';
+    return '🕵️‍♂️ Something\'s not right.';
 };
 
 // --- Routing ---
@@ -165,7 +165,7 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
-    let finalMessage = '🕵️‍♂️ Nothing to see here.';
+    let finalMessage = '🕵️‍♂️ Something\'s not right.';
     let finalUrl = 'https://aftercredits.com/';
     let source = 'Search Failed';
 
@@ -204,7 +204,7 @@ const streamHandler = async (req, res) => {
 
     res.json({ 
         streams: [{ 
-            name: 'Should I Stay?', 
+            name: 'Should I stick around?', 
             title: `${finalMessage}\nSource: ${source}`, 
             externalUrl: finalUrl 
         }] 
