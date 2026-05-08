@@ -10,8 +10,13 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 5000
+    timeout: 6000 // 6 seconds timeout for all requests to prevent hanging
 };
+
+// --- Caching Layer ---
+const streamCache = new Map();
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const MAX_CACHE_SIZE = 1000; // Prevent memory leaks
 
 const mapStatus = (mid, post, no) => {
     if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
@@ -29,7 +34,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.3.5',
+        version: '1.3.6',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid and post-credit scenes using multiple sources.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -162,6 +167,16 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
+    // 1. Check Cache
+    if (streamCache.has(id)) {
+        const cachedData = streamCache.get(id);
+        if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+            console.log(`[CACHE HIT] Serving ${id} from memory.`);
+            return res.json({ streams: [cachedData.stream] });
+        }
+        streamCache.delete(id); // Expired
+    }
+
     let finalMessage = '🕵️‍♂️ Something\'s not right...';
     let finalUrl = 'https://aftercredits.com/';
     let source = 'Search Failed';
@@ -171,14 +186,12 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            // Execute all requests concurrently
             const [acResult, msResult, tmdbResult] = await Promise.allSettled([
                 checkAfterCredits(title),
                 checkMediaStinger(title),
                 apiKey ? checkTmdb(id, apiKey) : Promise.resolve(null)
             ]);
 
-            // Evaluate results in order of priority
             if (acResult.status === 'fulfilled' && acResult.value && !acResult.value.message.includes('No intel')) {
                 finalMessage = acResult.value.message;
                 finalUrl = acResult.value.url;
@@ -197,13 +210,23 @@ const streamHandler = async (req, res) => {
         console.error(`[Stream Handler Error] ${error.message}`);
     }
 
-    res.json({ 
-        streams: [{ 
-            name: 'After-Credits Scenes', 
-            title: `${finalMessage}\nSource: ${source}`, 
-            externalUrl: finalUrl 
-        }] 
-    });
+    const streamConfig = { 
+        name: 'After-Credits Scenes', 
+        title: `${finalMessage}\nSource: ${source}`, 
+        externalUrl: finalUrl 
+    };
+
+    // 2. Write to Cache (Only cache if we found a valid result to avoid caching temporary network failures)
+    if (source !== 'Search Failed') {
+        if (streamCache.size >= MAX_CACHE_SIZE) {
+            // Remove the oldest entry to prevent OOM errors
+            const oldestKey = streamCache.keys().next().value;
+            streamCache.delete(oldestKey);
+        }
+        streamCache.set(id, { timestamp: Date.now(), stream: streamConfig });
+    }
+
+    res.json({ streams: [streamConfig] });
 };
 
 app.get('/stream/:type/:id.json', streamHandler);
