@@ -33,25 +33,38 @@ app.get('/:apiKey/manifest.json', manifestHandler);
 
 // --- 3. Primary Logic (AfterCredits) ---
 async function checkAfterCredits(imdbId) {
+    // Mimic a standard desktop browser to bypass basic bot blocking
+    const config = {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/'
+        },
+        timeout: 8000 // Prevent hanging if the site is slow
+    };
+
     try {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${imdbId}.json`);
         const title = metaRes.data?.meta?.name;
         if (!title) return null;
 
-        const searchRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title)}`);
+        const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(title)}`;
+        const searchRes = await axios.get(searchUrl, config);
         const $ = cheerio.load(searchRes.data);
-        const url = $('article header h2 a').first().attr('href');
         
+        // Ensure we are selecting the correct link from the search results
+        const url = $('article header h2 a').first().attr('href');
         if (!url) return null;
 
-        const movieRes = await axios.get(url);
+        const movieRes = await axios.get(url, config);
         const $$ = cheerio.load(movieRes.data);
         const entryText = $$('.entry-content').text().toLowerCase();
 
         const hasMid = entryText.includes('during the credits? yes') || entryText.includes('mid-credits');
         const hasPost = entryText.includes('after the credits? yes') || entryText.includes('post-credits');
 
-        let status = 'Nothing to see here';
+        let status = 'Status Unknown';
         if (hasMid && hasPost) status = 'Mid & Post-Credits Scenes';
         else if (hasMid) status = 'Mid-Credits Scene Only';
         else if (hasPost) status = 'Post-Credits Scene Only';
@@ -59,6 +72,8 @@ async function checkAfterCredits(imdbId) {
 
         return { message: status, url: url };
     } catch (error) {
+        // Log the exact error to the Render terminal for debugging
+        console.error(`[AfterCredits Error - ${imdbId}]:`, error.response?.status || error.message);
         return null;
     }
 }
