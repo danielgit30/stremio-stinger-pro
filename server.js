@@ -33,7 +33,7 @@ const manifestHandler = (req, res) => {
         version: '1.3.0',
         name: 'Stinger Alerts Pro',
         description: 'Detects mid and post-credit scenes using multiple sources.',
-        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png', 
+        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         
         types: ['movie'],
         catalogs: [],
