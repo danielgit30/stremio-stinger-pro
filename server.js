@@ -64,10 +64,12 @@ async function checkAfterCredits(title) {
         let targetUrl = null;
         let hasAsterisk = false;
 
-        $('h3.entry-title a, .entry-title a').each((i, el) => {
+       $('h3.entry-title a, .entry-title a').each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
             const cleanLinkText = rawLinkText.replace(/[*|?]/g, '').replace(/[^\w\s]/g, '').trim();
-            if (!rawLinkText.includes('review') && (cleanLinkText === cleanTargetTitle)) {
+            
+            // RESTORED: Allowed startsWith to catch appended years or subtitles
+            if (!rawLinkText.includes('review') && (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle)) {
                 targetUrl = $(el).attr('href');
                 hasAsterisk = rawLinkText.endsWith('*');
                 return false; 
@@ -145,24 +147,39 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            // Requirement 2: Race the sources and return the first valid one
+            // Requirement 2: Smart Race - Instant win for 'Yes', verify 'No'
             const result = await new Promise((resolve) => {
                 const sources = [
                     checkAfterCredits(title),
                     checkMediaStinger(title),
-                    checkTmdb(id, apiKey) // Requirement 1: Handled inside function
+                    checkTmdb(id, apiKey) 
                 ];
 
                 let finished = 0;
+                let negativeFallback = null;
+
                 sources.forEach(p => {
                     p.then(val => {
                         finished++;
-                        if (val) resolve(val); // Resolve immediately on first valid result
-                        else if (finished === sources.length) resolve(null); // All failed
+                        if (val) {
+                            // If we find a positive stinger, resolve IMMEDIATELY
+                            if (val.message.includes('🍿') || val.message.includes('⏳') || val.message.includes('🎬')) {
+                                resolve(val);
+                            } else {
+                                // If it's a "No Stinger", save it, but keep waiting to see if another source says "Yes"
+                                if (!negativeFallback) negativeFallback = val;
+                            }
+                        }
+                        
+                        // If all sources have finished and none found a stinger, safely resolve the "No" result
+                        if (finished === sources.length) {
+                            resolve(negativeFallback); 
+                        }
                     });
                 });
-                // Safety timeout
-                setTimeout(() => resolve(null), 5500);
+                
+                // Safety timeout: If 5.5s pass, return whatever fallback we have
+                setTimeout(() => resolve(negativeFallback), 5500);
             });
 
             const streamConfig = result ? {
