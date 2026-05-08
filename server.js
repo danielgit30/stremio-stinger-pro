@@ -82,7 +82,6 @@ async function checkAfterCredits(imdbId) {
             return null;
         }
 
-        // Prevent Axios crash if the URL is relative
         if (!targetUrl.startsWith('http')) {
             targetUrl = `https://aftercredits.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
         }
@@ -91,14 +90,19 @@ async function checkAfterCredits(imdbId) {
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
         
-        // Clean text to normalize weird spacing and newlines
-        const entryText = $$('.entry-content').text().replace(/\s+/g, ' ').toLowerCase();
-        const tagsText = $$('.tags-links').text().toLowerCase(); // Secondary fallback
+        // Target multiple potential containers to ensure we don't miss the text
+        const rawText = $$('article, .entry-content, .post-content, .td-post-content').text().toLowerCase();
+        
+        // Strip ALL punctuation to neutralize HTML/icon interference
+        const cleanText = rawText.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
 
-        // Regex ignores missing spaces or weird punctuation between the '?' and 'Yes/No'
-        const hasMid = /during the credits\?[^a-z]*yes/i.test(entryText) || entryText.includes('mid-credits') || entryText.includes('mid credits');
-        const hasPost = /after the credits\?[^a-z]*yes/i.test(entryText) || entryText.includes('post-credits') || entryText.includes('post credits');
-        const hasNo = /(during|after) the credits\?[^a-z]*no/i.test(entryText) || entryText.includes('no stinger') || tagsText.includes('no stinger');
+        // Evaluate exact phrases based on their standardized Q&A format
+        const hasMid = cleanText.includes('during the credits yes');
+        const hasPost = cleanText.includes('after the credits yes');
+        const hasNoMid = cleanText.includes('during the credits no');
+        const hasNoPost = cleanText.includes('after the credits no');
+        
+        const hasNoStingerText = rawText.includes('no stinger') || cleanText.includes('extras during or after the credits no');
 
         let status = 'Status Unknown';
 
@@ -108,25 +112,20 @@ async function checkAfterCredits(imdbId) {
             status = 'Mid-Credits Scene Only';
         } else if (hasPost) {
             status = 'Post-Credits Scene Only';
-        } else if (hasNo) {
+        } else if ((hasNoMid && hasNoPost) || hasNoStingerText) {
             status = 'No Stinger';
-        } else if (tagsText.includes('stinger')) {
-            // Failsafe: If the article text is too weird to parse, but the site tagged it as having a stinger
-            status = 'Stinger Found (Position Unspecified)';
+        } else {
+            // Final failsafe using their tagging system
+            const tagsText = $$('.tags-links, .post-tags').text().toLowerCase();
+            if (tagsText.includes('stinger')) status = 'Stinger Found (Position Unspecified)';
+            else if (tagsText.includes('no stinger')) status = 'No Stinger';
         }
 
         console.log(`[3] Success: Evaluated status - ${status}`);
         return { message: status, url: targetUrl };
 
     } catch (error) {
-        console.log(`[FATAL ERROR] AfterCredits logic failed.`);
-        if (error.response) {
-            console.log(`-> HTTP Status: ${error.response.status} (Site blocked the request)`);
-        } else if (error.request) {
-            console.log(`-> Network Error: No response received (Timeout)`);
-        } else {
-            console.log(`-> Logic Error: ${error.message}`);
-        }
+        console.log(`[FATAL ERROR] AfterCredits logic failed: ${error.message}`);
         return null;
     }
 }
