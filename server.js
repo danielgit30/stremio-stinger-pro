@@ -15,9 +15,9 @@ const config = {
 
 const mapStatus = (mid, post, no) => {
     if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
-    if (mid) return '⏳ Mid-Credits Scene Only!';
-    if (post) return '🎬 Post-Credits Scene Only!';
-    if (no) return '🏃‍♂️ Nothing to see here.';
+    if (mid) return '⏳ Mid-Credits Scene Only.';
+    if (post) return '🎬 Post-Credits Scene Only.';
+    if (no) return '🏃‍♂️ Show\'s Over When Credits Roll!';
     return '🕵️‍♂️ Something\'s not right...';
 };
 
@@ -201,7 +201,7 @@ const streamHandler = async (req, res) => {
 
     res.json({ 
         streams: [{ 
-            name: 'Should I Stick Around?', 
+            name: 'After-Credits Scenes', 
             title: `${finalMessage}\nSource: ${source}`, 
             externalUrl: finalUrl 
         }] 
