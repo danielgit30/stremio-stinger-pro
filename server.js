@@ -42,49 +42,37 @@ async function checkAfterCredits(imdbId) {
         const title = metaRes.data?.meta?.name;
         
         if (!title) {
-            console.log(`[ERROR] Cinemeta returned no title for ${imdbId}`);
+            console.log(`[ERROR] Cinemeta returned no title.`);
             return null;
         }
-        console.log(`[1] Success: Resolved title to "${title}"`);
 
-console.log(`[2] Querying AfterCredits search engine...`);
+        console.log(`[2] Querying AfterCredits search engine...`);
         const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(title)}`;
         const searchRes = await axios.get(searchUrl, config);
         const $ = cheerio.load(searchRes.data);
         
-        // Clean the target title for accurate comparison (lowercase, no punctuation)
         const cleanTargetTitle = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-
         let targetUrl = null;
-        
-        // Select all potential link elements in the search results
         const resultLinks = $('.entry-title a, .post-title a, article header h2 a, h2.title a, h2 a');
 
-        // Pass 1: Look for an exact match while explicitly skipping reviews
         resultLinks.each((i, el) => {
             const linkText = $(el).text().toLowerCase();
             const cleanLinkText = linkText.replace(/[^\w\s]/g, '').trim();
             const href = $(el).attr('href');
 
-            // Skip any article labeled as a review
-            if (cleanLinkText.includes('review')) {
-                return true; // continue to next element
-            }
+            if (cleanLinkText.includes('review')) return true;
 
-            // Match if the link text starts with the movie title (handles "Movie Title 2015")
             if (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle) {
                 targetUrl = href;
-                return false; // break the loop, exact match found
+                return false;
             }
         });
 
-        // Pass 2: Failsafe - if no exact match, grab the first result that IS NOT a review
         if (!targetUrl) {
             resultLinks.each((i, el) => {
-                const linkText = $(el).text().toLowerCase();
-                if (!linkText.includes('review')) {
+                if (!$(el).text().toLowerCase().includes('review')) {
                     targetUrl = $(el).attr('href');
-                    return false; // break the loop
+                    return false;
                 }
             });
         }
@@ -93,32 +81,51 @@ console.log(`[2] Querying AfterCredits search engine...`);
             console.log(`[ERROR] No valid stinger articles found for "${title}"`);
             return null;
         }
-        console.log(`[2] Success: Found article URL: ${targetUrl}`);
 
-        console.log(`[3] Scraping target article...`);
-        const movieRes = await axios.get(url, config);
+        // Prevent Axios crash if the URL is relative
+        if (!targetUrl.startsWith('http')) {
+            targetUrl = `https://aftercredits.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+        }
+
+        console.log(`[3] Scraping target article: ${targetUrl}`);
+        const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
-        const entryText = $$('.entry-content').text().toLowerCase();
+        
+        // Clean text to normalize weird spacing and newlines
+        const entryText = $$('.entry-content').text().replace(/\s+/g, ' ').toLowerCase();
+        const tagsText = $$('.tags-links').text().toLowerCase(); // Secondary fallback
 
-        const hasMid = entryText.includes('during the credits? yes') || entryText.includes('mid-credits');
-        const hasPost = entryText.includes('after the credits? yes') || entryText.includes('post-credits');
+        // Regex ignores missing spaces or weird punctuation between the '?' and 'Yes/No'
+        const hasMid = /during the credits\?[^a-z]*yes/i.test(entryText) || entryText.includes('mid-credits') || entryText.includes('mid credits');
+        const hasPost = /after the credits\?[^a-z]*yes/i.test(entryText) || entryText.includes('post-credits') || entryText.includes('post credits');
+        const hasNo = /(during|after) the credits\?[^a-z]*no/i.test(entryText) || entryText.includes('no stinger') || tagsText.includes('no stinger');
 
         let status = 'Status Unknown';
-        if (hasMid && hasPost) status = 'Mid & Post-Credits Scenes';
-        else if (hasMid) status = 'Mid-Credits Scene Only';
-        else if (hasPost) status = 'Post-Credits Scene Only';
-        else if (entryText.includes('no stinger') || entryText.includes('are there any extras during or after the credits? no')) status = 'No Stinger';
 
-        console.log(`[3] Success: Scraped status - ${status}`);
-        return { message: status, url: url };
+        if (hasMid && hasPost) {
+            status = 'Mid & Post-Credits Scenes';
+        } else if (hasMid) {
+            status = 'Mid-Credits Scene Only';
+        } else if (hasPost) {
+            status = 'Post-Credits Scene Only';
+        } else if (hasNo) {
+            status = 'No Stinger';
+        } else if (tagsText.includes('stinger')) {
+            // Failsafe: If the article text is too weird to parse, but the site tagged it as having a stinger
+            status = 'Stinger Found (Position Unspecified)';
+        }
+
+        console.log(`[3] Success: Evaluated status - ${status}`);
+        return { message: status, url: targetUrl };
 
     } catch (error) {
         console.log(`[FATAL ERROR] AfterCredits logic failed.`);
         if (error.response) {
-            console.log(`-> HTTP Status: ${error.response.status}`);
-            console.log(`-> Target Website rejected the connection.`);
+            console.log(`-> HTTP Status: ${error.response.status} (Site blocked the request)`);
+        } else if (error.request) {
+            console.log(`-> Network Error: No response received (Timeout)`);
         } else {
-            console.log(`-> Message: ${error.message}`);
+            console.log(`-> Logic Error: ${error.message}`);
         }
         return null;
     }
