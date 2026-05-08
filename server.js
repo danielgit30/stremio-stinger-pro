@@ -15,7 +15,7 @@ const config = {
 
 // --- Caching Layer ---
 const streamCache = new Map();
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 const MAX_CACHE_SIZE = 1000; // Prevent memory leaks
 
 const mapStatus = (mid, post, no) => {
