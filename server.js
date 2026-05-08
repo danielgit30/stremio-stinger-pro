@@ -36,9 +36,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.3.8',
+        version: '1.4.0',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid and post-credit scenes instantly using parallel search.',
+        description: 'Detects mid and post-credit scenes instantly.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
