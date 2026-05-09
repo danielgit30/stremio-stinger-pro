@@ -7,24 +7,33 @@ const path = require('path');
 const app = express();
 app.use(cors());
 
+// --- Configuration ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
     timeout: 5000 
 };
-
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
+// --- State & Caching ---
 const streamCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
+let wikiIndex = new Set();
+let wikiLastFetched = 0;
+const WIKI_TTL = 24 * 60 * 60 * 1000;
+
+// --- Utilities ---
 const normalizeTitle = (title) => {
     return title.toLowerCase()
         .replace(/^(the|a|an)\s+/, '') 
         .replace(/,\s*(the|a|an)$/, '') 
-        .replace(/[^\w]/g, '') 
+        .replace(/\s*\(.*?\)\s*/g, '') // Strip parentheticals
+        .replace(/[^a-z0-9]/g, '')     // Strict alphanumeric reduction
         .trim();
 };
+
+const getResultObj = (mid, post, no, url, source, bloopers = false) => ({ mid, post, no, url, source, bloopers });
 
 const formatMessage = (styleConfig, data) => {
     let output = [];
@@ -36,49 +45,54 @@ const formatMessage = (styleConfig, data) => {
         } else if (data.no) {
             output.push("Mid-Credits: No\nPost-Credits: No");
         } else {
-            output.push("Stinger Status: Unknown");
+            output.push("No stingers found.");
         }
     } else {
         if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
         else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
         else if (data.post) output.push('🎬 Post-Credits Scene Only.');
         else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
-        else output.push('🕵️‍♂️ Stinger info not found.');
+        else output.push('🕵️‍♂️ Couldn\'t find any stingers.');
     }
 
     if (styleConfig.showBloopers && data.bloopers) {
-        output.push(isSimple ? "Bloopers: Yes" : "🤣 Bloopers / Outtakes: Yes");
+        output.push(isSimple ? "Outtakes found." : "🎭 There are bloopers/outtakes!");
     }
 
     return output.join('\n');
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false) => {
-    return { mid, post, no, url, source, bloopers };
-};
+// --- Scrapers ---
+async function buildWikiIndex() {
+    if (Date.now() - wikiLastFetched < WIKI_TTL && wikiIndex.size > 0) return;
+    try {
+        const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', config);
+        const $ = cheerio.load(res.data);
+        const newIndex = new Set();
+        
+        $("table.wikitable tr").each((i, el) => {
+            const titleCell = $(el).find("td").first();
+            if (!titleCell.length) return;
+            const cleanTitle = normalizeTitle(titleCell.text());
+            if (cleanTitle) newIndex.add(cleanTitle);
+        });
+        
+        wikiIndex = newIndex;
+        wikiLastFetched = Date.now();
+        console.log(`[System] Wikipedia index built: ${wikiIndex.size} entries.`);
+    } catch (e) {
+        console.error(`[Error] Wikipedia index failed: ${e.message}`);
+    }
+}
 
-const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
-app.get('/', serveConfig);
-app.get('/configure', serveConfig);
-
-const manifestHandler = (req, res) => {
-    res.json({
-        id: 'org.stinger.pro',
-        version: '1.11.0',
-        name: 'Stremio Stinger Pro',
-        description: 'Blazing fast mid/post-credit scene detection.',
-        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
-        types: ['movie'],
-        catalogs: [],
-        resources: ['stream'],
-        idPrefixes: ['tt'],
-        behaviorHints: { configurable: true, configurationRequired: false }
-    });
-};
-
-app.get('/manifest.json', manifestHandler);
-app.get('/:p1/manifest.json', manifestHandler);
-app.get('/:style/:apiKey/manifest.json', manifestHandler);
+async function checkWikipedia(title) {
+    await buildWikiIndex();
+    const cleanQuery = normalizeTitle(title);
+    if (wikiIndex.has(cleanQuery)) {
+        return getResultObj(false, true, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia');
+    }
+    return null;
+}
 
 async function checkAfterCredits(title) {
     try {
@@ -90,7 +104,7 @@ async function checkAfterCredits(title) {
 
        $('h3.entry-title a, .entry-title a').each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
-            const cleanLinkText = normalizeTitle(rawLinkText.replace(/[*|?]/g, ''));
+            const cleanLinkText = normalizeTitle(rawLinkText);
             if (!rawLinkText.includes('review') && (cleanLinkText.startsWith(cleanTargetTitle) || cleanTargetTitle.startsWith(cleanLinkText))) {
                 targetUrl = $(el).attr('href');
                 hasAsterisk = rawLinkText.endsWith('*');
@@ -136,18 +150,15 @@ async function checkMediaStinger(title) {
         let noStinger = subtitle.includes("no") && !hasMid && !hasPost;
         let bloopers = false;
 
-        // Tier 2: Fetch actual movie page to verify bloopers and prevent false positives
         if (targetUrl) {
             const movieRes = await axios.get(targetUrl, config);
             const $$ = cheerio.load(movieRes.data);
             const rawContent = $$('body').text().toLowerCase();
-
             if (rawContent.match(/\b(bloopers?|outtakes?)\b/)) {
                 bloopers = true;
-                hasMid = false; // Strip the false positive mid-credit flag
+                hasMid = false; 
             }
         }
-
         return getResultObj(hasMid, hasPost, noStinger, targetUrl, 'MediaStinger', bloopers);
     } catch (e) { return null; }
 }
@@ -158,31 +169,53 @@ async function checkTmdb(imdbId, apiKey) {
         const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, config);
         const movieMatch = findRes.data.movie_results?.[0];
         if (!movieMatch) return null;
+        
         const tmdbId = Number(movieMatch.id);
-
         const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
-
         const keywords = kwRes.data.keywords || [];
+        
         let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
         let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
         let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
-        if (bloopers) {
-            hasMid = false; // Prevent TMDB from classifying outtakes as stingers
-        }
+        if (bloopers) hasMid = false;
 
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { return null; }
 }
 
+// --- Express Routes ---
+const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
+app.get('/', serveConfig);
+app.get('/configure', serveConfig);
+
+const manifestHandler = (req, res) => {
+    res.json({
+        id: 'org.stinger.pro',
+        version: '1.6.0',
+        name: 'Stremio Stinger Pro',
+        description: 'Blazing fast mid/post-credit scene detection.',
+        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
+        types: ['movie'],
+        catalogs: [],
+        resources: ['stream'],
+        idPrefixes: ['tt'],
+        behaviorHints: { configurable: true, configurationRequired: false }
+    });
+};
+
+app.get('/manifest.json', manifestHandler);
+app.get('/:p1/manifest.json', manifestHandler);
+app.get('/:style/:apiKey/manifest.json', manifestHandler);
+
 const streamHandler = async (req, res) => {
     res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
 
     const { type, id } = req.params;
+    if (type !== 'movie') return res.json({ streams: [] });
+
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
-
-    if (type !== 'movie') return res.json({ streams: [] });
 
     const styleConfig = {
         style: rawStyle.replace(/-nosource|-bloopers/g, ''),
@@ -203,6 +236,7 @@ const streamHandler = async (req, res) => {
         if (title) {
             const result = await new Promise((resolve) => {
                 const sources = [
+                    checkWikipedia(title), // Extremely fast O(1) resolution
                     checkAfterCredits(title),
                     checkMediaStinger(title),
                     checkTmdb(id, apiKey)
@@ -216,19 +250,13 @@ const streamHandler = async (req, res) => {
                         finished++;
                         if (val) {
                             if (val.mid || val.post) {
-                                resolve(val); // Instant Win Condition
+                                resolve(val); 
                             } else {
-                                if (val.bloopers) {
-                                    bestFallback = val; 
-                                } else if (val.no && (!bestFallback || !bestFallback.bloopers)) {
-                                    bestFallback = val;
-                                }
+                                if (val.bloopers) bestFallback = val; 
+                                else if (val.no && (!bestFallback || !bestFallback.bloopers)) bestFallback = val;
                             }
                         }
-                        
-                        if (finished === sources.length) {
-                            resolve(bestFallback);
-                        }
+                        if (finished === sources.length) resolve(bestFallback);
                     });
                 });
                 
@@ -246,7 +274,8 @@ const streamHandler = async (req, res) => {
             streamCache.set(cacheKey, { timestamp: Date.now(), stream });
             return res.json({ streams: [stream] });
         }
-    } catch (e) { console.error(e.message); }
+    } catch (e) { console.error(`[Stream Error] ${e.message}`); }
+    
     res.json({ streams: [] });
 };
 
@@ -254,4 +283,6 @@ app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:p1/stream/:type/:id.json', streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
 
-app.listen(process.env.PORT || 7000);
+app.listen(process.env.PORT || 7000, () => {
+    buildWikiIndex(); // Initialize index on server start
+});

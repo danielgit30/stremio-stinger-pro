@@ -1,15 +1,15 @@
 ![logo](/icon.png)
 
 # Stremio Stinger Pro
-**Version 1.5.0**
+**Version 1.6.0**
 
 Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automates the detection of mid-credits and post-credits scenes for feature films, providing users with immediate, actionable advice on whether to stay seated or if it is safe to stop playback.
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
 ## Upcoming Features
-- [ ] Add support for Wikipedia scraping
-- [ ] Add support for bloopers, outtakes, and "will return" messages, with opt-in configuration
+- [X] Add support for Wikipedia scraping
+- [X] Add support for bloopers, outtakes with opt-in configuration
 
 ---
 
@@ -19,7 +19,7 @@ Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automat
 * [🌍 Configuration and Installation](#-configuration-and-installation)
 * [🚀 Deployment Details](#-deployment-details)
 
-[Latest Release: v1.5.0](#release-v150)
+[Latest Release: v1.6.0](#release-v160)
 
 ---
 
@@ -47,6 +47,19 @@ The addon can be installed directly or configured with a personal TMDB API key t
 ## 🚀 Deployment Details
 * **Hosting:** Deployed via a continuous Node.js container on Render (Free Tier).
 * **Keep-Alive:** The server is maintained in an active state via scheduled Cronjobs to prevent cold-start delays.
+
+---
+
+## Release: v1.6.0
+* **Feature:** Added configuration checkboxes to toggle the detection of Bloopers/Outtakes (-bloopers).
+* **Feature:** Added Wikipedia's "List of films with post-credits scenes" as a new data source. It uses a blazing-fast O(1) in-memory indexer that pre-compiles every 24 hours, acting as a highly efficient fallback for post-credit detection without slowing down the server.
+* **Feature:** Updated the high-speed "Positive-First" promise racing architecture to resolve instantly upon finding a true stinger, but safely holds Blooper/Outtake data as a fallback while waiting for slower sources to finish.
+* **Feature:** The internal streamCache now generates composite keys based on the user's specific URL suffix (e.g., tt0120812_colorful-bloopers). This prevents users with different settings from polluting each other's cache.
+* **Feature:** Added strict Cache-Control HTTP headers (max-age=0, no-cache) to the /stream/ endpoints. This forces the Stremio client to pull fresh data immediately when users update their configuration URL, bypassing Stremio's aggressive local caching.
+* **Fix:** Decoupled bloopers from mid-credit scenes. If a blooper reel or outtake is detected by any scraper, the "Mid-Credits" flag is forcefully stripped to prevent outtakes from masquerading as narrative stingers.
+* **Fix:** Upgraded the MediaStinger scraper to navigate to the actual movie payload page (Tier 2) rather than relying on the search page. This stops MediaStinger from blindly flagging blooper reels as "During Credits" scenes.
+* **Fix:** Fixed lexical matching bugs that caused false negatives for movies with leading/trailing articles or punctuation (e.g., The Cannonball Run vs Cannonball Run, The).
+* **Fix:** Fixed a logical fallacy where the addon assumed a lack of TMDB keywords meant a movie definitely had no stinger. TMDB is now correctly treated as a positive-tag-only database.
 
 ---
 
