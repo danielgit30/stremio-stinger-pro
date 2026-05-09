@@ -3,7 +3,7 @@
 # Stremio Stinger Pro
 **Version 1.6.0**
 
-Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automates the detection of mid-credits and post-credits scenes for feature films, providing users with immediate, actionable advice on whether to stay seated or if it is safe to stop playback.
+Stremio Stinger Pro is a high-speed Stremio addon that detects mid-credit scenes, post-credit scenes, and blooper reels before you finish watching a movie. It integrates directly into your stream list with customizable display configurations.
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
@@ -13,7 +13,7 @@ Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automat
 ---
 
 ## Table of Contents
-* [⚙️ How It Works (Under the Hood)](#️-how-it-works-under-the-hood)
+* [⚙️ What It Does](#️-what-it-does)
 * [📡 Data Sources](#-data-sources)
 * [🌍 Configuration and Installation](#-configuration-and-installation)
 * [🚀 Deployment Details](#-deployment-details)
@@ -22,29 +22,37 @@ Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automat
 
 ---
 
-## ⚙️ How It Works (Under the Hood)
-Unlike traditional sequential web scrapers, Version 1.3+ utilizes a custom parallel execution architecture designed for maximum speed and accuracy.
-
-* **Parallel Source Racing:** When a movie is selected, the addon simultaneously queries three different databases. It uses "Positive-First" race logic: the moment any source confirms a bonus scene, it immediately resolves and delivers the result to Stremio. If a source reports "No Scene", it waits for the remaining sources to finish verifying before officially declaring the movie clear.
-* **Fuzzy Title Matching:** The scraping engine dynamically cleans string inputs, stripping punctuation and handling edge cases like appended release years to ensure high match rates across crowdsourced databases.
-* **In-Memory Caching:** Successful queries are written to a localized server cache with a 6-hour Time-To-Live (TTL). Repeated requests for popular movies bypass the scraping engines entirely, resulting in near-instant load times.
-* **Smart Fallbacks:** If all automated sources fail to find a definitive answer, the addon dynamically generates a manual search link to AfterCredits for the specific movie title.
+## ⚙️ What It Does
+* **Positive-First Race Logic:** Simultaneously queries multiple data sources and resolves instantly the millisecond a stinger is confirmed, bypassing slower network requests for maximum speed.
+* **Strict Blooper Isolation:** Automatically distinguishes between narrative stingers and outtake reels. Bloopers are clearly flagged and will no longer trigger false-positive "Mid-Credit" alerts.
+* **Tier 3 Wikipedia Fallback:** Utilizes an auto-updating, O(1) in-memory index of Wikipedia's post-credit database to instantly catch obscure films if primary scrapers fail.
+* **Dual Display Modes:** Choose between "Colorful" (emoji-based visual flags) or "Simple" (clean text output).
+* **Interactive Configuration:** A web-based `/configure` portal allows users to toggle blooper tracking, hide/show data sources, input custom TMDB API keys, and view a live preview of the stream output.
+* **Configuration-Aware Caching:** Stream results are cached efficiently based on your exact URL parameters, preventing conflicting data across different user preferences.
 
 ## 📡 Data Sources
 The addon queries the following databases simultaneously. Results are prioritized based on the fidelity of the data provided:
 
-1. **AfterCredits.com:** Primary source. Provides explicit confirmation of mid/post-credit scenes via direct web scraping.
-2. **MediaStinger.com:** Secondary source. Provides binary yes/no confirmations.
-3. **The Movie Database (TMDB):** Tertiary source. Scans movie metadata for specific stinger keywords (`duringcreditsstinger`, `aftercreditsstinger`). The addon utilizes a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
+1. **AfterCredits.com:** Provides explicit confirmation of mid/post-credit scenes via direct web scraping.
+2. **MediaStinger.com:** Provides binary yes/no confirmations.
+3. **The Movie Database (TMDB):** Scans movie metadata for specific stinger keywords (`duringcreditsstinger`, `aftercreditsstinger`). The addon utilizes a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
 4. **Wikipedia:** Ultimate fallback. Built a lightning-fast, auto-updating Wikipedia index. If the primary scrapers can't find info on an obscure movie, the Wikipedia fallback kicks in instantly as a final safety net. Wikipedia doesn't classify post-credit scenes as mid- or post-credits scenes and hence results from Wikipedia will be called out exclusively.
 
 ## 🌍 Configuration and Installation
-The addon can be installed directly or configured with a personal TMDB API key to ensure stability if the community key reaches its rate limit.
+**Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
 
-**Configuration Portal:**
-`https://stremio-stinger-pro.onrender.com/configure`
+1.  Navigate to `https://stremio-stinger-pro.onrender.com/configure`
+2.  Select your preferred display style (Colorful or Simple).
+3.  Toggle the checkboxes to include/exclude source attribution and bloopers.
+4.  (Optional) Enter your personal TMDB API key to prevent rate-limiting.
+5.  Click **Install** to open Stremio and add the configuration, or copy the generated Manifest URL to add it manually.
 
-## 🚀 Deployment Details
+## 🚀 Development
+### Tech Stack
+* **Node.js / Express:** Core server framework.
+* **Axios:** HTTP client for API and HTML fetching.
+* **Cheerio:** High-speed DOM parsing for web scraping.
+### Deployment
 * **Hosting:** Deployed via a continuous Node.js container on Render (Free Tier).
 * **Keep-Alive:** The server is maintained in an active state via scheduled Cronjobs to prevent cold-start delays.
 
