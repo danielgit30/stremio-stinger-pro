@@ -28,8 +28,8 @@ const normalizeTitle = (title) => {
     return title.toLowerCase()
         .replace(/^(the|a|an)\s+/, '') 
         .replace(/,\s*(the|a|an)$/, '') 
-        .replace(/\s*\(.*?\)\s*/g, '') // Strip parentheticals
-        .replace(/[^a-z0-9]/g, '')     // Strict alphanumeric reduction
+        .replace(/\s*\(.*?\)\s*/g, '') 
+        .replace(/[^a-z0-9]/g, '')     
         .trim();
 };
 
@@ -45,7 +45,7 @@ const formatMessage = (styleConfig, data) => {
         } else if (data.no) {
             output.push("Mid-Credits: No\nPost-Credits: No");
         } else {
-            output.push("No stingers found.");
+            output.push("No Stingers Found.");
         }
     } else {
         if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
@@ -56,7 +56,7 @@ const formatMessage = (styleConfig, data) => {
     }
 
     if (styleConfig.showBloopers && data.bloopers) {
-        output.push(isSimple ? "Outtakes found." : "🎭 There are bloopers/outtakes!");
+        output.push(isSimple ? "Bloopers/Outtakes Found." : "🎭 There are bloopers/outtakes.");
     }
 
     return output.join('\n');
@@ -234,9 +234,8 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            const result = await new Promise((resolve) => {
+            let result = await new Promise((resolve) => {
                 const sources = [
-                    checkWikipedia(title), // Extremely fast O(1) resolution
                     checkAfterCredits(title),
                     checkMediaStinger(title),
                     checkTmdb(id, apiKey)
@@ -263,6 +262,19 @@ const streamHandler = async (req, res) => {
                 setTimeout(() => resolve(bestFallback), 5500);
             });
 
+            // --- Tier 3: Wikipedia Ultimate Fallback ---
+            // Only query Wikipedia if the primary race failed to find a definitive stinger
+            if (!result || (!result.mid && !result.post)) {
+                const wikiResult = await checkWikipedia(title);
+                if (wikiResult) {
+                    // If the primary fallback found bloopers, merge them into the Wikipedia result
+                    if (result && result.bloopers) {
+                        wikiResult.bloopers = true;
+                    }
+                    result = wikiResult;
+                }
+            }
+
             let finalResult = result || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, source: 'Aggregated' };
 
             const stream = {
@@ -284,5 +296,5 @@ app.get('/:p1/stream/:type/:id.json', streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
 
 app.listen(process.env.PORT || 7000, () => {
-    buildWikiIndex(); // Initialize index on server start
+    buildWikiIndex(); 
 });
