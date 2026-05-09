@@ -39,24 +39,29 @@ const formatMessage = (styleConfig, data) => {
     let output = [];
     const isSimple = styleConfig.style === 'simple';
 
-    if (isSimple) {
-        if (data.mid || data.post) {
-            output.push(`Mid-Credits: ${data.mid ? 'Yes' : 'No'}\nPost-Credits: ${data.post ? 'Yes' : 'No'}`);
-        } else if (data.no) {
-            output.push("Mid-Credits: No\nPost-Credits: No");
-        } else {
-            output.push("No Stingers Found.");
-        }
+    // Output overridden for Wikipedia due to lack of mid/post distinction
+    if (data.source === 'Wikipedia') {
+        output.push(isSimple ? "Unknown Wiki Scene Found." : "❓ Unknown Wiki Scene Found.");
     } else {
-        if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
-        else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
-        else if (data.post) output.push('🎬 Post-Credits Scene Only.');
-        else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
-        else output.push('🕵️‍♂️ Couldn\'t find any stingers.');
+        if (isSimple) {
+            if (data.mid || data.post) {
+                output.push(`Mid-Credits: ${data.mid ? 'Yes' : 'No'}\nPost-Credits: ${data.post ? 'Yes' : 'No'}`);
+            } else if (data.no) {
+                output.push("Mid-Credits: No\nPost-Credits: No");
+            } else {
+                output.push("No Stingers Found.");
+            }
+        } else {
+            if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
+            else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
+            else if (data.post) output.push('🎬 Post-Credits Scene Only.');
+            else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
+            else output.push('🕵️‍♂️ Couldn\'t Find Any Stingers.');
+        }
     }
 
     if (styleConfig.showBloopers && data.bloopers) {
-        output.push(isSimple ? "Bloopers/Outtakes Found." : "🎭 There are bloopers/outtakes.");
+        output.push(isSimple ? "Bloopers/Outtakes Found." : "🎭 There Are Bloopers/Outtakes.");
     }
 
     return output.join('\n');
@@ -89,7 +94,8 @@ async function checkWikipedia(title) {
     await buildWikiIndex();
     const cleanQuery = normalizeTitle(title);
     if (wikiIndex.has(cleanQuery)) {
-        return getResultObj(false, true, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia');
+        // Return false for mid/post flags to trigger the generic unclassified formatter
+        return getResultObj(false, false, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia');
     }
     return null;
 }
@@ -263,14 +269,10 @@ const streamHandler = async (req, res) => {
             });
 
             // --- Tier 3: Wikipedia Ultimate Fallback ---
-            // Only query Wikipedia if the primary race failed to find a definitive stinger
-            if (!result || (!result.mid && !result.post)) {
+            // Execution Gate: Do not query Wikipedia if primary scrapers found bloopers
+            if (!result || (!result.mid && !result.post && !result.bloopers)) {
                 const wikiResult = await checkWikipedia(title);
                 if (wikiResult) {
-                    // If the primary fallback found bloopers, merge them into the Wikipedia result
-                    if (result && result.bloopers) {
-                        wikiResult.bloopers = true;
-                    }
                     result = wikiResult;
                 }
             }
