@@ -63,8 +63,7 @@
         input[type="password"]:focus, select:focus { outline: none; border-color: #8a5aE9; }
         select option { background: #1a1a24; color: #fff; }
         
-        /* Checkbox Styling */
-        .checkbox-group { display: flex; align-items: center; margin-top: 15px; margin-bottom: 0;}
+        .checkbox-group { display: flex; align-items: center; margin-top: 10px; margin-bottom: 0;}
         .checkbox-group input { width: auto; margin-right: 10px; accent-color: #8a5aE9; cursor: pointer; width: 16px; height: 16px;}
         .checkbox-group label { margin-bottom: 0; cursor: pointer; display: flex; align-items: center; font-weight: normal; font-size: 13px;}
 
@@ -80,10 +79,10 @@
             font-weight: bold; 
             width: 100%; 
             transition: background 0.2s; 
+            margin-top: 15px;
         }
         button:hover { background: #7141cc; }
         
-        /* Preview Box Styles */
         .preview-container {
             margin-top: 20px;
             background: rgba(0, 0, 0, 0.3);
@@ -166,8 +165,19 @@
                 <input type="checkbox" id="showSource" checked onchange="updatePreview()">
                 <label for="showSource">Show Source (e.g., "Source: TMDB")</label>
             </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showBloopers" onchange="updatePreview()">
+                <label for="showBloopers">Include Bloopers & Outtakes</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showWillReturn" onchange="updatePreview()">
+                <label for="showWillReturn">Include "Will Return" Messages</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showSequels" onchange="updatePreview()">
+                <label for="showSequels">Include Collection / Sequel Info</label>
+            </div>
 
-            <!-- Live Preview Box -->
             <div class="preview-container">
                 <span class="preview-label">LIVE PREVIEW</span>
                 <div class="stream-box">
@@ -192,7 +202,7 @@
         </div>
 
         <div class="footer">
-            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.5.0</a> | Developed by schultz911
+            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.7.0</a> | Developed by schultz911
         </div>
     </div>
 
@@ -202,6 +212,9 @@
         function updatePreview() {
             const style = document.getElementById('displayStyle').value;
             const showSource = document.getElementById('showSource').checked;
+            const showBloopers = document.getElementById('showBloopers').checked;
+            const showWillReturn = document.getElementById('showWillReturn').checked;
+            const showSequels = document.getElementById('showSequels').checked;
             const previewText = document.getElementById('streamPreviewText');
             
             let text = "";
@@ -211,6 +224,10 @@
                 text = "Mid-Credits: Yes<br>Post-Credits: Yes";
             }
 
+            if (showBloopers) text += "<br>🤣 Bloopers / Outtakes: Yes";
+            if (showWillReturn) text += "<br>🔄 'Will Return' Message: Yes";
+            if (showSequels) text += "<br>📚 Part of a Collection";
+
             if (showSource) {
                 text += "<br>Source: AfterCredits";
             }
@@ -218,19 +235,18 @@
             previewText.innerHTML = text;
         }
         
-        // Initialize preview on page load
         window.onload = updatePreview;
 
         function installAddon() {
             const key = document.getElementById('apiKey').value.trim();
             let style = document.getElementById('displayStyle').value;
-            const showSource = document.getElementById('showSource').checked;
+            
+            if (!document.getElementById('showSource').checked) style += '-nosource';
+            if (document.getElementById('showBloopers').checked) style += '-bloopers';
+            if (document.getElementById('showWillReturn').checked) style += '-willreturn';
+            if (document.getElementById('showSequels').checked) style += '-sequels';
+            
             const host = window.location.host;
-            
-            if (!showSource) {
-                style += '-nosource';
-            }
-            
             const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
             const httpProtocol = isLocal ? 'http://' : 'https://';
             

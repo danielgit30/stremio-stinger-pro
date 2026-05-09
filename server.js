@@ -7,7 +7,6 @@ const path = require('path');
 const app = express();
 app.use(cors());
 
-// --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
     timeout: 5000 
@@ -19,25 +18,36 @@ const streamCache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
-const formatMessage = (style, mid, post, no) => {
-    if (style === 'simple') {
-        if (no) return "Mid-Credits: No\nPost-Credits: No";
-        if (mid || post) return `Mid-Credits: ${mid ? 'Yes' : 'No'}\nPost-Credits: ${post ? 'Yes' : 'No'}`;
-        return "No information available.";
+const formatMessage = (styleConfig, data) => {
+    let output = [];
+
+    if (styleConfig.style === 'simple') {
+        if (data.no) {
+            output.push("Mid-Credits: No\nPost-Credits: No");
+        } else if (data.mid || data.post) {
+            output.push(`Mid-Credits: ${data.mid ? 'Yes' : 'No'}\nPost-Credits: ${data.post ? 'Yes' : 'No'}`);
+        } else {
+            output.push("No information available.");
+        }
+    } else {
+        if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
+        else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
+        else if (data.post) output.push('🎬 Post-Credits Scene Only.');
+        else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
+        else output.push('🕵️‍♂️ No info found yet.');
     }
-    if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
-    if (mid) return '⏳ Mid-Credits Scene Only.';
-    if (post) return '🎬 Post-Credits Scene Only.';
-    if (no) return '🏃‍♂️ Show\'s Over When Credits Roll!';
-    return '🕵️‍♂️ No info found yet.';
+
+    if (styleConfig.showBloopers && data.bloopers) output.push("🤣 Bloopers / Outtakes: Yes");
+    if (styleConfig.showWillReturn && data.willReturn) output.push("🔄 'Will Return' Message: Yes");
+    if (styleConfig.showSequels && data.sequels) output.push("📚 Part of a Collection / Sequel");
+
+    return output.join('\n');
 };
 
-const getResultObj = (mid, post, no, url, source) => {
-    if (!mid && !post && !no) return null; 
-    return { mid, post, no, url, source };
+const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, sequels = false) => {
+    return { mid, post, no, url, source, bloopers, willReturn, sequels };
 };
 
-// --- Routing ---
 const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
@@ -45,9 +55,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.5.0',
+        version: '1.7.0',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid and post-credit scenes instantly.',
+        description: 'Detects mid/post-credit scenes, bloopers, and collection info.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
@@ -61,12 +71,10 @@ const manifestHandler = (req, res) => {
     });
 };
 
-// Handle legacy and new URL structures
 app.get('/manifest.json', manifestHandler);
 app.get('/:p1/manifest.json', manifestHandler);
 app.get('/:style/:apiKey/manifest.json', manifestHandler);
 
-// --- Source 1: AfterCredits ---
 async function checkAfterCredits(title) {
     try {
         const searchRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title)}`, config);
@@ -91,9 +99,13 @@ async function checkAfterCredits(title) {
 
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
-        let hasMid = false, hasPost = false;
-        const $$spoilers = $$(".spoiler-wrap");
+        let hasMid = false, hasPost = false, bloopers = false, willReturn = false;
         
+        const rawContent = $$('article, .entry-content').text().toLowerCase();
+        if (rawContent.includes('blooper') || rawContent.includes('outtake')) bloopers = true;
+        if (rawContent.includes('will return')) willReturn = true;
+
+        const $$spoilers = $$(".spoiler-wrap");
         if ($$spoilers.length > 0) {
             $$spoilers.each((i, el) => {
                 const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
@@ -101,11 +113,11 @@ async function checkAfterCredits(title) {
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             });
         }
-        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits');
+        
+        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn, false);
     } catch (e) { return null; }
 }
 
-// --- Source 2: MediaStinger ---
 async function checkMediaStinger(title) {
     try {
         const searchRes = await axios.get(`http://www.mediastinger.com/?tab=MOVIES&s=${encodeURIComponent(title)}`, config);
@@ -118,7 +130,6 @@ async function checkMediaStinger(title) {
     } catch (e) { return null; }
 }
 
-// --- Source 3: TMDB ---
 async function checkTmdb(imdbId, apiKey) {
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
@@ -126,17 +137,22 @@ async function checkTmdb(imdbId, apiKey) {
         const tmdbId = findRes.data.movie_results?.[0]?.id;
         if (!tmdbId) return null;
 
-        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
+        // Parallel requests to handle keywords and basic details (for collection info)
+        const [kwRes, movieRes] = await Promise.all([
+            axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config),
+            axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${key}`, config)
+        ]);
+
         const keywords = kwRes.data.keywords || [];
         const hasMid = keywords.some(k => k.name === 'duringcreditsstinger');
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
+        const bloopers = keywords.some(k => k.name === 'bloopers' || k.name === 'outtakes');
+        const hasSequels = movieRes.data.belongs_to_collection !== null;
         
-        if (!hasMid && !hasPost) return null;
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB');
+        return getResultObj(hasMid, hasPost, (!hasMid && !hasPost), `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, hasSequels);
     } catch (e) { return null; }
 }
 
-// --- Main Handler ---
 const streamHandler = async (req, res) => {
     const { type, id } = req.params;
     let rawStyle = 'colorful';
@@ -155,23 +171,27 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
-    // Parse the compound style string
-    const showSource = !rawStyle.includes('-nosource');
-    const style = rawStyle.replace('-nosource', '');
+    const styleConfig = {
+        style: rawStyle.replace(/-nosource|-bloopers|-willreturn|-sequels/g, ''),
+        showSource: !rawStyle.includes('-nosource'),
+        showBloopers: rawStyle.includes('-bloopers'),
+        showWillReturn: rawStyle.includes('-willreturn'),
+        showSequels: rawStyle.includes('-sequels')
+    };
 
     const generateStreamConfig = (resultData, titleStr) => {
         if (resultData) {
-            const sourceText = showSource ? `\nSource: ${resultData.source}` : '';
+            const sourceText = styleConfig.showSource ? `\nSource: ${resultData.source}` : '';
             return {
                 name: 'After-Credits Scenes',
-                title: `${formatMessage(style, resultData.mid, resultData.post, resultData.no)}${sourceText}`,
+                title: `${formatMessage(styleConfig, resultData)}${sourceText}`,
                 externalUrl: resultData.url
             };
         } else {
-            const fallbackLinkText = showSource ? `\nCheck manually at AfterCredits.com` : '';
+            const fallbackLinkText = styleConfig.showSource ? `\nCheck manually at AfterCredits.com` : '';
             return {
                 name: 'After-Credits Scenes',
-                title: style === 'simple' ? `Status: Unknown${fallbackLinkText}` : `🕵️‍♂️ No info found yet.${fallbackLinkText}`,
+                title: styleConfig.style === 'simple' ? `Status: Unknown${fallbackLinkText}` : `🕵️‍♂️ No info found yet.${fallbackLinkText}`,
                 externalUrl: `https://aftercredits.com/?s=${encodeURIComponent(titleStr)}`
             };
         }
@@ -190,36 +210,42 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            const result = await new Promise((resolve) => {
-                const sources = [
-                    checkAfterCredits(title),
-                    checkMediaStinger(title),
-                    checkTmdb(id, apiKey) 
-                ];
+            // Aggregator implementation: waits for all endpoints to merge secondary data flags
+            const sources = [
+                checkAfterCredits(title),
+                checkMediaStinger(title),
+                checkTmdb(id, apiKey) 
+            ];
 
-                let finished = 0;
-                let negativeFallback = null;
+            const results = await Promise.allSettled(sources);
+            
+            let finalResult = { mid: false, post: false, no: false, bloopers: false, willReturn: false, sequels: false, url: '', source: 'Search Failed' };
+            let foundPrimary = false;
 
-                sources.forEach(p => {
-                    p.then(val => {
-                        finished++;
-                        if (val) {
-                            if (val.mid || val.post) resolve(val);
-                            else if (val.no) if (!negativeFallback) negativeFallback = val;
-                        }
-                        if (finished === sources.length) resolve(negativeFallback); 
-                    });
-                });
-                
-                setTimeout(() => resolve(negativeFallback), 5500);
+            results.forEach(res => {
+                if (res.status === 'fulfilled' && res.value) {
+                    if (!foundPrimary && (res.value.mid || res.value.post || res.value.no)) {
+                        finalResult.mid = res.value.mid;
+                        finalResult.post = res.value.post;
+                        finalResult.no = res.value.no;
+                        finalResult.url = res.value.url;
+                        finalResult.source = res.value.source;
+                        foundPrimary = true;
+                    }
+                    if (res.value.bloopers) finalResult.bloopers = true;
+                    if (res.value.willReturn) finalResult.willReturn = true;
+                    if (res.value.sequels) finalResult.sequels = true;
+                }
             });
 
-            if (result) {
+            if (!foundPrimary && !finalResult.bloopers && !finalResult.willReturn && !finalResult.sequels) finalResult = null;
+
+            if (finalResult) {
                 if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
-                streamCache.set(id, { timestamp: Date.now(), result: result });
+                streamCache.set(id, { timestamp: Date.now(), result: finalResult });
             }
 
-            return res.json({ streams: [generateStreamConfig(result, title)] });
+            return res.json({ streams: [generateStreamConfig(finalResult, title)] });
         }
     } catch (error) {
         console.error(`[Error] ${error.message}`);
