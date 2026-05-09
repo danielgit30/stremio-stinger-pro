@@ -15,16 +15,15 @@ const config = {
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
 const streamCache = new Map();
-// CACHE DISABLED FOR TESTING (Set back to 6 * 60 * 60 * 1000 for production)
-const CACHE_TTL = 0; 
+const CACHE_TTL = 6 * 60 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
 // --- Helper Functions ---
 const normalizeTitle = (title) => {
     return title.toLowerCase()
-        .replace(/^(the|a|an)\s+/, '') // Remove leading articles
-        .replace(/,\s*(the|a|an)$/, '') // Remove trailing articles
-        .replace(/[^\w]/g, '') // Remove all punctuation and spaces
+        .replace(/^(the|a|an)\s+/, '') 
+        .replace(/,\s*(the|a|an)$/, '') 
+        .replace(/[^\w]/g, '') 
         .trim();
 };
 
@@ -49,12 +48,21 @@ const formatMessage = (styleConfig, data) => {
 
     if (styleConfig.showBloopers && data.bloopers) output.push("🤣 Bloopers / Outtakes: Yes");
     if (styleConfig.showWillReturn && data.willReturn) output.push("🔄 'Will Return' Message: Yes");
-    if (styleConfig.showSequels && data.sequels) output.push("📚 Part of a Collection / Sequel");
+    
+    // Process the array of sequel titles
+    if (styleConfig.showSequels && data.sequels && data.sequels.length > 0) {
+        const displayLimit = 3;
+        let sequelText = data.sequels.slice(0, displayLimit).join(', ');
+        if (data.sequels.length > displayLimit) {
+            sequelText += ` (+${data.sequels.length - displayLimit} more)`;
+        }
+        output.push(`📚 Collection: ${sequelText}`);
+    }
 
     return output.join('\n');
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, sequels = false) => {
+const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, sequels = []) => {
     return { mid, post, no, url, source, bloopers, willReturn, sequels };
 };
 
@@ -66,7 +74,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.2',
+        version: '1.8.0',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes, bloopers, and collection info.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -126,7 +134,7 @@ async function checkAfterCredits(title) {
             });
         }
         
-        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn, false);
+        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn, []);
     } catch (e) { return null; }
 }
 
@@ -158,10 +166,25 @@ async function checkTmdb(imdbId, apiKey) {
         const hasMid = keywords.some(k => k.name === 'duringcreditsstinger');
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
         const bloopers = keywords.some(k => k.name === 'bloopers' || k.name === 'outtakes');
-        const hasSequels = movieRes.data.belongs_to_collection !== null;
         
-        // TMDB cannot definitively prove a negative. Replaced (!hasMid && !hasPost) with false.
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, hasSequels);
+        let sequelsList = [];
+        if (movieRes.data.belongs_to_collection) {
+            const collectionId = movieRes.data.belongs_to_collection.id;
+            try {
+                // Tier 3 sequential fetch to retrieve the specific collection titles
+                const collectionRes = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${key}`, config);
+                const parts = collectionRes.data.parts || [];
+                
+                sequelsList = parts
+                    .filter(p => p.id !== tmdbId) // Remove the movie currently being watched
+                    .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || '')) // Chronological order
+                    .map(p => p.title);
+            } catch (colErr) {
+                console.error(`[Collection Error] ${colErr.message}`);
+            }
+        }
+        
+        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, sequelsList);
     } catch (e) { return null; }
 }
 
@@ -231,7 +254,7 @@ const streamHandler = async (req, res) => {
 
             let finalResult = { 
                 mid: false, post: false, no: false, 
-                bloopers: false, willReturn: false, sequels: false, 
+                bloopers: false, willReturn: false, sequels: [], 
                 url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, 
                 source: 'Aggregated' 
             };
@@ -252,7 +275,7 @@ const streamHandler = async (req, res) => {
                     
                     if (res.value.bloopers) finalResult.bloopers = true;
                     if (res.value.willReturn) finalResult.willReturn = true;
-                    if (res.value.sequels) finalResult.sequels = true;
+                    if (res.value.sequels && res.value.sequels.length > 0) finalResult.sequels = res.value.sequels;
                 }
             });
 
