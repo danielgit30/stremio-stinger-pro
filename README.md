@@ -5,7 +5,7 @@
 
 Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automates the detection of mid-credits and post-credits scenes for feature films, providing users with immediate, actionable advice on whether to stay seated or if it is safe to stop playback.
 
-`https://stremio-addons.net/addons/stremio-stinger-pro-1.4`
+`https://stremio-addons.net/addons/stremio-stinger-pro`
 
 ---
 
