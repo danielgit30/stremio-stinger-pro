@@ -167,7 +167,7 @@
             </div>
             <div class="checkbox-group">
                 <input type="checkbox" id="showBloopers" onchange="updatePreview()">
-                <label for="showBloopers">Include Bloopers/Outtakes</label>
+                <label for="showBloopers">Include Outtakes (Bloopers)</label>
             </div>
 
             <div class="preview-container">
@@ -210,10 +210,10 @@
             let text = "";
             if (style === 'colorful') {
                 text = "🍿 Mid & Post-Credits Scenes!";
-                if (showBloopers) text += "<br>🎭 There Are Bloopers/Outtakes.";
+                if (showBloopers) text += "<br>🎭 Stay For The Outtakes.";
             } else if (style === 'simple') {
                 text = "Mid-Credits: Yes<br>Post-Credits: Yes";
-                if (showBloopers) text += "<br>Bloopers/Outtakes Found.";
+                if (showBloopers) text += "<br>Outtakes Found.";
             }
 
             if (showSource) {

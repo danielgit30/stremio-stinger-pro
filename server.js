@@ -41,7 +41,7 @@ const formatMessage = (styleConfig, data) => {
 
     // Output overridden for Wikipedia due to lack of mid/post distinction
     if (data.source === 'Wikipedia') {
-        output.push(isSimple ? "Unknown Wiki Scene Found." : "❓ Unknown Wiki Scene Found.");
+        output.push(isSimple ? "Unknown Scene Found." : "❓ Found An Unknown Scene.");
     } else {
         if (isSimple) {
             if (data.mid || data.post) {
@@ -55,13 +55,13 @@ const formatMessage = (styleConfig, data) => {
             if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
             else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
             else if (data.post) output.push('🎬 Post-Credits Scene Only.');
-            else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
-            else output.push('🕵️‍♂️ Couldn\'t Find Any Stingers.');
+            else if (data.no) output.push('🏃‍♂️ Nothing But Credits.');
+            else output.push('🕵️‍♂️ Couldn\'t Find Stingers.');
         }
     }
 
     if (styleConfig.showBloopers && data.bloopers) {
-        output.push(isSimple ? "Bloopers/Outtakes Found." : "🎭 There Are Bloopers/Outtakes.");
+        output.push(isSimple ? "Outtakes Found." : "🎭 Stay For The Outtakes.");
     }
 
     return output.join('\n');
