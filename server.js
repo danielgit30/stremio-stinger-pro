@@ -30,7 +30,6 @@ const formatMessage = (styleConfig, data) => {
     let output = [];
     const isSimple = styleConfig.style === 'simple';
 
-    // 1. Core Stinger Flags
     if (isSimple) {
         if (data.mid || data.post) {
             output.push(`Mid-Credits: ${data.mid ? 'Yes' : 'No'}\nPost-Credits: ${data.post ? 'Yes' : 'No'}`);
@@ -47,23 +46,15 @@ const formatMessage = (styleConfig, data) => {
         else output.push('🕵️‍♂️ Stinger info not found.');
     }
 
-    // 2. Extra Data Parameters
     if (styleConfig.showBloopers && data.bloopers) {
         output.push(isSimple ? "Bloopers: Yes" : "🤣 Bloopers / Outtakes: Yes");
-    }
-    if (styleConfig.showPrequels && data.prequel) {
-        output.push(isSimple ? `Follows: ${data.prequel}` : `⏪ Follows: ${data.prequel}`);
-    }
-    if (styleConfig.showSequels && (data.willReturn || data.sequel)) {
-        const seqName = data.sequel || "Yes (Announced)";
-        output.push(isSimple ? `Sequel: ${seqName}` : `🔄 Sequel / 'Will Return': ${seqName}`);
     }
 
     return output.join('\n');
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, prequel = null, sequel = null) => {
-    return { mid, post, no, url, source, bloopers, willReturn, prequel, sequel };
+const getResultObj = (mid, post, no, url, source, bloopers = false) => {
+    return { mid, post, no, url, source, bloopers };
 };
 
 const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
@@ -73,9 +64,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.9.0',
+        version: '1.10.0',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid/post-credit scenes, bloopers, prequels, and sequels.',
+        description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
@@ -112,17 +103,14 @@ async function checkAfterCredits(title) {
 
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
-        let hasMid = false, hasPost = false, bloopers = false, willReturn = false;
+        let hasMid = false, hasPost = false, bloopers = false;
         
-        const rawContent = $$('article, .entry-content').text().toLowerCase();
-        if (rawContent.includes('will return')) willReturn = true;
-
         // Strict isolation of blooper blocks from mid-credit blocks
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase();
 
-            if (blockText.includes('blooper') || blockText.includes('outtake')) {
+            if (blockText.includes('blooper') || blockText.includes('outtake') || headText.includes('blooper') || headText.includes('outtake')) {
                 bloopers = true;
             } else {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
@@ -130,7 +118,7 @@ async function checkAfterCredits(title) {
             }
         });
         
-        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn);
+        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers);
     } catch (e) { return null; }
 }
 
@@ -146,7 +134,7 @@ async function checkMediaStinger(title) {
     } catch (e) { return null; }
 }
 
-async function checkTmdb(imdbId, apiKey, styleConfig) {
+async function checkTmdb(imdbId, apiKey) {
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
         const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, config);
@@ -154,37 +142,19 @@ async function checkTmdb(imdbId, apiKey, styleConfig) {
         if (!movieMatch) return null;
         const tmdbId = Number(movieMatch.id);
 
-        const [kwRes, movieRes] = await Promise.all([
-            axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config),
-            axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${key}`, config)
-        ]);
+        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
 
         const keywords = kwRes.data.keywords || [];
         const hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
         const hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
         const bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
-        let prequelName = null;
-        let sequelName = null;
-
-        if ((styleConfig.showPrequels || styleConfig.showSequels) && movieRes.data.belongs_to_collection) {
-            const colId = movieRes.data.belongs_to_collection.id;
-            const colRes = await axios.get(`https://api.themoviedb.org/3/collection/${colId}?api_key=${key}`, config);
-            const parts = (colRes.data.parts || [])
-                .filter(p => p.release_date) // Only released/dated items
-                .sort((a, b) => a.release_date.localeCompare(b.release_date));
-            
-            const currentIndex = parts.findIndex(p => Number(p.id) === tmdbId);
-            if (currentIndex > 0) prequelName = parts[currentIndex - 1].title;
-            if (currentIndex !== -1 && currentIndex < parts.length - 1) sequelName = parts[currentIndex + 1].title;
-        }
-        
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, prequelName, sequelName);
+        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { return null; }
 }
 
 const streamHandler = async (req, res) => {
-    // Force Stremio Client to NOT cache stream results locally. Must fetch fresh.
+    // Force Stremio Client to NOT cache stream results locally during configuration testing.
     res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
 
     const { type, id } = req.params;
@@ -194,11 +164,9 @@ const streamHandler = async (req, res) => {
     if (type !== 'movie') return res.json({ streams: [] });
 
     const styleConfig = {
-        style: rawStyle.replace(/-nosource|-bloopers|-prequels|-sequels/g, ''),
+        style: rawStyle.replace(/-nosource|-bloopers/g, ''),
         showSource: !rawStyle.includes('-nosource'),
-        showBloopers: rawStyle.includes('-bloopers'),
-        showPrequels: rawStyle.includes('-prequels'),
-        showSequels: rawStyle.includes('-sequels')
+        showBloopers: rawStyle.includes('-bloopers')
     };
 
     const cacheKey = `${id}_${rawStyle}`;
@@ -212,40 +180,50 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            const results = await Promise.allSettled([
-                checkAfterCredits(title),
-                checkMediaStinger(title),
-                checkTmdb(id, apiKey, styleConfig)
-            ]);
+            const result = await new Promise((resolve) => {
+                const sources = [
+                    checkAfterCredits(title),
+                    checkMediaStinger(title),
+                    checkTmdb(id, apiKey)
+                ];
 
-            let merged = { mid: false, post: false, no: false, bloopers: false, willReturn: false, prequel: null, sequel: null, url: '', source: 'Aggregated' };
-            let hasPrimary = false;
+                let finished = 0;
+                let bestFallback = null;
 
-            results.forEach(res => {
-                if (res.status === 'fulfilled' && res.value) {
-                    const val = res.value;
-                    if (!hasPrimary && (val.mid || val.post || val.no)) {
-                        merged.mid = val.mid; merged.post = val.post; merged.no = val.no;
-                        merged.url = val.url; merged.source = val.source;
-                        hasPrimary = true;
-                    }
-                    if (val.bloopers) merged.bloopers = true;
-                    if (val.willReturn) merged.willReturn = true;
-                    if (val.prequel) merged.prequel = val.prequel;
-                    if (val.sequel) merged.sequel = val.sequel;
-                }
+                sources.forEach(p => {
+                    p.then(val => {
+                        finished++;
+                        if (val) {
+                            // FAST RACE: Resolve INSTANTLY the millisecond a Stinger is found
+                            if (val.mid || val.post) {
+                                resolve(val);
+                            } else {
+                                // If no stinger, store the fallback. Prioritize fallbacks that have bloopers.
+                                if (val.bloopers) {
+                                    bestFallback = val; 
+                                } else if (val.no && (!bestFallback || !bestFallback.bloopers)) {
+                                    bestFallback = val;
+                                }
+                            }
+                        }
+                        
+                        // If all sources finish without an instant win, resolve the best fallback
+                        if (finished === sources.length) {
+                            resolve(bestFallback);
+                        }
+                    });
+                });
+                
+                // Safety timeout
+                setTimeout(() => resolve(bestFallback), 5500);
             });
 
-            // Global Override: Fulfill the exact user requirement.
-            // If bloopers are present, it obliterates the mid-credit flag entirely.
-            if (merged.bloopers) {
-                merged.mid = false; 
-            }
+            let finalResult = result || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, source: 'Aggregated' };
 
             const stream = {
                 name: 'After-Credits Scenes',
-                title: `${formatMessage(styleConfig, merged)}${styleConfig.showSource ? `\nSource: ${merged.source}` : ''}`,
-                externalUrl: merged.url || `https://aftercredits.com/?s=${encodeURIComponent(title)}`
+                title: `${formatMessage(styleConfig, finalResult)}${styleConfig.showSource ? `\nSource: ${finalResult.source}` : ''}`,
+                externalUrl: finalResult.url || `https://aftercredits.com/?s=${encodeURIComponent(title)}`
             };
 
             streamCache.set(cacheKey, { timestamp: Date.now(), stream });

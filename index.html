@@ -169,14 +169,6 @@
                 <input type="checkbox" id="showBloopers" onchange="updatePreview()">
                 <label for="showBloopers">Include Bloopers & Outtakes</label>
             </div>
-            <div class="checkbox-group">
-                <input type="checkbox" id="showPrequels" onchange="updatePreview()">
-                <label for="showPrequels">Include Prequel ("Follows...")</label>
-            </div>
-            <div class="checkbox-group">
-                <input type="checkbox" id="showSequels" onchange="updatePreview()">
-                <label for="showSequels">Include Sequel ("Will Return...")</label>
-            </div>
 
             <div class="preview-container">
                 <span class="preview-label">LIVE PREVIEW</span>
@@ -202,7 +194,7 @@
         </div>
 
         <div class="footer">
-            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.9.0</a> | Developed by schultz911
+            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.10.0</a> | Developed by schultz911
         </div>
     </div>
 
@@ -213,21 +205,15 @@
             const style = document.getElementById('displayStyle').value;
             const showSource = document.getElementById('showSource').checked;
             const showBloopers = document.getElementById('showBloopers').checked;
-            const showPrequels = document.getElementById('showPrequels').checked;
-            const showSequels = document.getElementById('showSequels').checked;
             const previewText = document.getElementById('streamPreviewText');
             
             let text = "";
             if (style === 'colorful') {
                 text = "🍿 Mid & Post-Credits Scenes!";
                 if (showBloopers) text += "<br>🤣 Bloopers / Outtakes: Yes";
-                if (showPrequels) text += "<br>⏪ Follows: Batman Begins";
-                if (showSequels) text += "<br>🔄 Sequel / 'Will Return': The Dark Knight Rises";
             } else if (style === 'simple') {
                 text = "Mid-Credits: Yes<br>Post-Credits: Yes";
                 if (showBloopers) text += "<br>Bloopers: Yes";
-                if (showPrequels) text += "<br>Follows: Batman Begins";
-                if (showSequels) text += "<br>Sequel: The Dark Knight Rises";
             }
 
             if (showSource) {
@@ -245,8 +231,6 @@
             
             if (!document.getElementById('showSource').checked) style += '-nosource';
             if (document.getElementById('showBloopers').checked) style += '-bloopers';
-            if (document.getElementById('showPrequels').checked) style += '-prequels';
-            if (document.getElementById('showSequels').checked) style += '-sequels';
             
             const host = window.location.host;
             const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
