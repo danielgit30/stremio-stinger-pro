@@ -7,6 +7,10 @@ Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automat
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
+To-do
+- [ ] Add support for Wikipedia scraping
+- [ ] Add support for bloopers, outtakes, and "will return" messages
+
 ---
 
 ## Table of Contents
