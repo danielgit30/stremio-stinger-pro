@@ -35,7 +35,8 @@ The addon queries the following databases simultaneously. Results are prioritize
 
 1. **AfterCredits.com:** Primary source. Provides explicit confirmation of mid/post-credit scenes via direct web scraping.
 2. **MediaStinger.com:** Secondary source. Provides binary yes/no confirmations.
-3. **The Movie Database (TMDB):** Tertiary fallback. Scans movie metadata for specific stinger keywords (`duringcreditsstinger`, `aftercreditsstinger`). The addon utilizes a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
+3. **The Movie Database (TMDB):** Tertiary source. Scans movie metadata for specific stinger keywords (`duringcreditsstinger`, `aftercreditsstinger`). The addon utilizes a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
+4. **Wikipedia:** Ultimate fallback. Built a lightning-fast, auto-updating Wikipedia index. If the primary scrapers can't find info on an obscure movie, the Wikipedia fallback kicks in instantly as a final safety net. Wikipedia doesn't classify post-credit scenes as mid- or post-credits scenes and hence results from Wikipedia will be called out exclusively.
 
 ## 🌍 Configuration and Installation
 The addon can be installed directly or configured with a personal TMDB API key to ensure stability if the community key reaches its rate limit.
