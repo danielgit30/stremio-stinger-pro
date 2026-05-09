@@ -15,7 +15,7 @@ const config = {
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
 const streamCache = new Map();
-const CACHE_TTL = 30 * 60 * 1000; // 30 mins for testing
+const CACHE_TTL = 30 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
 const normalizeTitle = (title) => {
@@ -30,7 +30,7 @@ const formatMessage = (styleConfig, data) => {
     let output = [];
     const isSimple = styleConfig.style === 'simple';
 
-    // 1. Stingers
+    // 1. Core Stinger Flags
     if (isSimple) {
         if (data.mid || data.post) {
             output.push(`Mid-Credits: ${data.mid ? 'Yes' : 'No'}\nPost-Credits: ${data.post ? 'Yes' : 'No'}`);
@@ -47,7 +47,7 @@ const formatMessage = (styleConfig, data) => {
         else output.push('🕵️‍♂️ Stinger info not found.');
     }
 
-    // 2. Extras
+    // 2. Extra Data Parameters
     if (styleConfig.showBloopers && data.bloopers) {
         output.push(isSimple ? "Bloopers: Yes" : "🤣 Bloopers / Outtakes: Yes");
     }
@@ -73,9 +73,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.8.2',
+        version: '1.9.0',
         name: 'Stremio Stinger Pro',
-        description: 'Fixed Prequel/Sequel aggregator logic.',
+        description: 'Detects mid/post-credit scenes, bloopers, prequels, and sequels.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
@@ -115,13 +115,19 @@ async function checkAfterCredits(title) {
         let hasMid = false, hasPost = false, bloopers = false, willReturn = false;
         
         const rawContent = $$('article, .entry-content').text().toLowerCase();
-        if (rawContent.includes('blooper') || rawContent.includes('outtake')) bloopers = true;
         if (rawContent.includes('will return')) willReturn = true;
 
+        // Strict isolation of blooper blocks from mid-credit blocks
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            if (headText.includes("during") || headText.includes("mid")) hasMid = true;
-            if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            const blockText = $$(el).text().toLowerCase();
+
+            if (blockText.includes('blooper') || blockText.includes('outtake')) {
+                bloopers = true;
+            } else {
+                if (headText.includes("during") || headText.includes("mid")) hasMid = true;
+                if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            }
         });
         
         return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn);
@@ -178,6 +184,9 @@ async function checkTmdb(imdbId, apiKey, styleConfig) {
 }
 
 const streamHandler = async (req, res) => {
+    // Force Stremio Client to NOT cache stream results locally. Must fetch fresh.
+    res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
+
     const { type, id } = req.params;
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
@@ -215,7 +224,6 @@ const streamHandler = async (req, res) => {
             results.forEach(res => {
                 if (res.status === 'fulfilled' && res.value) {
                     const val = res.value;
-                    // Only lock in stinger status if a source has a POSITIVE (true) confirmation
                     if (!hasPrimary && (val.mid || val.post || val.no)) {
                         merged.mid = val.mid; merged.post = val.post; merged.no = val.no;
                         merged.url = val.url; merged.source = val.source;
@@ -227,6 +235,12 @@ const streamHandler = async (req, res) => {
                     if (val.sequel) merged.sequel = val.sequel;
                 }
             });
+
+            // Global Override: Fulfill the exact user requirement.
+            // If bloopers are present, it obliterates the mid-credit flag entirely.
+            if (merged.bloopers) {
+                merged.mid = false; 
+            }
 
             const stream = {
                 name: 'After-Credits Scenes',
