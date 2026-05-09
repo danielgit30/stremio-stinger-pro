@@ -36,10 +36,12 @@ The addon queries the following databases simultaneously. Results are prioritize
 1. **AfterCredits.com:** Provides explicit confirmation of mid/post-credit scenes via direct web scraping.
 2. **MediaStinger.com:** Provides binary yes/no confirmations.
 3. **The Movie Database (TMDB):** Scans movie metadata for specific stinger keywords (`duringcreditsstinger`, `aftercreditsstinger`). The addon utilizes a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
-4. **Wikipedia:** Ultimate fallback. Built a lightning-fast, auto-updating Wikipedia index. If the primary scrapers can't find info on an obscure movie, the Wikipedia fallback kicks in instantly as a final safety net. Wikipedia doesn't classify post-credit scenes as mid- or post-credits scenes and hence results from Wikipedia will be called out exclusively.
+4. **Wikipedia:** Ultimate fallback. Built a lightning-fast, auto-updating Wikipedia index. If the primary scrapers can't find info on an obscure movie, the Wikipedia fallback kicks in instantly as a final safety net. 
+
+**⚠️ Note:** Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes and hence results from Wikipedia will be called out exclusively as *unknown*.
 
 ## 🌍 Configuration and Installation
-**Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
+**🚨 Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
 
 1.  Navigate to `https://stremio-stinger-pro.onrender.com/configure`
 2.  Select your preferred display style (Colorful or Simple).
