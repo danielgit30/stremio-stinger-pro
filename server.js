@@ -55,7 +55,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.0',
+        version: '1.7.1',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes, bloopers, and collection info.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -205,51 +205,62 @@ const streamHandler = async (req, res) => {
         streamCache.delete(id);
     }
 
-    try {
-        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`);
-        const title = metaRes.data?.meta?.name;
+// --- Updated Aggregator Logic ---
+try {
+    const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`);
+    const title = metaRes.data?.meta?.name;
 
-        if (title) {
-            // Aggregator implementation: waits for all endpoints to merge secondary data flags
-            const sources = [
-                checkAfterCredits(title),
-                checkMediaStinger(title),
-                checkTmdb(id, apiKey) 
-            ];
+    if (title) {
+        const results = await Promise.allSettled([
+            checkAfterCredits(title),
+            checkMediaStinger(title),
+            checkTmdb(id, apiKey)
+        ]);
 
-            const results = await Promise.allSettled(sources);
-            
-            let finalResult = { mid: false, post: false, no: false, bloopers: false, willReturn: false, sequels: false, url: '', source: 'Search Failed' };
-            let foundPrimary = false;
+        let finalResult = { 
+            mid: false, post: false, no: false, 
+            bloopers: false, willReturn: false, sequels: false, 
+            url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, 
+            source: 'Aggregated' 
+        };
+        
+        let anyDataFound = false;
 
-            results.forEach(res => {
-                if (res.status === 'fulfilled' && res.value) {
-                    if (!foundPrimary && (res.value.mid || res.value.post || res.value.no)) {
-                        finalResult.mid = res.value.mid;
-                        finalResult.post = res.value.post;
-                        finalResult.no = res.value.no;
-                        finalResult.url = res.value.url;
-                        finalResult.source = res.value.source;
-                        foundPrimary = true;
-                    }
-                    if (res.value.bloopers) finalResult.bloopers = true;
-                    if (res.value.willReturn) finalResult.willReturn = true;
-                    if (res.value.sequels) finalResult.sequels = true;
+        results.forEach(res => {
+            if (res.status === 'fulfilled' && res.value) {
+                anyDataFound = true; // Any successful return from a source counts
+                
+                // Prioritize the URL and primary flags from the first source that has them
+                if (!finalResult.mid && !finalResult.post && !finalResult.no) {
+                    finalResult.mid = res.value.mid;
+                    finalResult.post = res.value.post;
+                    finalResult.no = res.value.no;
+                    finalResult.url = res.value.url || finalResult.url;
+                    finalResult.source = res.value.source;
                 }
-            });
-
-            if (!foundPrimary && !finalResult.bloopers && !finalResult.willReturn && !finalResult.sequels) finalResult = null;
-
-            if (finalResult) {
-                if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
-                streamCache.set(id, { timestamp: Date.now(), result: finalResult });
+                
+                // Merge secondary flags
+                if (res.value.bloopers) finalResult.bloopers = true;
+                if (res.value.willReturn) finalResult.willReturn = true;
+                if (res.value.sequels) finalResult.sequels = true;
             }
+        });
 
-            return res.json({ streams: [generateStreamConfig(finalResult, title)] });
+        // If absolutely no data was found across all sources
+        if (!anyDataFound) {
+            finalResult = null;
         }
-    } catch (error) {
-        console.error(`[Error] ${error.message}`);
+
+        if (finalResult) {
+            if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
+            streamCache.set(id, { timestamp: Date.now(), result: finalResult });
+        }
+
+        return res.json({ streams: [generateStreamConfig(finalResult, title)] });
     }
+} catch (error) {
+    console.error(`[Error] ${error.message}`);
+}
 
     res.json({ streams: [] });
 };
