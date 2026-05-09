@@ -155,14 +155,6 @@
     <div class="card">
         <h1>Stremio Stinger Pro</h1>
         <p class="description">Find out if a movie has mid and post-credits scenes before you watch it - <em>right from your stream list!</em></p>
-        <h2>How to Configure</h2>
-        <p class="description">
-            <ol>
-                <li>Configure your stream display style.</li>
-                <li>Enter your TMDB API key (optional).</li>
-                <li>Click "Install" to generate the manifest.</li>
-            </ol>
-        </p>
         <div class="input-group">
             <label for="displayStyle">Choose your style:</label>
             <select id="displayStyle" onchange="updatePreview()">
@@ -186,7 +178,7 @@
         </div>
 
         <div class="input-group">
-            <label for="apiKey">TMDB API Key</label>
+            <label for="apiKey">Enter your TMDB API Key</label>
             <input type="password" id="apiKey" placeholder="Enter key or leave blank">
             <span class="optional-text">If left blank, the addon will use the default community API key.</span>
         </div>
