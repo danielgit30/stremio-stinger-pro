@@ -10,7 +10,7 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 12000 
+    timeout: 5000 
 };
 
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
@@ -73,7 +73,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.8.0',
+        version: '1.8.1',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes, bloopers, prequels, and sequels.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -169,17 +169,13 @@ async function checkTmdb(imdbId, apiKey, styleConfig) {
         let prequelName = null;
         let sequelName = null;
 
-        // Execute 3rd tier lookup ONLY if the user has requested prequel/sequel names in the URL configuration
         if ((styleConfig.showPrequels || styleConfig.showSequels) && movieRes.data.belongs_to_collection) {
             const collectionId = movieRes.data.belongs_to_collection.id;
             try {
                 const colRes = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${key}`, config);
                 const parts = colRes.data.parts || [];
                 
-                // Sort chronologically by release date
                 parts.sort((a, b) => (a.release_date || '').localeCompare(b.release_date || ''));
-                
-                // Locate the current movie in the chronological sequence to find immediate neighbors
                 const currentIndex = parts.findIndex(p => p.id === tmdbId);
                 
                 if (currentIndex > 0) prequelName = parts[currentIndex - 1].title;
@@ -213,7 +209,6 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
-    // Parse the compound style string
     const styleConfig = {
         style: rawStyle.replace(/-nosource|-bloopers|-prequels|-sequels/g, ''),
         showSource: !rawStyle.includes('-nosource'),
@@ -221,6 +216,9 @@ const streamHandler = async (req, res) => {
         showPrequels: rawStyle.includes('-prequels'),
         showSequels: rawStyle.includes('-sequels')
     };
+
+    // Configuration-Aware Cache Key
+    const cacheKey = `${id}_pre:${styleConfig.showPrequels}_seq:${styleConfig.showSequels}`;
 
     const generateStreamConfig = (resultData, titleStr) => {
         if (resultData) {
@@ -240,12 +238,12 @@ const streamHandler = async (req, res) => {
         }
     };
 
-    if (streamCache.has(id)) {
-        const cachedData = streamCache.get(id);
+    if (streamCache.has(cacheKey)) {
+        const cachedData = streamCache.get(cacheKey);
         if (Date.now() - cachedData.timestamp < CACHE_TTL) {
             return res.json({ streams: [generateStreamConfig(cachedData.result, null)] });
         }
-        streamCache.delete(id);
+        streamCache.delete(cacheKey);
     }
 
     try {
@@ -256,7 +254,7 @@ const streamHandler = async (req, res) => {
             const results = await Promise.allSettled([
                 checkAfterCredits(title),
                 checkMediaStinger(title),
-                checkTmdb(id, apiKey, styleConfig) // Passed styleConfig to prevent unnecessary API calls
+                checkTmdb(id, apiKey, styleConfig) 
             ]);
 
             let finalResult = { 
@@ -272,7 +270,6 @@ const streamHandler = async (req, res) => {
                 if (res.status === 'fulfilled' && res.value) {
                     anyDataFound = true;
                     
-                    // Prioritize the URL and primary flags from the first source that has them
                     if (!finalResult.mid && !finalResult.post && !finalResult.no) {
                         finalResult.mid = res.value.mid;
                         finalResult.post = res.value.post;
@@ -281,7 +278,6 @@ const streamHandler = async (req, res) => {
                         finalResult.source = res.value.source;
                     }
                     
-                    // Merge secondary flags dynamically
                     if (res.value.bloopers) finalResult.bloopers = true;
                     if (res.value.willReturn) finalResult.willReturn = true;
                     if (res.value.prequel) finalResult.prequel = res.value.prequel;
@@ -289,14 +285,13 @@ const streamHandler = async (req, res) => {
                 }
             });
 
-            // If absolutely no data was found across all sources
             if (!anyDataFound) {
                 finalResult = null;
             }
 
             if (finalResult) {
                 if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
-                streamCache.set(id, { timestamp: Date.now(), result: finalResult });
+                streamCache.set(cacheKey, { timestamp: Date.now(), result: finalResult });
             }
 
             return res.json({ streams: [generateStreamConfig(finalResult, title)] });
