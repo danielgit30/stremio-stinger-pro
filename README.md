@@ -1,7 +1,7 @@
 ![logo](/icon.png)
 
 # Stremio Stinger Pro
-**Version 1.4.0**
+**Version 1.5.0**
 
 Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automates the detection of mid-credits and post-credits scenes for feature films, providing users with immediate, actionable advice on whether to stay seated or if it is safe to stop playback.
 
@@ -15,7 +15,7 @@ Stremio Stinger Pro is a high-performance metadata addon for Stremio. It automat
 * [🌍 Configuration and Installation](#-configuration-and-installation)
 * [🚀 Deployment Details](#-deployment-details)
 
-[Latest Release: v1.4.0](#release-v140)
+[Latest Release: v1.5.0](#release-v150)
 
 ---
 
@@ -43,6 +43,20 @@ The addon can be installed directly or configured with a personal TMDB API key t
 ## 🚀 Deployment Details
 * **Hosting:** Deployed via a continuous Node.js container on Render (Free Tier).
 * **Keep-Alive:** The server is maintained in an active state via scheduled Cronjobs to prevent cold-start delays.
+
+---
+
+## Release: v1.5.0
+* **Feature:** Added a dropdown to the /configure portal allowing users to select their preferred stream display style:
+* **Feature:** Added a dynamic preview container to the /configure portal that instantly updates to show exactly how the stream will look in Stremio based on selected settings.
+* **Feature:** Added a checkbox option allowing users to hide or show the data source attribution (e.g., "Source: TMDB") in the Stremio UI.
+* **Fix:** Implemented a backward-compatible URL "style suffix" architecture (-nosource) to pass boolean toggle states to the server without breaking existing client API integrations or routing layers.
+* **Fix:** Removed hardcoded UI strings from the scraping functions. Scrapers now return strict, raw boolean states (mid, post, no).
+* **Fix:** The streamHandler now interpolates the final output string at runtime based on the user's requested display style.
+* **Fix:** Updated the in-memory streamCache to store the raw boolean objects rather than pre-compiled strings, preventing cross-configuration memory leakage between "simple" and "colorful" users.
+* **Fix:** Expanded Express routes to dynamically handle compound parameters (/:style/:apiKey/manifest.json) alongside legacy URL structures.
+
+---
 
 ## Release: v1.4.0
 * **Feature:** Implemented parallel source racing logic to bypass slow target servers.

@@ -13,19 +13,28 @@ const config = {
     timeout: 5000 
 };
 
-// DEFAULT TMDB KEY (Used if user doesn't provide one)
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
 const streamCache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
-const mapStatus = (mid, post, no) => {
+const formatMessage = (style, mid, post, no) => {
+    if (style === 'simple') {
+        if (no) return "Mid-Credits: No\nPost-Credits: No";
+        if (mid || post) return `Mid-Credits: ${mid ? 'Yes' : 'No'}\nPost-Credits: ${post ? 'Yes' : 'No'}`;
+        return "No information available.";
+    }
     if (mid && post) return '🍿 Mid & Post-Credits Scenes!';
     if (mid) return '⏳ Mid-Credits Scene Only.';
     if (post) return '🎬 Post-Credits Scene Only.';
     if (no) return '🏃‍♂️ Show\'s Over When Credits Roll!';
-    return null; // Return null if status is unknown to help the "Race" logic
+    return '🕵️‍♂️ No info found yet.';
+};
+
+const getResultObj = (mid, post, no, url, source) => {
+    if (!mid && !post && !no) return null; 
+    return { mid, post, no, url, source };
 };
 
 // --- Routing ---
@@ -36,7 +45,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.4.0',
+        version: '1.5.0',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid and post-credit scenes instantly.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -52,8 +61,10 @@ const manifestHandler = (req, res) => {
     });
 };
 
+// Handle legacy and new URL structures
 app.get('/manifest.json', manifestHandler);
-app.get('/:apiKey/manifest.json', manifestHandler);
+app.get('/:p1/manifest.json', manifestHandler);
+app.get('/:style/:apiKey/manifest.json', manifestHandler);
 
 // --- Source 1: AfterCredits ---
 async function checkAfterCredits(title) {
@@ -68,7 +79,6 @@ async function checkAfterCredits(title) {
             const rawLinkText = $(el).text().toLowerCase().trim();
             const cleanLinkText = rawLinkText.replace(/[*|?]/g, '').replace(/[^\w\s]/g, '').trim();
             
-            // RESTORED: Allowed startsWith to catch appended years or subtitles
             if (!rawLinkText.includes('review') && (cleanLinkText.startsWith(cleanTargetTitle) || cleanLinkText === cleanTargetTitle)) {
                 targetUrl = $(el).attr('href');
                 hasAsterisk = rawLinkText.endsWith('*');
@@ -77,7 +87,7 @@ async function checkAfterCredits(title) {
         });
 
         if (!targetUrl) return null;
-        if (!hasAsterisk) return { message: '🏃‍♂️ Show\'s Over When Credits Roll!', url: targetUrl, source: 'AfterCredits' };
+        if (!hasAsterisk) return getResultObj(false, false, true, targetUrl, 'AfterCredits');
 
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
@@ -91,8 +101,7 @@ async function checkAfterCredits(title) {
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             });
         }
-        const msg = mapStatus(hasMid, hasPost, false);
-        return msg ? { message: msg, url: targetUrl, source: 'AfterCredits' } : null;
+        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits');
     } catch (e) { return null; }
 }
 
@@ -105,8 +114,7 @@ async function checkMediaStinger(title) {
         if ($result.length === 0) return null;
 
         const subtitle = $result.find(".subtitle").first().text().trim().toLowerCase();
-        const msg = mapStatus(subtitle.includes("during"), subtitle.includes("after"), subtitle.includes("no"));
-        return msg ? { message: msg, url: $result.find("a").first().attr("href"), source: 'MediaStinger' } : null;
+        return getResultObj(subtitle.includes("during"), subtitle.includes("after"), subtitle.includes("no"), $result.find("a").first().attr("href"), 'MediaStinger');
     } catch (e) { return null; }
 }
 
@@ -123,22 +131,57 @@ async function checkTmdb(imdbId, apiKey) {
         const hasMid = keywords.some(k => k.name === 'duringcreditsstinger');
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
         
-        const msg = mapStatus(hasMid, hasPost, (!hasMid && !hasPost));
-        // We only return from TMDB if it actually found stinger keywords
-        return (hasMid || hasPost) ? { message: msg, url: `https://www.themoviedb.org/movie/${tmdbId}`, source: 'TMDB' } : null;
+        if (!hasMid && !hasPost) return null;
+        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB');
     } catch (e) { return null; }
 }
 
 // --- Main Handler ---
 const streamHandler = async (req, res) => {
     const { type, id } = req.params;
-    const apiKey = req.params.apiKey;
+    let rawStyle = 'colorful';
+    let apiKey = null;
+
+    if (req.params.style && req.params.apiKey) {
+        rawStyle = req.params.style;
+        apiKey = req.params.apiKey;
+    } else if (req.params.p1) {
+        if (req.params.p1.includes('simple') || req.params.p1.includes('colorful')) {
+            rawStyle = req.params.p1;
+        } else {
+            apiKey = req.params.p1;
+        }
+    }
 
     if (type !== 'movie') return res.json({ streams: [] });
 
+    // Parse the compound style string
+    const showSource = !rawStyle.includes('-nosource');
+    const style = rawStyle.replace('-nosource', '');
+
+    const generateStreamConfig = (resultData, titleStr) => {
+        if (resultData) {
+            const sourceText = showSource ? `\nSource: ${resultData.source}` : '';
+            return {
+                name: 'After-Credits Scenes',
+                title: `${formatMessage(style, resultData.mid, resultData.post, resultData.no)}${sourceText}`,
+                externalUrl: resultData.url
+            };
+        } else {
+            const fallbackLinkText = showSource ? `\nCheck manually at AfterCredits.com` : '';
+            return {
+                name: 'After-Credits Scenes',
+                title: style === 'simple' ? `Status: Unknown${fallbackLinkText}` : `🕵️‍♂️ No info found yet.${fallbackLinkText}`,
+                externalUrl: `https://aftercredits.com/?s=${encodeURIComponent(titleStr)}`
+            };
+        }
+    };
+
     if (streamCache.has(id)) {
         const cachedData = streamCache.get(id);
-        if (Date.now() - cachedData.timestamp < CACHE_TTL) return res.json({ streams: [cachedData.stream] });
+        if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+            return res.json({ streams: [generateStreamConfig(cachedData.result, null)] });
+        }
         streamCache.delete(id);
     }
 
@@ -147,7 +190,6 @@ const streamHandler = async (req, res) => {
         const title = metaRes.data?.meta?.name;
 
         if (title) {
-            // Requirement 2: Smart Race - Instant win for 'Yes', verify 'No'
             const result = await new Promise((resolve) => {
                 const sources = [
                     checkAfterCredits(title),
@@ -162,42 +204,22 @@ const streamHandler = async (req, res) => {
                     p.then(val => {
                         finished++;
                         if (val) {
-                            // If we find a positive stinger, resolve IMMEDIATELY
-                            if (val.message.includes('🍿') || val.message.includes('⏳') || val.message.includes('🎬')) {
-                                resolve(val);
-                            } else {
-                                // If it's a "No Stinger", save it, but keep waiting to see if another source says "Yes"
-                                if (!negativeFallback) negativeFallback = val;
-                            }
+                            if (val.mid || val.post) resolve(val);
+                            else if (val.no) if (!negativeFallback) negativeFallback = val;
                         }
-                        
-                        // If all sources have finished and none found a stinger, safely resolve the "No" result
-                        if (finished === sources.length) {
-                            resolve(negativeFallback); 
-                        }
+                        if (finished === sources.length) resolve(negativeFallback); 
                     });
                 });
                 
-                // Safety timeout: If 5.5s pass, return whatever fallback we have
                 setTimeout(() => resolve(negativeFallback), 5500);
             });
 
-            const streamConfig = result ? {
-                name: 'After-Credits Scenes',
-                title: `${result.message}\nSource: ${result.source}`,
-                externalUrl: result.url
-            } : {
-                name: 'After-Credits Scenes',
-                title: `🕵️‍♂️ No info found yet.\nCheck manually at AfterCredits.com`,
-                externalUrl: `https://aftercredits.com/?s=${encodeURIComponent(title)}`
-            };
-
             if (result) {
                 if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
-                streamCache.set(id, { timestamp: Date.now(), stream: streamConfig });
+                streamCache.set(id, { timestamp: Date.now(), result: result });
             }
 
-            return res.json({ streams: [streamConfig] });
+            return res.json({ streams: [generateStreamConfig(result, title)] });
         }
     } catch (error) {
         console.error(`[Error] ${error.message}`);
@@ -207,7 +229,8 @@ const streamHandler = async (req, res) => {
 };
 
 app.get('/stream/:type/:id.json', streamHandler);
-app.get('/:apiKey/stream/:type/:id.json', streamHandler);
+app.get('/:p1/stream/:type/:id.json', streamHandler);
+app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Active on port ${PORT}`));

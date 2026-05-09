@@ -9,15 +9,12 @@
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            
-            /* Background Image Implementation */
             background-color: #0f0f15; 
             background-image: url('https://github.com/schultz911/stremio-stinger-pro/blob/main/bg.png?raw=true');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            
             color: #eaeaea; 
             display: flex; 
             justify-content: center; 
@@ -26,7 +23,6 @@
             margin: 0; 
         }
         
-        /* Added a dark overlay to the entire page to ensure the card remains readable regardless of how bright the background image is */
         body::before {
             content: "";
             position: absolute;
@@ -36,12 +32,10 @@
         }
 
         .card { 
-            /* Modified to be slightly transparent with a blur effect */
             background: rgba(26, 26, 36, 0.85); 
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            
             border-radius: 12px; 
             padding: 40px; 
             max-width: 450px; 
@@ -54,7 +48,8 @@
         p.description { font-size: 14px; color: #a0a0b0; line-height: 1.5; margin-bottom: 30px; }
         .input-group { text-align: left; margin-bottom: 25px; }
         label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #c0c0d0; }
-        input[type="password"] { 
+        
+        input[type="password"], select { 
             width: 100%; 
             padding: 12px; 
             border-radius: 6px; 
@@ -64,7 +59,15 @@
             box-sizing: border-box; 
             font-family: monospace;
         }
-        input[type="password"]:focus { outline: none; border-color: #8a5aE9; }
+        select { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        input[type="password"]:focus, select:focus { outline: none; border-color: #8a5aE9; }
+        select option { background: #1a1a24; color: #fff; }
+        
+        /* Checkbox Styling */
+        .checkbox-group { display: flex; align-items: center; margin-top: 15px; margin-bottom: 0;}
+        .checkbox-group input { width: auto; margin-right: 10px; accent-color: #8a5aE9; cursor: pointer; width: 16px; height: 16px;}
+        .checkbox-group label { margin-bottom: 0; cursor: pointer; display: flex; align-items: center; font-weight: normal; font-size: 13px;}
+
         .optional-text { font-size: 12px; color: #888; display: block; margin-top: 6px; }
         button { 
             background: #8a5aE9; 
@@ -80,6 +83,41 @@
         }
         button:hover { background: #7141cc; }
         
+        /* Preview Box Styles */
+        .preview-container {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .preview-label {
+            font-size: 10px;
+            color: #888;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .stream-box {
+            background: #1e1e24;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            transition: all 0.2s ease;
+        }
+        .stream-title {
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .stream-desc {
+            color: #a0a0b0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
         #result-container { 
             margin-top: 25px; 
             display: none; 
@@ -117,9 +155,38 @@
     <div class="card">
         <h1>Stremio Stinger Pro</h1>
         <p class="description">Find out if a movie has mid and post-credits scenes before you watch it - <em>right from your stream list!</em></p>
-        <p class="description">Configure the addon to use your own TMDB API key (optional) and click "Install" to generate the manifest.</p>
+        <h2>How to Configure</h2>
+        <p class="description">
+            <ol>
+                <li>Configure your stream display style.</li>
+                <li>Enter your TMDB API key (optional).</li>
+                <li>Click "Install" to generate the manifest.</li>
+            </ol>
+        </p>
         <div class="input-group">
-            <label for="apiKey">Add your TMDB API Key (Optional)</label>
+            <label for="displayStyle">Choose your style:</label>
+            <select id="displayStyle" onchange="updatePreview()">
+                <option value="colorful">Colorful</option>
+                <option value="simple">Simple</option>
+            </select>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="showSource" checked onchange="updatePreview()">
+                <label for="showSource">Show Source (e.g., "Source: TMDB")</label>
+            </div>
+
+            <!-- Live Preview Box -->
+            <div class="preview-container">
+                <span class="preview-label">LIVE PREVIEW</span>
+                <div class="stream-box">
+                    <div class="stream-title">After-Credits Scenes</div>
+                    <div class="stream-desc" id="streamPreviewText">🍿 Mid & Post-Credits Scenes!<br>Source: AfterCredits</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="apiKey">TMDB API Key</label>
             <input type="password" id="apiKey" placeholder="Enter key or leave blank">
             <span class="optional-text">If left blank, the addon will use the default community API key.</span>
         </div>
@@ -133,21 +200,54 @@
         </div>
 
         <div class="footer">
-            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.4.0</a> | Developed by schultz911
+            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.5.0</a> | Developed by schultz911
         </div>
     </div>
 
     <script>
         let currentHttpsUrl = '';
 
+        function updatePreview() {
+            const style = document.getElementById('displayStyle').value;
+            const showSource = document.getElementById('showSource').checked;
+            const previewText = document.getElementById('streamPreviewText');
+            
+            let text = "";
+            if (style === 'colorful') {
+                text = "🍿 Mid & Post-Credits Scenes!";
+            } else if (style === 'simple') {
+                text = "Mid-Credits: Yes<br>Post-Credits: Yes";
+            }
+
+            if (showSource) {
+                text += "<br>Source: AfterCredits";
+            }
+            
+            previewText.innerHTML = text;
+        }
+        
+        // Initialize preview on page load
+        window.onload = updatePreview;
+
         function installAddon() {
             const key = document.getElementById('apiKey').value.trim();
+            let style = document.getElementById('displayStyle').value;
+            const showSource = document.getElementById('showSource').checked;
             const host = window.location.host;
+            
+            if (!showSource) {
+                style += '-nosource';
+            }
             
             const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
             const httpProtocol = isLocal ? 'http://' : 'https://';
             
-            const path = key ? `/${encodeURIComponent(key)}/manifest.json` : `/manifest.json`;
+            let pathParts = [''];
+            pathParts.push(style);
+            if (key) pathParts.push(encodeURIComponent(key));
+            pathParts.push('manifest.json');
+            
+            const path = pathParts.join('/');
             
             const stremioUrl = `stremio://${host}${path}`;
             currentHttpsUrl = `${httpProtocol}${host}${path}`;
