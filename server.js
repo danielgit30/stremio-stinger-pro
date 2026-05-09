@@ -64,7 +64,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.10.0',
+        version: '1.11.0',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -105,7 +105,6 @@ async function checkAfterCredits(title) {
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
         
-        // Strict isolation of blooper blocks from mid-credit blocks
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase();
@@ -129,8 +128,27 @@ async function checkMediaStinger(title) {
         const $result = $("ul.highlights li").first();
         if ($result.length === 0) return null;
 
+        const targetUrl = $result.find("a").first().attr("href");
         const subtitle = $result.find(".subtitle").first().text().trim().toLowerCase();
-        return getResultObj(subtitle.includes("during"), subtitle.includes("after"), subtitle.includes("no"), $result.find("a").first().attr("href"), 'MediaStinger');
+        
+        let hasMid = subtitle.includes("during");
+        let hasPost = subtitle.includes("after");
+        let noStinger = subtitle.includes("no") && !hasMid && !hasPost;
+        let bloopers = false;
+
+        // Tier 2: Fetch actual movie page to verify bloopers and prevent false positives
+        if (targetUrl) {
+            const movieRes = await axios.get(targetUrl, config);
+            const $$ = cheerio.load(movieRes.data);
+            const rawContent = $$('body').text().toLowerCase();
+
+            if (rawContent.match(/\b(bloopers?|outtakes?)\b/)) {
+                bloopers = true;
+                hasMid = false; // Strip the false positive mid-credit flag
+            }
+        }
+
+        return getResultObj(hasMid, hasPost, noStinger, targetUrl, 'MediaStinger', bloopers);
     } catch (e) { return null; }
 }
 
@@ -145,16 +163,19 @@ async function checkTmdb(imdbId, apiKey) {
         const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
 
         const keywords = kwRes.data.keywords || [];
-        const hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
-        const hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
-        const bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
+        let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
+        let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
+        let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
+        if (bloopers) {
+            hasMid = false; // Prevent TMDB from classifying outtakes as stingers
+        }
+
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { return null; }
 }
 
 const streamHandler = async (req, res) => {
-    // Force Stremio Client to NOT cache stream results locally during configuration testing.
     res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
 
     const { type, id } = req.params;
@@ -194,11 +215,9 @@ const streamHandler = async (req, res) => {
                     p.then(val => {
                         finished++;
                         if (val) {
-                            // FAST RACE: Resolve INSTANTLY the millisecond a Stinger is found
                             if (val.mid || val.post) {
-                                resolve(val);
+                                resolve(val); // Instant Win Condition
                             } else {
-                                // If no stinger, store the fallback. Prioritize fallbacks that have bloopers.
                                 if (val.bloopers) {
                                     bestFallback = val; 
                                 } else if (val.no && (!bestFallback || !bestFallback.bloopers)) {
@@ -207,14 +226,12 @@ const streamHandler = async (req, res) => {
                             }
                         }
                         
-                        // If all sources finish without an instant win, resolve the best fallback
                         if (finished === sources.length) {
                             resolve(bestFallback);
                         }
                     });
                 });
                 
-                // Safety timeout
                 setTimeout(() => resolve(bestFallback), 5500);
             });
 
