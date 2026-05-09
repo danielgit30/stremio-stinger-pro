@@ -10,7 +10,7 @@ app.use(cors());
 // --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 5000 
+    timeout: 12000 
 };
 
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
