@@ -170,12 +170,12 @@
                 <label for="showBloopers">Include Bloopers & Outtakes</label>
             </div>
             <div class="checkbox-group">
-                <input type="checkbox" id="showWillReturn" onchange="updatePreview()">
-                <label for="showWillReturn">Include "Will Return" Messages</label>
+                <input type="checkbox" id="showPrequels" onchange="updatePreview()">
+                <label for="showPrequels">Include Prequel ("Follows...")</label>
             </div>
             <div class="checkbox-group">
                 <input type="checkbox" id="showSequels" onchange="updatePreview()">
-                <label for="showSequels">Include Collection / Sequel Info</label>
+                <label for="showSequels">Include Sequel ("Will Return...")</label>
             </div>
 
             <div class="preview-container">
@@ -213,20 +213,22 @@
             const style = document.getElementById('displayStyle').value;
             const showSource = document.getElementById('showSource').checked;
             const showBloopers = document.getElementById('showBloopers').checked;
-            const showWillReturn = document.getElementById('showWillReturn').checked;
+            const showPrequels = document.getElementById('showPrequels').checked;
             const showSequels = document.getElementById('showSequels').checked;
             const previewText = document.getElementById('streamPreviewText');
             
             let text = "";
             if (style === 'colorful') {
                 text = "🍿 Mid & Post-Credits Scenes!";
+                if (showBloopers) text += "<br>🤣 Bloopers / Outtakes: Yes";
+                if (showPrequels) text += "<br>⏪ Follows: Batman Begins";
+                if (showSequels) text += "<br>🔄 Sequel Announced / Will Return";
             } else if (style === 'simple') {
                 text = "Mid-Credits: Yes<br>Post-Credits: Yes";
+                if (showBloopers) text += "<br>Bloopers: Yes";
+                if (showPrequels) text += "<br>Follows: Batman Begins";
+                if (showSequels) text += "<br>Sequel: Yes";
             }
-
-            if (showBloopers) text += "<br>🤣 Bloopers / Outtakes: Yes";
-            if (showWillReturn) text += "<br>🔄 'Will Return' Message: Yes";
-            if (showSequels) text += "<br>📚 Collection: Rush Hour, Rush Hour 3";
 
             if (showSource) {
                 text += "<br>Source: TMDB";
@@ -243,7 +245,7 @@
             
             if (!document.getElementById('showSource').checked) style += '-nosource';
             if (document.getElementById('showBloopers').checked) style += '-bloopers';
-            if (document.getElementById('showWillReturn').checked) style += '-willreturn';
+            if (document.getElementById('showPrequels').checked) style += '-prequels';
             if (document.getElementById('showSequels').checked) style += '-sequels';
             
             const host = window.location.host;

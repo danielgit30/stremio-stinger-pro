@@ -7,6 +7,7 @@ const path = require('path');
 const app = express();
 app.use(cors());
 
+// --- Global Config & Helpers ---
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
     timeout: 5000 
@@ -18,7 +19,6 @@ const streamCache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; 
 const MAX_CACHE_SIZE = 1000; 
 
-// --- Helper Functions ---
 const normalizeTitle = (title) => {
     return title.toLowerCase()
         .replace(/^(the|a|an)\s+/, '') 
@@ -38,32 +38,31 @@ const formatMessage = (styleConfig, data) => {
         } else {
             output.push("Status: Unknown");
         }
+
+        if (styleConfig.showBloopers && data.bloopers) output.push("Bloopers: Yes");
+        if (styleConfig.showPrequels && data.prequel) output.push(`Follows: ${data.prequel}`);
+        if (styleConfig.showSequels && (data.willReturn || data.sequel)) {
+            output.push(`Sequel: ${data.sequel ? data.sequel : 'Announced/Will Return'}`);
+        }
     } else {
         if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
         else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
         else if (data.post) output.push('🎬 Post-Credits Scene Only.');
         else if (data.no) output.push('🏃‍♂️ Show\'s Over When Credits Roll!');
         else output.push('🕵️‍♂️ No info found yet.');
-    }
 
-    if (styleConfig.showBloopers && data.bloopers) output.push("🤣 Bloopers / Outtakes: Yes");
-    if (styleConfig.showWillReturn && data.willReturn) output.push("🔄 'Will Return' Message: Yes");
-    
-    // Process the array of sequel titles
-    if (styleConfig.showSequels && data.sequels && data.sequels.length > 0) {
-        const displayLimit = 3;
-        let sequelText = data.sequels.slice(0, displayLimit).join(', ');
-        if (data.sequels.length > displayLimit) {
-            sequelText += ` (+${data.sequels.length - displayLimit} more)`;
+        if (styleConfig.showBloopers && data.bloopers) output.push("🤣 Bloopers / Outtakes: Yes");
+        if (styleConfig.showPrequels && data.prequel) output.push(`⏪ Follows: ${data.prequel}`);
+        if (styleConfig.showSequels && (data.willReturn || data.sequel)) {
+            output.push(`🔄 Sequel / 'Will Return': ${data.sequel ? data.sequel : 'Yes'}`);
         }
-        output.push(`📚 Collection: ${sequelText}`);
     }
 
     return output.join('\n');
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, sequels = []) => {
-    return { mid, post, no, url, source, bloopers, willReturn, sequels };
+const getResultObj = (mid, post, no, url, source, bloopers = false, willReturn = false, prequel = null, sequel = null) => {
+    return { mid, post, no, url, source, bloopers, willReturn, prequel, sequel };
 };
 
 // --- Routing ---
@@ -76,7 +75,7 @@ const manifestHandler = (req, res) => {
         id: 'org.stinger.pro',
         version: '1.8.0',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid/post-credit scenes, bloopers, and collection info.',
+        description: 'Detects mid/post-credit scenes, bloopers, prequels, and sequels.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
@@ -134,7 +133,7 @@ async function checkAfterCredits(title) {
             });
         }
         
-        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn, []);
+        return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers, willReturn);
     } catch (e) { return null; }
 }
 
@@ -150,7 +149,7 @@ async function checkMediaStinger(title) {
     } catch (e) { return null; }
 }
 
-async function checkTmdb(imdbId, apiKey) {
+async function checkTmdb(imdbId, apiKey, styleConfig) {
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
         const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, config);
@@ -167,24 +166,31 @@ async function checkTmdb(imdbId, apiKey) {
         const hasPost = keywords.some(k => k.name === 'aftercreditsstinger');
         const bloopers = keywords.some(k => k.name === 'bloopers' || k.name === 'outtakes');
         
-        let sequelsList = [];
-        if (movieRes.data.belongs_to_collection) {
+        let prequelName = null;
+        let sequelName = null;
+
+        // Execute 3rd tier lookup ONLY if the user has requested prequel/sequel names in the URL configuration
+        if ((styleConfig.showPrequels || styleConfig.showSequels) && movieRes.data.belongs_to_collection) {
             const collectionId = movieRes.data.belongs_to_collection.id;
             try {
-                // Tier 3 sequential fetch to retrieve the specific collection titles
-                const collectionRes = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${key}`, config);
-                const parts = collectionRes.data.parts || [];
+                const colRes = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${key}`, config);
+                const parts = colRes.data.parts || [];
                 
-                sequelsList = parts
-                    .filter(p => p.id !== tmdbId) // Remove the movie currently being watched
-                    .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || '')) // Chronological order
-                    .map(p => p.title);
+                // Sort chronologically by release date
+                parts.sort((a, b) => (a.release_date || '').localeCompare(b.release_date || ''));
+                
+                // Locate the current movie in the chronological sequence to find immediate neighbors
+                const currentIndex = parts.findIndex(p => p.id === tmdbId);
+                
+                if (currentIndex > 0) prequelName = parts[currentIndex - 1].title;
+                if (currentIndex < parts.length - 1) sequelName = parts[currentIndex + 1].title;
+                
             } catch (colErr) {
-                console.error(`[Collection Error] ${colErr.message}`);
+                console.error(`[Collection API Error] ${colErr.message}`);
             }
         }
         
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, sequelsList);
+        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, false, prequelName, sequelName);
     } catch (e) { return null; }
 }
 
@@ -207,11 +213,12 @@ const streamHandler = async (req, res) => {
 
     if (type !== 'movie') return res.json({ streams: [] });
 
+    // Parse the compound style string
     const styleConfig = {
-        style: rawStyle.replace(/-nosource|-bloopers|-willreturn|-sequels/g, ''),
+        style: rawStyle.replace(/-nosource|-bloopers|-prequels|-sequels/g, ''),
         showSource: !rawStyle.includes('-nosource'),
         showBloopers: rawStyle.includes('-bloopers'),
-        showWillReturn: rawStyle.includes('-willreturn'),
+        showPrequels: rawStyle.includes('-prequels'),
         showSequels: rawStyle.includes('-sequels')
     };
 
@@ -233,7 +240,7 @@ const streamHandler = async (req, res) => {
         }
     };
 
-    if (CACHE_TTL > 0 && streamCache.has(id)) {
+    if (streamCache.has(id)) {
         const cachedData = streamCache.get(id);
         if (Date.now() - cachedData.timestamp < CACHE_TTL) {
             return res.json({ streams: [generateStreamConfig(cachedData.result, null)] });
@@ -249,12 +256,12 @@ const streamHandler = async (req, res) => {
             const results = await Promise.allSettled([
                 checkAfterCredits(title),
                 checkMediaStinger(title),
-                checkTmdb(id, apiKey)
+                checkTmdb(id, apiKey, styleConfig) // Passed styleConfig to prevent unnecessary API calls
             ]);
 
             let finalResult = { 
                 mid: false, post: false, no: false, 
-                bloopers: false, willReturn: false, sequels: [], 
+                bloopers: false, willReturn: false, prequel: null, sequel: null, 
                 url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, 
                 source: 'Aggregated' 
             };
@@ -265,6 +272,7 @@ const streamHandler = async (req, res) => {
                 if (res.status === 'fulfilled' && res.value) {
                     anyDataFound = true;
                     
+                    // Prioritize the URL and primary flags from the first source that has them
                     if (!finalResult.mid && !finalResult.post && !finalResult.no) {
                         finalResult.mid = res.value.mid;
                         finalResult.post = res.value.post;
@@ -273,17 +281,20 @@ const streamHandler = async (req, res) => {
                         finalResult.source = res.value.source;
                     }
                     
+                    // Merge secondary flags dynamically
                     if (res.value.bloopers) finalResult.bloopers = true;
                     if (res.value.willReturn) finalResult.willReturn = true;
-                    if (res.value.sequels && res.value.sequels.length > 0) finalResult.sequels = res.value.sequels;
+                    if (res.value.prequel) finalResult.prequel = res.value.prequel;
+                    if (res.value.sequel) finalResult.sequel = res.value.sequel;
                 }
             });
 
+            // If absolutely no data was found across all sources
             if (!anyDataFound) {
                 finalResult = null;
             }
 
-            if (finalResult && CACHE_TTL > 0) {
+            if (finalResult) {
                 if (streamCache.size >= MAX_CACHE_SIZE) streamCache.delete(streamCache.keys().next().value);
                 streamCache.set(id, { timestamp: Date.now(), result: finalResult });
             }
