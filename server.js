@@ -154,37 +154,51 @@ async function checkWikipedia(title, reqConfig) {
     return null;
 }
 
+// Helper function to extract search results and prevent franchise burying
+const parseSearchPageAfterCredits = (html, title, targetYear) => {
+    const $ = cheerio.load(html);
+    let matches = [];
+    $("h2 a, h3 a, .entry-title a, .title a, .post-title a, article a").each((i, el) => {
+        const rawLinkText = $(el).text().toLowerCase().trim();
+        if (!rawLinkText) return;
+
+        const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
+        const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
+
+        if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
+
+        if (isTitleMatch(rawLinkText, title)) {
+            matches.push({
+                url: $(el).attr('href'),
+                hasAsterisk: rawLinkText.includes('*'),
+                isReview: rawLinkText.includes('review'),
+                yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 2),
+                rawText: rawLinkText
+            });
+        }
+    });
+    return matches;
+};
+
 async function checkAfterCredits(title, year, reqConfig) {
     console.log(`\n--- [AfterCredits] Execution Start: "${title}" (${year}) ---`);
     try {
+        const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
+        const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
+
         const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(title)}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
-        const $ = cheerio.load(searchRes.data);
-        let potentialMatches = [];
+        let potentialMatches = parseSearchPageAfterCredits(searchRes.data, title, targetYear);
 
-        $("h2 a, h3 a, .entry-title a, .title a, .post-title a").each((i, el) => {
-            const rawLinkText = $(el).text().toLowerCase().trim();
-            const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
-            const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
-            
-            const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
-            const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
-
-            // Strict +/- 2 Year Boundary Enforcement
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
-
-            if (isTitleMatch(rawLinkText, title)) {
-                potentialMatches.push({
-                    url: $(el).attr('href'),
-                    hasAsterisk: rawLinkText.includes('*'),
-                    isReview: rawLinkText.includes('review'),
-                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 2)
-                });
-            }
-        });
+        // Fallback Search for Franchise Burying (e.g. Insidious 2011 -> searches 2010 to pull it to page 1)
+        if (potentialMatches.length === 0 && targetYear) {
+            console.log(`[AfterCredits] Target not on Page 1. Executing targeted fallback search for year ${targetYear - 1}...`);
+            const fallbackRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title + ' ' + (targetYear - 1))}`, reqConfig);
+            potentialMatches = parseSearchPageAfterCredits(fallbackRes.data, title, targetYear);
+        }
 
         if (potentialMatches.length === 0) {
-            console.log(`[AfterCredits] Aborting: No match within boundaries.`);
+            console.log(`[AfterCredits] Aborting: No match within boundaries after fallback.`);
             return null;
         }
 
@@ -196,7 +210,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
 
         const bestMatch = potentialMatches[0];
-        console.log(`[AfterCredits] Fetching -> ${bestMatch.url}`);
+        console.log(`[AfterCredits] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
         
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
@@ -208,9 +222,9 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
         console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
-        // Explicit Category Negation
+        // Explicit "Non-Stingers" Override
         if (categoryTags.includes('non-stingers')) {
-            console.log(`[AfterCredits] 'non-stingers' category detected. Forcing negative.`);
+            console.log(`[AfterCredits] 'non-stingers' category detected. Forcing negative state.`);
             return getResultObj(false, false, true, bestMatch.url, 'AfterCredits', false);
         }
 
@@ -221,7 +235,6 @@ async function checkAfterCredits(title, year, reqConfig) {
             if (categoryTags.some(t => ['outtake', 'musical', 'blooper', 'humorous credit'].includes(t))) { bloopers = true; }
         }
 
-        // Always run container checks to catch localized bloopers overriding category tags
         console.log(`[AfterCredits] Parsing body containers...`);
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
@@ -234,10 +247,11 @@ async function checkAfterCredits(title, year, reqConfig) {
                 if (isBlooper) {
                     bloopers = true;
                     hasMid = false; // Localized blooper wipe
+                    console.log(`[AfterCredits] Blooper found in MID container. Wiping mid flag.`);
                 } else if (!isNegative) {
                     hasMid = true;
                 } else if (isNegative) {
-                    hasMid = false; // Correct false positives from categories
+                    hasMid = false; 
                 }
             }
 
@@ -245,10 +259,11 @@ async function checkAfterCredits(title, year, reqConfig) {
                 if (isBlooper) {
                     bloopers = true;
                     hasPost = false; // Localized blooper wipe
+                    console.log(`[AfterCredits] Blooper found in POST container. Wiping post flag.`);
                 } else if (!isNegative) {
                     hasPost = true;
                 } else if (isNegative) {
-                    hasPost = false; // Correct false positives from categories
+                    hasPost = false; 
                 }
             }
         });
@@ -262,41 +277,55 @@ async function checkAfterCredits(title, year, reqConfig) {
     }
 }
 
+// Helper function to extract search results and prevent franchise burying
+const parseSearchPageMediaStinger = (html, title, targetYear) => {
+    const $ = cheerio.load(html);
+    let matches = [];
+    $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
+        const rawLinkText = $(el).text().toLowerCase().trim();
+        if (!rawLinkText) return;
+
+        const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
+        const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
+
+        if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
+
+        if (isTitleMatch(rawLinkText, title)) {
+            matches.push({
+                url: $(el).attr('href'),
+                yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 2),
+                rawText: rawLinkText
+            });
+        }
+    });
+    return matches;
+};
+
 async function checkMediaStinger(title, year, reqConfig) {
     console.log(`\n--- [MediaStinger] Execution Start: "${title}" (${year}) ---`);
     try {
+        const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
+        const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
+
         const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(title)}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
-        const $ = cheerio.load(searchRes.data);
-        let potentialMatches = [];
+        let potentialMatches = parseSearchPageMediaStinger(searchRes.data, title, targetYear);
 
-        $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
-            const aTag = $(el);
-            const rawLinkText = aTag.text().toLowerCase().trim();
-            const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
-            const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
-            
-            const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
-            const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
-
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
-
-            if (isTitleMatch(rawLinkText, title)) {
-                potentialMatches.push({
-                    url: aTag.attr('href'),
-                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 2)
-                });
-            }
-        });
+        // Fallback Search for Franchise Burying (MediaStinger usually aligns closely with targetYear)
+        if (potentialMatches.length === 0 && targetYear) {
+            console.log(`[MediaStinger] Target not on Page 1. Executing targeted fallback search for year ${targetYear}...`);
+            const fallbackRes = await axios.get(`http://www.mediastinger.com/?s=${encodeURIComponent(title + ' ' + targetYear)}`, reqConfig);
+            potentialMatches = parseSearchPageMediaStinger(fallbackRes.data, title, targetYear);
+        }
 
         if (potentialMatches.length === 0) {
-            console.log(`[MediaStinger] Aborting: No match within boundaries.`);
+            console.log(`[MediaStinger] Aborting: No match within boundaries after fallback.`);
             return null;
         }
 
         potentialMatches.sort((a, b) => (a.yearMatch !== b.yearMatch ? (a.yearMatch ? -1 : 1) : 0));
         const bestMatch = potentialMatches[0];
-        console.log(`[MediaStinger] Fetching -> ${bestMatch.url}`);
+        console.log(`[MediaStinger] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
         
         let hasMid = false, hasPost = false, noStinger = false, bloopers = false;
 
@@ -311,6 +340,7 @@ async function checkMediaStinger(title, year, reqConfig) {
                 console.log(`[MediaStinger] SEO Header Found: "${seoText}"`);
                 
                 if (seoText.match(/\b(no|zero)\b/)) {
+                    console.log(`[MediaStinger] SEO Header negation detected.`);
                     seoNo = true;
                     if (seoText.includes('during') || seoText.includes('mid')) seoMid = 'false';
                     if (seoText.includes('after') || seoText.includes('post')) seoPost = 'false';
@@ -369,10 +399,12 @@ async function checkMediaStinger(title, year, reqConfig) {
             if (midBlooper) {
                 bloopers = true;
                 hasMid = false;
+                console.log(`[MediaStinger] Blooper found near MID trigger. Wiping mid flag.`);
             }
             if (postBlooper) {
                 bloopers = true;
                 hasPost = false;
+                console.log(`[MediaStinger] Blooper found near POST trigger. Wiping post flag.`);
             }
 
             if (midNo && postNo) noStinger = true;
@@ -411,11 +443,6 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
         let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
         let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
-        if (bloopers) {
-            hasMid = false;
-            hasPost = false;
-        }
-
         if (!hasMid && !hasPost && !bloopers) {
             console.log(`[TMDB] No stinger keywords found.`);
             return null;
@@ -440,7 +467,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.1',
+        version: '1.7.2',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
