@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 4000 
+    timeout: 8000 
 };
 const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
@@ -129,7 +129,9 @@ async function buildWikiIndex(reqConfig = config) {
         
         wikiCache = newCache;
         wikiLastFetched = Date.now();
-    } catch (e) { }
+    } catch (e) {
+        // Suppress background errors
+    }
 }
 
 async function checkWikipedia(title, reqConfig) {
@@ -182,13 +184,12 @@ async function checkAfterCredits(title, year, reqConfig) {
         let hasMid = false, hasPost = false, bloopers = false;
         
         $$(".spoiler-wrap").each((i, el) => {
-            // Isolate head and body to prevent cross-contamination
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            const bodyText = $$(el).find(".spoiler-body").text().toLowerCase(); 
+            const bodyText = $$(el).text().toLowerCase(); 
             
             if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
                 bloopers = true;
-            } else if (bodyText.includes("yes") || !bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
+            } else if (!bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             }
@@ -198,9 +199,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
         if (bloopers) hasMid = false;
 
-        // Corrected Asterisk Logic
-        const isNegative = (bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
-        
+        const isNegative = (!bestMatch.hasAsterisk && !bloopers);
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { 
         return null; 
@@ -258,11 +257,11 @@ async function checkMediaStinger(title, year, reqConfig) {
             if (midNo && postNo) noStinger = true;
 
             if (!hasMid && !hasPost && !noStinger) {
-                const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras|shot|audio).{0,40}during the credits/.test(fullText);
-                const legacyPostNo = /(no|zero) (extra|scene|stinger|extras|shot|audio).{0,40}after the credits/.test(fullText);
+                const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/.test(fullText);
+                const legacyPostNo = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/.test(fullText);
 
-                if (/(extra scene|stinger|animation|extra shot|shot|audio|voice).{0,60}during the credits/.test(fullText) && !legacyMidNo) hasMid = true;
-                if (/(extra scene|stinger|extra shot|shot|audio|voice).{0,60}after the credits/.test(fullText) && !legacyPostNo) hasPost = true;
+                if (/(extra scene|stinger|animation).{0,60}during the credits/.test(fullText) && !legacyMidNo) hasMid = true;
+                if (/(extra scene|stinger).{0,60}after the credits/.test(fullText) && !legacyPostNo) hasPost = true;
 
                 if (legacyMidNo && legacyPostNo) {
                     noStinger = true;
@@ -316,7 +315,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.18',
+        version: '1.6.17',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -358,7 +357,7 @@ const streamHandler = async (req, res) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const reqConfig = { ...config, signal: controller.signal };
 
     try {
@@ -420,7 +419,9 @@ const streamHandler = async (req, res) => {
             
             return res.json({ streams: [stream] });
         }
-    } catch (e) { } finally {
+    } catch (e) { 
+        // Suppress errors and fall through to empty response
+    } finally {
         clearTimeout(timeoutId);
         controller.abort();
     }
