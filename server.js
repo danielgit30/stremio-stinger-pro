@@ -82,6 +82,10 @@ const formatMessage = (styleConfig, data) => {
     const isSimple = styleConfig.style === 'simple';
     const showBloopers = styleConfig.showBloopers;
 
+    if (data.source === 'Wikipedia') {
+        return isSimple ? "Unclassified Scene" : "❓ Unclassified Scene";
+    }
+
     if (isSimple) {
         if (data.mid && data.post) output.push("Mid-Credits Scene\nPost-Credits Scene");
         else if (data.mid) output.push("Mid-Credits Scene");
@@ -100,11 +104,6 @@ const formatMessage = (styleConfig, data) => {
 
     if (showBloopers && data.bloopers) {
         output.push(isSimple ? "Outtakes Found" : "🎭 Stay For The Outtakes");
-    }
-
-    // Failsafe for unclassified Wikipedia list entries
-    if (data.source === 'Wikipedia' && !data.mid && !data.post && !data.bloopers) {
-        output = [isSimple ? "Unclassified Scene" : "❓ Unclassified Scene"];
     }
 
     return output.join('\n');
@@ -238,7 +237,6 @@ async function checkMediaStinger(title, year) {
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
                     url: aTag.attr('href'),
-                    subtitle: $(el).find(".subtitle").first().text().trim().toLowerCase(),
                     yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1)
                 });
             }
@@ -249,19 +247,40 @@ async function checkMediaStinger(title, year) {
 
         const bestMatch = potentialMatches[0];
         
-        // 2. Parse Best Match Data
-        let hasMid = bestMatch.subtitle.includes("during");
-        let hasPost = bestMatch.subtitle.includes("after");
-        let noStinger = bestMatch.subtitle.includes("no extra") || bestMatch.subtitle.includes("no scene");
+        let hasMid = false;
+        let hasPost = false;
+        let noStinger = false;
         let bloopers = false;
 
         if (bestMatch.url) {
+            // 2. Extract Data directly from payload body
             const movieRes = await axios.get(bestMatch.url, config);
             const $$ = cheerio.load(movieRes.data);
-            const contentText = $$('article, #content, [rel="tag"]').text().toLowerCase();
-            if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) { 
+            
+            // Collapse whitespace to ensure reliable regex target string
+            const fullText = $$('article, #content, [rel="tag"]').text().toLowerCase().replace(/\s+/g, ' ');
+
+            if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) { 
                 bloopers = true; 
-                hasMid = false; 
+            }
+
+            // Parse During Credits (Explicitly checking negative assertions first)
+            if (fullText.includes('no extra scenes during') || fullText.includes('are no extra scenes')) {
+                hasMid = false;
+            } else if (/(extra scene|stinger|animation).{0,80}during the credits/.test(fullText)) {
+                hasMid = true;
+            }
+
+            // Parse After Credits (Explicitly checking negative assertions first)
+            if (fullText.includes('no extras after') || fullText.includes('no extra scenes after')) {
+                hasPost = false;
+            } else if (/(extra scene|stinger).{0,80}after the credits/.test(fullText)) {
+                hasPost = true;
+            }
+
+            // Set confirmed negative flag
+            if (!hasMid && !hasPost && !bloopers) {
+                noStinger = true;
             }
         }
         
@@ -305,7 +324,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.5',
+        version: '1.6.7',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -361,13 +380,16 @@ const streamHandler = async (req, res) => {
                     p.then(val => {
                         finished++;
                         if (val) {
-                            // Resolve immediately if positive scenes found
                             if (val.mid || val.post) {
                                 resolve(val); 
                             } else {
-                                // Store negatives/bloopers and wait for other scraper
-                                if (val.bloopers) bestFallback = val; 
-                                else if (val.no && (!bestFallback || !bestFallback.bloopers)) bestFallback = val;
+                                if (val.bloopers) {
+                                    bestFallback = val; 
+                                } else if (val.no && (!bestFallback || !bestFallback.bloopers)) {
+                                    bestFallback = val;
+                                } else if (!bestFallback) {
+                                    bestFallback = val;
+                                }
                             }
                         }
                         if (finished === sources.length) resolve(bestFallback);
