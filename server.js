@@ -220,19 +220,20 @@ async function checkAfterCredits(title, year) {
 
 async function checkMediaStinger(title, year) {
     try {
-        const searchRes = await axios.get(`http://www.mediastinger.com/?tab=MOVIES&s=${encodeURIComponent(title)}`, config);
+        // Drop the tab filter to ensure broader search capture
+        const searchRes = await axios.get(`http://www.mediastinger.com/?s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
-        // 1. Gather & Filter Matches
-        $("ul.highlights li").each((i, el) => {
-            const aTag = $(el).find("a").first();
+        // 1. Broadly target modern WordPress link structures
+        $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
+            const aTag = $(el);
             const rawLinkText = aTag.text().toLowerCase().trim();
             const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; // Hard collision gate
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -257,31 +258,31 @@ async function checkMediaStinger(title, year) {
             const movieRes = await axios.get(bestMatch.url, config);
             const $$ = cheerio.load(movieRes.data);
             
-            // Collapse whitespace to ensure reliable regex target string
-            const fullText = $$('article, #content, [rel="tag"]').text().toLowerCase().replace(/\s+/g, ' ');
+            // Constrain text extraction to main articles to prevent sidebar contamination
+            const fullText = $$('main, article, #content, .entry-content').text().toLowerCase().replace(/\s+/g, ' ');
 
-            if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) { 
-                bloopers = true; 
-            }
+            if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
 
-            // Parse During Credits (Explicitly checking negative assertions first)
-            if (fullText.includes('no extra scenes during') || fullText.includes('are no extra scenes')) {
-                hasMid = false;
-            } else if (/(extra scene|stinger|animation).{0,80}during the credits/.test(fullText)) {
-                hasMid = true;
-            }
+            // Strict matching for modern "During Credits? Yes/No" template
+            if (/during credits\?\s*yes/.test(fullText) || /scenes? during the credits\?\s*yes/.test(fullText)) hasMid = true;
+            if (/after credits\?\s*yes/.test(fullText) || /scenes? after the credits\?\s*yes/.test(fullText)) hasPost = true;
 
-            // Parse After Credits (Explicitly checking negative assertions first)
-            if (fullText.includes('no extras after') || fullText.includes('no extra scenes after')) {
-                hasPost = false;
-            } else if (/(extra scene|stinger).{0,80}after the credits/.test(fullText)) {
-                hasPost = true;
-            }
-
-            // Set confirmed negative flag
-            if (!hasMid && !hasPost && !bloopers) {
+            if ((/during credits\?\s*no/.test(fullText) || /scenes? during the credits\?\s*no/.test(fullText)) &&
+                (/after credits\?\s*no/.test(fullText) || /scenes? after the credits\?\s*no/.test(fullText))) {
                 noStinger = true;
             }
+
+            // Fallback checking for legacy MediaStinger paragraph structures
+            if (!hasMid && !hasPost && !noStinger) {
+                if (fullText.includes('no extra scenes') || fullText.includes('are no extras')) {
+                    noStinger = true;
+                } else {
+                    if (/(extra scene|stinger|animation).{0,60}during the credits/.test(fullText)) hasMid = true;
+                    if (/(extra scene|stinger).{0,60}after the credits/.test(fullText)) hasPost = true;
+                }
+            }
+
+            if (hasMid || hasPost || bloopers) noStinger = false;
         }
         
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
@@ -324,7 +325,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.7',
+        version: '1.6.8',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
