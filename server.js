@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 10000 
+    timeout: 8000 
 };
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
@@ -389,7 +389,7 @@ const streamHandler = async (req, res) => {
                     });
                 });
                 
-                setTimeout(() => resolve(bestFallback), 4500);
+                setTimeout(() => resolve(bestFallback), 6500);
             });
 
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
