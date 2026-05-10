@@ -158,7 +158,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
         const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
 
-        const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(title)}`;
+        const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
