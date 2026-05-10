@@ -90,13 +90,29 @@
             border-radius: 8px;
             padding: 12px;
         }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
         .preview-label {
             font-size: 10px;
             color: #888;
             font-weight: bold;
             letter-spacing: 1px;
-            margin-bottom: 8px;
+            margin-bottom: 0;
             display: block;
+        }
+        .preview-select {
+            width: auto;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #444;
+            color: #a0a0b0;
+            cursor: pointer;
         }
         .stream-box {
             background: #1e1e24;
@@ -171,7 +187,17 @@
             </div>
 
             <div class="preview-container">
-                <span class="preview-label">LIVE PREVIEW</span>
+                <div class="preview-header">
+                    <span class="preview-label">LIVE PREVIEW</span>
+                    <select id="previewScenario" class="preview-select" onchange="updatePreview()">
+                        <option value="both">Test: Mid & Post</option>
+                        <option value="mid">Test: Mid Only</option>
+                        <option value="post">Test: Post Only</option>
+                        <option value="no">Test: Nothing</option>
+                        <option value="unclassified">Test: Wikipedia</option>
+                        <option value="unknown">Test: Not Found</option>
+                    </select>
+                </div>
                 <div class="stream-box">
                     <div class="stream-title">After-Credits Scenes</div>
                     <div class="stream-desc" id="streamPreviewText">🍿 Mid & Post-Credits Scenes<br>Source: AfterCredits</div>
@@ -205,19 +231,37 @@
             const style = document.getElementById('displayStyle').value;
             const showSource = document.getElementById('showSource').checked;
             const showBloopers = document.getElementById('showBloopers').checked;
+            const scenario = document.getElementById('previewScenario').value;
             const previewText = document.getElementById('streamPreviewText');
             
             let text = "";
-            if (style === 'colorful') {
-                text = "🍿 Mid & Post-Credits Scenes";
-                if (showBloopers) text += "<br>🎭 Stay For The Outtakes";
-            } else if (style === 'simple') {
-                text = "Mid-Credits Scene<br>Post-Credits Scene";
-                if (showBloopers) text += "<br>Outtakes Found";
+            let sourceText = "<br>Source: TMDB";
+
+            if (scenario === 'unclassified') {
+                text = style === 'simple' ? "Unclassified Scene" : "❓ Unclassified Scene";
+                sourceText = "<br>Source: Wikipedia";
+            } else {
+                if (style === 'colorful') {
+                    if (scenario === 'both') text = "🍿 Mid & Post-Credits Scenes";
+                    else if (scenario === 'mid') text = "⏳ Mid-Credits Scene";
+                    else if (scenario === 'post') text = "🎬 Post-Credits Scene";
+                    else if (scenario === 'no') text = "🏃‍♂️ Nothing But Credits";
+                    else if (scenario === 'unknown') text = "🕵️‍♂️ Couldn't Find Stingers";
+                } else if (style === 'simple') {
+                    if (scenario === 'both') text = "Mid-Credits Scene<br>Post-Credits Scene";
+                    else if (scenario === 'mid') text = "Mid-Credits Scene";
+                    else if (scenario === 'post') text = "Post-Credits Scene";
+                    else if (scenario === 'no') text = "No Bonus Scenes";
+                    else if (scenario === 'unknown') text = "No Stingers Found";
+                }
+            }
+
+            if (showBloopers && scenario !== 'unknown') {
+                text += style === 'simple' ? "<br>Outtakes Found" : "<br>🎭 Stay For The Outtakes";
             }
 
             if (showSource) {
-                text += "<br>Source: TMDB";
+                text += sourceText;
             }
             
             previewText.innerHTML = text;

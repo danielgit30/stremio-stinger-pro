@@ -214,7 +214,7 @@ async function checkMediaStinger(title, year) {
             const $$ = cheerio.load(movieRes.data);
             const pText = $$('article p, #content p, .post-content p, #main p').text().toLowerCase();
             
-            if (pText.match(/\b(blooper?|outtake?)\b/)) {
+            if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
                 bloopers = true;
                 hasMid = false; 
             }
