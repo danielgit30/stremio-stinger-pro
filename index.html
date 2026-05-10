@@ -94,7 +94,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         .preview-label {
             font-size: 10px;
@@ -104,16 +104,35 @@
             margin-bottom: 0;
             display: block;
         }
-        .preview-select {
-            width: auto;
-            padding: 4px 8px;
+        
+        /* New Test Controls Styling */
+        .test-controls {
+            display: flex;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #2a2a35;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .test-controls label {
+            display: flex;
+            align-items: center;
             font-size: 11px;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid #444;
+            font-weight: normal;
+            margin: 0;
             color: #a0a0b0;
             cursor: pointer;
         }
+        .test-controls input {
+            margin-right: 5px;
+            width: 13px;
+            height: 13px;
+            accent-color: #8a5aE9;
+            cursor: pointer;
+        }
+
         .stream-box {
             background: #1e1e24;
             border: 1px solid #333;
@@ -189,15 +208,15 @@
             <div class="preview-container">
                 <div class="preview-header">
                     <span class="preview-label">LIVE PREVIEW</span>
-                    <select id="previewScenario" class="preview-select" onchange="updatePreview()">
-                        <option value="both">Test: Mid & Post</option>
-                        <option value="mid">Test: Mid Only</option>
-                        <option value="post">Test: Post Only</option>
-                        <option value="no">Test: Nothing</option>
-                        <option value="unclassified">Test: Wikipedia</option>
-                        <option value="unknown">Test: Not Found</option>
-                    </select>
                 </div>
+                
+                <div class="test-controls">
+                    <label><input type="checkbox" id="testMid" checked onchange="updatePreview()"> Mid</label>
+                    <label><input type="checkbox" id="testPost" checked onchange="updatePreview()"> Post</label>
+                    <label><input type="checkbox" id="testBloopers" onchange="updatePreview()"> Bloopers</label>
+                    <label><input type="checkbox" id="testWiki" onchange="updatePreview()"> Wiki (Fallback)</label>
+                </div>
+
                 <div class="stream-box">
                     <div class="stream-title">After-Credits Scenes</div>
                     <div class="stream-desc" id="streamPreviewText">🍿 Mid & Post-Credits Scenes<br>Source: AfterCredits</div>
@@ -228,43 +247,52 @@
         let currentHttpsUrl = '';
 
         function updatePreview() {
+            // Configuration Flags
             const style = document.getElementById('displayStyle').value;
-            const showSource = document.getElementById('showSource').checked;
-            const showBloopers = document.getElementById('showBloopers').checked;
-            const scenario = document.getElementById('previewScenario').value;
+            const configShowSource = document.getElementById('showSource').checked;
+            const configShowBloopers = document.getElementById('showBloopers').checked;
+            
+            // Simulation API Flags
+            const isMid = document.getElementById('testMid').checked;
+            const isPost = document.getElementById('testPost').checked;
+            const isBloopers = document.getElementById('testBloopers').checked;
+            const isWiki = document.getElementById('testWiki').checked;
+            
             const previewText = document.getElementById('streamPreviewText');
             
-            let text = "";
-            let sourceText = "<br>Source: TMDB";
+            let lines = [];
 
-            if (scenario === 'unclassified') {
-                text = style === 'simple' ? "Unclassified Scene" : "❓ Unclassified Scene";
-                sourceText = "<br>Source: Wikipedia";
+            // Core Stinger Logic Match
+            if (isWiki) {
+                lines.push(style === 'simple' ? "Unclassified Scene" : "❓ Unclassified Scene");
             } else {
-                if (style === 'colorful') {
-                    if (scenario === 'both') text = "🍿 Mid & Post-Credits Scenes";
-                    else if (scenario === 'mid') text = "⏳ Mid-Credits Scene";
-                    else if (scenario === 'post') text = "🎬 Post-Credits Scene";
-                    else if (scenario === 'no') text = "🏃‍♂️ Nothing But Credits";
-                    else if (scenario === 'unknown') text = "🕵️‍♂️ Couldn't Find Stingers";
-                } else if (style === 'simple') {
-                    if (scenario === 'both') text = "Mid-Credits Scene<br>Post-Credits Scene";
-                    else if (scenario === 'mid') text = "Mid-Credits Scene";
-                    else if (scenario === 'post') text = "Post-Credits Scene";
-                    else if (scenario === 'no') text = "No Bonus Scenes";
-                    else if (scenario === 'unknown') text = "No Stingers Found";
+                if (isMid && isPost) {
+                    lines.push(style === 'simple' ? "Mid-Credits Scene<br>Post-Credits Scene" : "🍿 Mid & Post-Credits Scenes");
+                } else if (isMid) {
+                    lines.push(style === 'simple' ? "Mid-Credits Scene" : "⏳ Mid-Credits Scene");
+                } else if (isPost) {
+                    lines.push(style === 'simple' ? "Post-Credits Scene" : "🎬 Post-Credits Scene");
+                } else if (isBloopers) {
+                    lines.push(style === 'simple' ? "No Stingers Found" : "🕵️‍♂️ Couldn't Find Stingers");
+                } else {
+                    lines.push(style === 'simple' ? "No Bonus Scenes" : "🏃‍♂️ Nothing But Credits");
                 }
             }
 
-            if (showBloopers && scenario !== 'unknown') {
-                text += style === 'simple' ? "<br>Outtakes Found" : "<br>🎭 Stay For The Outtakes";
+            // Blooper Logic Match
+            if (configShowBloopers && isBloopers) {
+                lines.push(style === 'simple' ? "Outtakes Found" : "🎭 Stay For The Outtakes");
             }
 
-            if (showSource) {
-                text += sourceText;
+            // Source Logic Match
+            if (configShowSource) {
+                let mockSource = "TMDB";
+                if (isWiki) mockSource = "Wikipedia";
+                else if (isMid || isPost || isBloopers) mockSource = "AfterCredits";
+                lines.push(`Source: ${mockSource}`);
             }
             
-            previewText.innerHTML = text;
+            previewText.innerHTML = lines.join('<br>');
         }
         
         window.onload = updatePreview;
