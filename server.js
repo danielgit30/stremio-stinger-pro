@@ -124,10 +124,12 @@ async function buildWikiIndex(reqConfig = config) {
             let hasMid = rowText.includes('mid-') || rowText.includes('during');
             let hasPost = rowText.includes('post-') || rowText.includes('after');
             let hasBloopers = !!rowText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
+            
             if (hasBloopers) {
                 hasMid = false;
                 hasPost = false;
             }
+            
             newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
         });
         
@@ -160,12 +162,15 @@ async function checkAfterCredits(title, year, reqConfig) {
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
-        $('h3.entry-title a, .entry-title a').each((i, el) => {
+        $("h2 a, h3 a, .entry-title a, .title a, .post-title a").each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
             const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
-            const targetYear = year ? parseInt(year) : null;
+            
+            const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
+            const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
 
+            // Strict +/- 2 Year Boundary Enforcement
             if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
 
             if (isTitleMatch(rawLinkText, title)) {
@@ -196,7 +201,6 @@ async function checkAfterCredits(title, year, reqConfig) {
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
-        let needsContainerCheck = true;
 
         let categoryTags = [];
         $$('ul.td-category li.entry-category a').each((i, el) => {
@@ -204,57 +208,50 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
         console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
+        // Explicit Category Negation
         if (categoryTags.includes('non-stingers')) {
-            console.log(`[AfterCredits] 'non-stingers' detected. Forcing negative.`);
+            console.log(`[AfterCredits] 'non-stingers' category detected. Forcing negative.`);
             return getResultObj(false, false, true, bestMatch.url, 'AfterCredits', false);
         }
 
         if (categoryTags.length > 0) {
-            if (categoryTags.includes('both during & after credits')) { hasMid = true; hasPost = true; needsContainerCheck = false; }
+            if (categoryTags.includes('both during & after credits')) { hasMid = true; hasPost = true; }
             if (categoryTags.includes('during credits')) { hasMid = true; }
             if (categoryTags.includes('after credits')) { hasPost = true; }
             if (categoryTags.some(t => ['outtake', 'musical', 'blooper', 'humorous credit'].includes(t))) { bloopers = true; }
+        }
+
+        // Always run container checks to catch localized bloopers overriding category tags
+        console.log(`[AfterCredits] Parsing body containers...`);
+        $$(".spoiler-wrap").each((i, el) => {
+            const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
+            const blockText = $$(el).text().toLowerCase(); 
             
-            const containerTriggers = ['bonus scene', 'credits clip', 'informative'];
-            if (containerTriggers.some(tag => categoryTags.includes(tag))) {
-                needsContainerCheck = true;
-            } else if (hasMid || hasPost) {
-                needsContainerCheck = false; 
+            const isBlooper = blockText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
+            const isNegative = blockText.match(/(no extra|no stinger|nothing|are no|no scene)/) && !blockText.match(/(extra shot|audio|voice|laugh|but|however)/);
+
+            if (headText.includes("during") || headText.includes("mid")) {
+                if (isBlooper) {
+                    bloopers = true;
+                    hasMid = false; // Localized blooper wipe
+                } else if (!isNegative) {
+                    hasMid = true;
+                } else if (isNegative) {
+                    hasMid = false; // Correct false positives from categories
+                }
             }
-        }
 
-        if (needsContainerCheck || (!hasMid && !hasPost && !bloopers)) {
-            console.log(`[AfterCredits] Categories ambiguous. Parsing body containers...`);
-            $$(".spoiler-wrap").each((i, el) => {
-                const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-                const blockText = $$(el).text().toLowerCase(); 
-                
-                const isBlooper = blockText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
-                const isNegative = blockText.match(/(no extra|no stinger|nothing|are no|no scene)/) && !blockText.match(/(extra shot|audio|voice|laugh|but|however)/);
-
-                if (headText.includes("during") || headText.includes("mid")) {
-                    if (isBlooper) {
-                        bloopers = true;
-                        hasMid = false;
-                    } else if (!isNegative) {
-                        hasMid = true;
-                    } else if (isNegative) {
-                        hasMid = false;
-                    }
+            if (headText.includes("after") || headText.includes("post")) {
+                if (isBlooper) {
+                    bloopers = true;
+                    hasPost = false; // Localized blooper wipe
+                } else if (!isNegative) {
+                    hasPost = true;
+                } else if (isNegative) {
+                    hasPost = false; // Correct false positives from categories
                 }
-
-                if (headText.includes("after") || headText.includes("post")) {
-                    if (isBlooper) {
-                        bloopers = true;
-                        hasPost = false;
-                    } else if (!isNegative) {
-                        hasPost = true;
-                    } else if (isNegative) {
-                        hasPost = false;
-                    }
-                }
-            });
-        }
+            }
+        });
 
         const isNegative = (!bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
         console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}`);
@@ -278,7 +275,9 @@ async function checkMediaStinger(title, year, reqConfig) {
             const rawLinkText = aTag.text().toLowerCase().trim();
             const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
-            const targetYear = year ? parseInt(year) : null;
+            
+            const targetYearStr = year ? year.toString().match(/\d{4}/) : null;
+            const targetYear = targetYearStr ? parseInt(targetYearStr[0]) : null;
 
             if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
 
@@ -339,6 +338,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             const postYes = /after (the )?credits\W{1,30}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
             const postNo = /after (the )?credits\W{1,30}no\b/.test(fullText);
 
+            // Localized Proximity Blooper Checks
             const midBlooper = /during (the )?credits\W{1,40}(bloopers?|outtakes?|gags?|gag reel)/.test(fullText) || /(bloopers?|outtakes?|gags?|gag reel)\W{1,40}during (the )?credits/.test(fullText);
             const postBlooper = /after (the )?credits\W{1,40}(bloopers?|outtakes?|gags?|gag reel)/.test(fullText) || /(bloopers?|outtakes?|gags?|gag reel)\W{1,40}after (the )?credits/.test(fullText);
 
@@ -365,6 +365,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             if ((seoPost === true || bodyPost) && !postNo && !legacyPostNo && !postIsAudio && seoPost !== 'false') hasPost = true;
             if (seoBloopers || bodyBloopers) bloopers = true;
 
+            // Apply Localized Wipe
             if (midBlooper) {
                 bloopers = true;
                 hasMid = false;
@@ -439,7 +440,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.0',
+        version: '1.7.1',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
