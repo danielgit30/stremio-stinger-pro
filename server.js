@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000 
+    timeout: 10000 // 10 seconds 
 };
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
@@ -220,7 +220,6 @@ async function checkAfterCredits(title, year) {
 
 async function checkMediaStinger(title, year) {
     try {
-        // Drop the tab filter to ensure broader search capture
         const searchRes = await axios.get(`http://www.mediastinger.com/?s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
@@ -263,18 +262,24 @@ async function checkMediaStinger(title, year) {
 
             if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
 
-            // Strict matching for modern "During Credits? Yes/No" template
-            if (/during credits\?\s*yes/.test(fullText) || /scenes? during the credits\?\s*yes/.test(fullText)) hasMid = true;
-            if (/after credits\?\s*yes/.test(fullText) || /scenes? after the credits\?\s*yes/.test(fullText)) hasPost = true;
+            // Highly flexible regex allowing up to 15 non-word characters between "credits" and "yes/no"
+            const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
+            const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
 
-            if ((/during credits\?\s*no/.test(fullText) || /scenes? during the credits\?\s*no/.test(fullText)) &&
-                (/after credits\?\s*no/.test(fullText) || /scenes? after the credits\?\s*no/.test(fullText))) {
+            const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
+            const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
+
+            if (midYes) hasMid = true;
+            if (postYes) hasPost = true;
+
+            // Confirm true negative state
+            if (midNo && postNo) {
                 noStinger = true;
             }
 
             // Fallback checking for legacy MediaStinger paragraph structures
             if (!hasMid && !hasPost && !noStinger) {
-                if (fullText.includes('no extra scenes') || fullText.includes('are no extras')) {
+                if (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra')) {
                     noStinger = true;
                 } else {
                     if (/(extra scene|stinger|animation).{0,60}during the credits/.test(fullText)) hasMid = true;
@@ -325,7 +330,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.8',
+        version: '1.6.5',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
