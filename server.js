@@ -49,20 +49,15 @@ const formatMessage = (styleConfig, data) => {
                 output.push("Mid-Credits Scene");
             } else if (data.post && !data.mid) {
                 output.push("Post-Credits Scene");
-            } else if (!data.bloopers) { 
-                // Only append negative text if there are no bloopers
-                if (data.no) {
-                    output.push("No Bonus Scenes");
-                } else {
-                    output.push("No Stingers Found");
-                }
+            } else if (!data.bloopers || !styleConfig.showBloopers) { 
+                if (data.no) output.push("No Bonus Scenes");
+                else output.push("No Stingers Found");
             }
         } else {
             if (data.mid && data.post) output.push("🍿 Mid & Post-Credits Scenes");
             else if (data.mid) output.push("⏳ Mid-Credits Scene");
             else if (data.post) output.push("🎬 Post-Credits Scene");
-            else if (!data.bloopers) { 
-                // Only append negative text if there are no bloopers
+            else if (!data.bloopers || !styleConfig.showBloopers) { 
                 if (data.no) output.push("🏃‍♂️ Nothing But Credits");
                 else output.push("🕵️‍♂️ Couldn't Find Stingers");
             }
@@ -93,7 +88,6 @@ async function buildWikiIndex() {
         
         wikiIndex = newIndex;
         wikiLastFetched = Date.now();
-        console.log(`[System] Wikipedia index built: ${wikiIndex.size} entries.`);
     } catch (e) {
         console.error(`[Error] Wikipedia index failed: ${e.message}`);
     }
@@ -153,20 +147,28 @@ async function checkAfterCredits(title, year) {
         
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            if (headText.includes("during") || headText.includes("mid")) hasMid = true;
-            if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            const bodyText = $$(el).text().toLowerCase(); 
+
+            const localBloopers = bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
+            const isNegative = bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/);
+
+            if (localBloopers) {
+                bloopers = true;
+            } else if (!isNegative) {
+                if (headText.includes("during") || headText.includes("mid")) hasMid = true;
+                if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            }
         });
 
-        const pText = $$('article p, .entry-content p, #main p').text().toLowerCase();
-        if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
+        const contentText = $$('article, .entry-content, #main').text().toLowerCase();
+        if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
             bloopers = true;
         }
 
-        // Global Override: Prevent Bloopers from registering as Mid-Credits
         if (bloopers) {
             hasMid = false;
         }
-        
+
         return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers);
     } catch (e) { return null; }
 }
@@ -218,9 +220,9 @@ async function checkMediaStinger(title, year) {
         if (targetUrl) {
             const movieRes = await axios.get(targetUrl, config);
             const $$ = cheerio.load(movieRes.data);
-            const pText = $$('article p, #content p, .post-content p, #main p').text().toLowerCase();
+            const contentText = $$('article, #content, .post-content, #main, .entry').text().toLowerCase();
             
-            if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
+            if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
                 bloopers = true;
                 hasMid = false; 
             }
@@ -246,6 +248,8 @@ async function checkTmdb(imdbId, apiKey) {
         let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
         if (bloopers) hasMid = false;
+
+        if (!hasMid && !hasPost && !bloopers) return null;
 
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { return null; }
