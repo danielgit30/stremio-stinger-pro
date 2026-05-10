@@ -147,16 +147,21 @@ async function checkAfterCredits(title, year) {
         
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            if (headText.includes("during") || headText.includes("mid")) hasMid = true;
-            if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            const bodyText = $$(el).text().toLowerCase(); 
+
+            if (bodyText.match(/\b(bloopers?|outtakes?)\b/)) {
+                bloopers = true;
+            } else {
+                if (headText.includes("during") || headText.includes("mid")) hasMid = true;
+                if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            }
         });
 
         const pText = $$('article p, .entry-content p, #main p').text().toLowerCase();
-        if (pText.match(/\b(blooper?|outtake?)\b/)) {
+        if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
             bloopers = true;
         }
 
-        // Global Override: Prevent Bloopers from registering as Mid-Credits
         if (bloopers) {
             hasMid = false;
         }
@@ -329,11 +334,7 @@ const streamHandler = async (req, res) => {
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const tmdbResult = await checkTmdb(id, apiKey);
                 if (tmdbResult) {
-                    if (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers) {
-                        result = tmdbResult;
-                    } else if (!result) {
-                        result = tmdbResult; 
-                    }
+                    result = tmdbResult; 
                 }
             }
 
