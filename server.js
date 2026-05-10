@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000
+    timeout: 6000 
 };
 const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
@@ -110,7 +110,7 @@ const formatMessage = (styleConfig, data) => {
 async function buildWikiIndex(reqConfig = config) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
     try {
-        console.log(`[System] Rebuilding Wikipedia Dictionary...`);
+        console.log(`[Wiki] Building index...`);
         const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', reqConfig);
         const $ = cheerio.load(res.data);
         const newCache = new Map();
@@ -130,8 +130,8 @@ async function buildWikiIndex(reqConfig = config) {
         
         wikiCache = newCache;
         wikiLastFetched = Date.now();
-        console.log(`[System] Wikipedia Index Built: ${wikiCache.size} titles.`);
-    } catch (e) { 
+        console.log(`[Wiki] Built ${wikiCache.size} entries.`);
+    } catch (e) {
         console.error(`[Wiki Error] ${e.message}`);
     }
 }
@@ -142,10 +142,10 @@ async function checkWikipedia(title, reqConfig) {
     const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
-        console.log(`[Wikipedia] Match Found -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}`);
+        console.log(`[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}`);
         return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers);
     }
-    console.log(`[Wikipedia] No match found in dictionary.`);
+    console.log(`[Wikipedia] No match found.`);
     return null;
 }
 
@@ -163,7 +163,8 @@ async function checkAfterCredits(title, year, reqConfig) {
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
+            // Strict +/- 1 Year Boundary Enforcement
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 1) return; 
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -176,7 +177,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
 
         if (potentialMatches.length === 0) {
-            console.log(`[AfterCredits] Aborting: No valid matches found.`);
+            console.log(`[AfterCredits] Aborting: No match within year boundaries.`);
             return null;
         }
 
@@ -188,53 +189,51 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
 
         const bestMatch = potentialMatches[0];
-        console.log(`[AfterCredits] Fetching Payload -> ${bestMatch.url}`);
+        console.log(`[AfterCredits] Fetching -> ${bestMatch.url}`);
         
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
+        let needsContainerCheck = true;
 
-        // 1. Parse Category Tags
+        // Extract CMS Category Tags
         let categoryTags = [];
         $$('ul.td-category li.entry-category a').each((i, el) => {
             categoryTags.push($$(el).text().trim().toLowerCase());
         });
-        console.log(`[AfterCredits] Extracted Categories: [${categoryTags.join(', ')}]`);
+        console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
-        if (categoryTags.includes('both during & after credits')) {
-            hasMid = true; 
-            hasPost = true;
-        } else {
-            if (categoryTags.includes('during credits')) hasMid = true;
-            if (categoryTags.includes('after credits')) hasPost = true;
-        }
-
-        if (categoryTags.includes('blooper') || categoryTags.includes('outtake') || categoryTags.includes('musical')) {
-            bloopers = true;
-        }
-
-        // 2. Parse Explicit Body Paragraph Metadata
-        const bodyText = $$('body').text().toLowerCase().replace(/\s+/g, ' ');
-        if (bodyText.includes('during credits? yes')) hasMid = true;
-        if (bodyText.includes('after credits? yes')) hasPost = true;
-
-        // 3. Fallback to Spoiler Block extraction
-        $$(".spoiler-wrap").each((i, el) => {
-            const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            const blockText = $$(el).text().toLowerCase(); 
+        if (categoryTags.length > 0) {
+            if (categoryTags.includes('both during & after credits')) { hasMid = true; hasPost = true; needsContainerCheck = false; }
+            if (categoryTags.includes('during credits')) { hasMid = true; }
+            if (categoryTags.includes('after credits')) { hasPost = true; }
+            if (categoryTags.includes('outtake') || categoryTags.includes('musical') || categoryTags.includes('blooper')) { bloopers = true; }
             
-            if (blockText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
-                bloopers = true;
-            } else if (!blockText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
-                if (headText.includes("during") || headText.includes("mid")) hasMid = true;
-                if (headText.includes("after") || headText.includes("post")) hasPost = true;
+            const containerTriggers = ['bonus scene', 'credits clip', 'humorous credit', 'informative'];
+            if (containerTriggers.some(tag => categoryTags.includes(tag))) {
+                needsContainerCheck = true;
+            } else if (hasMid || hasPost) {
+                needsContainerCheck = false; // Bypass container if tags perfectly describe position
             }
-        });
+        }
 
-        if (bloopers) hasMid = false;
-        const isNegative = (bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
-        
-        console.log(`[AfterCredits] Final State -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}`);
+        if (needsContainerCheck || (!hasMid && !hasPost && !bloopers)) {
+            console.log(`[AfterCredits] Categories ambiguous. Parsing body containers...`);
+            $$(".spoiler-wrap").each((i, el) => {
+                const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
+                const bodyText = $$(el).text().toLowerCase(); 
+                
+                if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
+                    bloopers = true;
+                } else if (!bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
+                    if (headText.includes("during") || headText.includes("mid")) hasMid = true;
+                    if (headText.includes("after") || headText.includes("post")) hasPost = true;
+                }
+            });
+        }
+
+        const isNegative = (!bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
+        console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { 
         console.error(`[AfterCredits Error] ${e.message}`);
@@ -257,7 +256,8 @@ async function checkMediaStinger(title, year, reqConfig) {
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
+            // Strict +/- 1 Year Boundary Enforcement
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 1) return; 
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -268,13 +268,13 @@ async function checkMediaStinger(title, year, reqConfig) {
         });
 
         if (potentialMatches.length === 0) {
-            console.log(`[MediaStinger] Aborting: No valid matches found.`);
+            console.log(`[MediaStinger] Aborting: No match within year boundaries.`);
             return null;
         }
 
         potentialMatches.sort((a, b) => (a.yearMatch !== b.yearMatch ? (a.yearMatch ? -1 : 1) : 0));
         const bestMatch = potentialMatches[0];
-        console.log(`[MediaStinger] Fetching Payload -> ${bestMatch.url}`);
+        console.log(`[MediaStinger] Fetching -> ${bestMatch.url}`);
         
         let hasMid = false, hasPost = false, noStinger = false, bloopers = false;
 
@@ -282,41 +282,69 @@ async function checkMediaStinger(title, year, reqConfig) {
             const movieRes = await axios.get(bestMatch.url, reqConfig);
             const $$ = cheerio.load(movieRes.data);
             
-            const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
-            const rawHtml = contentNode.html() || '';
-            const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
-
-            if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
-
-            const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
-            const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
-            const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
-            const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
-
-            if (midYes) hasMid = true;
-            if (postYes) hasPost = true;
-            if (midNo && postNo) noStinger = true;
-
-            if (!hasMid && !hasPost && !noStinger) {
-                console.log(`[MediaStinger] Falling back to Legacy Regex parsing...`);
+            // Explicit SEO Header Parsing
+            const seoText = $$('.groupingforseo').text().toLowerCase();
+            if (seoText) {
+                console.log(`[MediaStinger] SEO Header Found: "${seoText}"`);
                 
-                const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/.test(fullText);
-                const legacyPostNo = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/.test(fullText);
+                // First check for negation
+                if (seoText.match(/\b(no|zero)\b/)) {
+                    console.log(`[MediaStinger] SEO Header negation detected.`);
+                    if (seoText.includes('during') || seoText.includes('mid')) hasMid = false;
+                    if (seoText.includes('after') || seoText.includes('post')) hasPost = false;
+                    if (seoText.includes('blooper') || seoText.includes('outtake')) bloopers = false;
+                    
+                    // If the SEO text is a blanket negative without specifying mid/post
+                    if (!seoText.includes('during') && !seoText.includes('mid') && !seoText.includes('after') && !seoText.includes('post')) {
+                        noStinger = true;
+                    }
+                } else {
+                    // No negation found, check for positives
+                    if (seoText.includes('during') || seoText.includes('mid')) hasMid = true;
+                    if (seoText.includes('after') || seoText.includes('post')) hasPost = true;
+                    if (seoText.includes('blooper') || seoText.includes('outtake')) bloopers = true;
+                }
+            }
 
-                if (/(extra scene|stinger|animation|extra shot|shot|audio|voice).{0,60}during the credits/.test(fullText) && !legacyMidNo) hasMid = true;
-                if (/(extra scene|stinger|extra shot|shot|audio|voice).{0,60}after the credits/.test(fullText) && !legacyPostNo) hasPost = true;
+            // Fallback to body parsing if SEO header is missing or non-definitive
+            if (!hasMid && !hasPost && !bloopers && !noStinger) {
+                console.log(`[MediaStinger] SEO Header missing/ambiguous. Parsing body text...`);
+                const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
+                const rawHtml = contentNode.html() || '';
+                const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
 
-                if (legacyMidNo && legacyPostNo) {
-                    noStinger = true;
-                } else if (!hasMid && !hasPost && (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra'))) {
-                    noStinger = true;
+                if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
+
+                const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
+                const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
+                const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
+                const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
+
+                if (midYes) hasMid = true;
+                if (postYes) hasPost = true;
+                if (midNo && postNo) noStinger = true;
+
+                if (!hasMid && !hasPost && !noStinger) {
+                    const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/.test(fullText);
+                    const legacyPostNo = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/.test(fullText);
+
+                    if (/(extra scene|stinger|animation).{0,60}during the credits/.test(fullText) && !legacyMidNo) hasMid = true;
+                    if (/(extra scene|stinger).{0,60}after the credits/.test(fullText) && !legacyPostNo) hasPost = true;
+
+                    if (legacyMidNo && legacyPostNo) {
+                        noStinger = true;
+                    } else if (!hasMid && !hasPost && (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra'))) {
+                        noStinger = true;
+                    }
                 }
             }
 
             if (hasMid || hasPost || bloopers) noStinger = false;
+            // Strict negative determination if scenes are explicitly false
+            if (!hasMid && !hasPost && !bloopers && seoText === '') noStinger = true; 
         }
         
-        console.log(`[MediaStinger] Final State -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}`);
+        console.log(`[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
     } catch (e) { 
         console.error(`[MediaStinger Error] ${e.message}`);
@@ -350,7 +378,7 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
             return null;
         }
 
-        console.log(`[TMDB] Keywords Found -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}`);
+        console.log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { 
         console.error(`[TMDB Error] ${e.message}`);
@@ -369,7 +397,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.20',
+        version: '1.6.22',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -407,14 +435,12 @@ const streamHandler = async (req, res) => {
     if (streamCache.has(cacheKey)) {
         const cached = streamCache.get(cacheKey);
         if (Date.now() < cached.expiresAt) {
-            console.log(`[Stream] Cache HIT. Returning payload.`);
-            console.log(`=================================\n`);
+            console.log(`[Stream] Cache HIT.`);
             return res.json({ streams: [cached.stream] });
         } else {
             streamCache.delete(cacheKey);
         }
     }
-    console.log(`[Stream] Cache MISS. Initiating scraper sequence.`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), config.timeout);
@@ -424,10 +450,11 @@ const streamHandler = async (req, res) => {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, reqConfig);
         const title = metaRes.data?.meta?.name;
         const year = metaRes.data?.meta?.year; 
-        console.log(`[Stream] Cinemeta Details -> Title: "${title}", Year: ${year}`);
 
         if (title) {
-            console.log(`[Stream] Firing TIER 1 Race: AfterCredits vs MediaStinger`);
+            console.log(`[Stream] Target: "${title}" (${year})`);
+            
+            // Tier 1: Dedicated Scrapers
             let result = await new Promise((resolve) => {
                 const sources = [ 
                     checkAfterCredits(title, year, reqConfig), 
@@ -441,43 +468,43 @@ const streamHandler = async (req, res) => {
                         finished++;
                         if (val) {
                             if (val.mid || val.post || val.bloopers) {
-                                console.log(`[Tier 1] Positive scene found by ${val.source}. Aborting pending requests.`);
-                                controller.abort(); 
+                                console.log(`[Tier 1] Positive scene found by ${val.source}. Skipping fallbacks.`);
+                                controller.abort(); // Cancel pending Tier 1 requests
                                 resolve(val); 
                             } else {
-                                console.log(`[Tier 1] Negative/Empty result queued from ${val.source}.`);
                                 if (val.no) bestFallback = val; 
                                 else if (!bestFallback) bestFallback = val;
                             }
                         }
                         if (finished === sources.length) {
-                            console.log(`[Tier 1] All sources finished without positive. Proceeding with fallbacks.`);
+                            console.log(`[Tier 1] No positive scenes. Proceeding to TMDB/Wiki fallbacks.`);
                             resolve(bestFallback);
                         }
                     });
                 });
             });
 
+            // Tier 2: TMDB (Sequential Fallback)
             if (!result || (!result.mid && !result.post && !result.bloopers)) {
-                console.log(`[Stream] Triggering TIER 2: TMDB`);
                 const tmdbResult = await checkTmdb(id, apiKey, reqConfig);
                 if (tmdbResult && (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers)) {
-                    console.log(`[Stream] Positive scene found via TMDB override.`);
+                    console.log(`[Stream] Overriding Tier 1 with positive TMDB data.`);
                     result = tmdbResult; 
                 }
             }
 
+            // Tier 3: Wikipedia (Sequential Fallback)
             if (!result || (!result.mid && !result.post && !result.bloopers)) {
-                console.log(`[Stream] Triggering TIER 3: Wikipedia`);
                 const wikiResult = await checkWikipedia(title, reqConfig);
                 if (wikiResult && (wikiResult.mid || wikiResult.post || wikiResult.bloopers)) {
-                    console.log(`[Stream] Positive scene found via Wikipedia override.`);
+                    console.log(`[Stream] Overriding Tier 1/2 with positive Wikipedia data.`);
                     result = wikiResult;
                 }
             }
 
             const isAggregatedError = !result;
             const finalResult = result || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, source: 'Aggregated' };
+
             console.log(`[Stream] Final Resolution -> Source Used: ${finalResult.source}`);
 
             const stream = {
@@ -489,18 +516,15 @@ const streamHandler = async (req, res) => {
             const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
             streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
             
-            console.log(`[Stream] Payload generated and cached. Sequence complete.`);
-            console.log(`=================================\n`);
             return res.json({ streams: [stream] });
         }
     } catch (e) { 
-        console.error(`[Stream Error] Main Handler Failed: ${e.message}`); 
+        console.error(`[Stream Error] ${e.message}`);
     } finally {
         clearTimeout(timeoutId);
+        controller.abort();
     }
     
-    console.log(`[Stream] Sequence aborted. Returning empty streams.`);
-    console.log(`=================================\n`);
     res.json({ streams: [] });
 };
 
