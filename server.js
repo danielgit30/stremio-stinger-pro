@@ -13,13 +13,15 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 10000
+    timeout: 10000 
 };
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
+// Dynamic Stream Cache (In-Memory)
 const streamCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; 
 
+// Wikipedia Dictionary Cache
 let wikiCache = new Map();
 let wikiLastFetched = 0;
 const WIKI_TTL = 24 * 60 * 60 * 1000; 
@@ -43,7 +45,8 @@ const isTitleMatch = (linkText, targetTitle) => {
 
     if (tLink === tTarget) return true;
 
-    const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|\s)+$/;
+    // Expanded safeSuffixes to account for verbose MediaStinger search titles
+    const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
         const remainder = tLink.substring(tTarget.length).trim();
@@ -245,9 +248,11 @@ async function checkMediaStinger(title, year) {
             const movieRes = await axios.get(bestMatch.url, config);
             const $$ = cheerio.load(movieRes.data);
             
-            // Isolate the primary text container, falling back through legacy DOM structures
             const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
-            const fullText = contentNode.text().toLowerCase().replace(/\s+/g, ' ');
+            const rawHtml = contentNode.html() || '';
+            
+            // Replaces HTML tags with spaced versions to prevent Cheerio from mashing text together
+            const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
 
             if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
 
@@ -337,7 +342,6 @@ const streamHandler = async (req, res) => {
     const { type, id } = req.params;
     if (type !== 'movie') return res.json({ streams: [] });
 
-    // Parse URL Config Parameters
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
 
@@ -347,7 +351,6 @@ const streamHandler = async (req, res) => {
         showBloopers: rawStyle.includes('-bloopers')
     };
 
-    // Check Cache
     const cacheKey = `${id}_${rawStyle}`;
     if (CACHE_TTL > 0 && streamCache.has(cacheKey)) {
         const cached = streamCache.get(cacheKey);
@@ -361,7 +364,6 @@ const streamHandler = async (req, res) => {
 
         if (title) {
             
-            // TIER 1: Dedicated Scraper Race
             let result = await new Promise((resolve) => {
                 const sources = [ checkAfterCredits(title, year), checkMediaStinger(title, year) ];
                 let finished = 0;
@@ -387,26 +389,21 @@ const streamHandler = async (req, res) => {
                     });
                 });
                 
-                // Hard timeout to prevent UI hanging
                 setTimeout(() => resolve(bestFallback), 4500);
             });
 
-            // TIER 2: TMDB Metadata Fallback
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const tmdbResult = await checkTmdb(id, apiKey);
                 if (tmdbResult) result = tmdbResult; 
             }
 
-            // TIER 3: Wikipedia List Fallback
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const wikiResult = await checkWikipedia(title);
                 if (wikiResult) result = wikiResult;
             }
 
-            // Default State
             const finalResult = result || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, source: 'Aggregated' };
 
-            // Construct Stremio Payload
             const stream = {
                 name: 'After-Credits Scenes',
                 title: `${formatMessage(styleConfig, finalResult)}${styleConfig.showSource ? `\nSource: ${finalResult.source}` : ''}`,
@@ -427,7 +424,6 @@ app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:p1/stream/:type/:id.json', streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
 
-// Initialize server and pre-warm Wikipedia cache
 app.listen(process.env.PORT || 7000, () => {
     buildWikiIndex(); 
     console.log('[System] Stremio Stinger Pro initialized.');
