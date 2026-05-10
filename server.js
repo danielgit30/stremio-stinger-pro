@@ -124,14 +124,11 @@ async function checkAfterCredits(title, year) {
             const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            // Strict Exact Title Match ONLY
             if (cleanLinkText === cleanTargetTitle) {
-                // Perfect Match: Title + Year (+/- 1 year tolerance)
                 if (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1) {
                     targetUrl = $(el).attr('href');
                     hasAsterisk = rawLinkText.endsWith('*');
                 } else if (!exactMatchUrl) {
-                    // Fallback Match: Title matches exactly, year is missing/different
                     exactMatchUrl = $(el).attr('href');
                     exactMatchAsterisk = rawLinkText.endsWith('*');
                 }
@@ -148,17 +145,20 @@ async function checkAfterCredits(title, year) {
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
         
-        // Stinger check
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             if (headText.includes("during") || headText.includes("mid")) hasMid = true;
             if (headText.includes("after") || headText.includes("post")) hasPost = true;
         });
 
-        // Strict Blooper DOM Check (Ignores sidebars/footers)
         const pText = $$('article p, .entry-content p, #main p').text().toLowerCase();
         if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
             bloopers = true;
+        }
+
+        // Global Override: Prevent Bloopers from registering as Mid-Credits
+        if (bloopers) {
+            hasMid = false;
         }
         
         return getResultObj(hasMid, hasPost, false, targetUrl, 'AfterCredits', bloopers);
@@ -182,20 +182,17 @@ async function checkMediaStinger(title, year) {
             const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            // Strict Exact Title Match ONLY
             if (cleanLinkText === cleanTargetTitle) {
-                // Perfect Match: Title + Year (+/- 1 year tolerance)
                 if (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1) {
                     exactMatchWithYear = el;
                     return false; 
                 }
-                // Fallback Match: Title matches exactly, year is missing/different
                 if (!exactMatch) exactMatch = el;
             }
         });
 
         const finalMatch = exactMatchWithYear || exactMatch;
-        if (!finalMatch) return null; // Force null if no exact title exists
+        if (!finalMatch) return null; 
 
         const targetUrl = $(finalMatch).find("a").first().attr("href");
         const subtitle = $(finalMatch).find(".subtitle").first().text().trim().toLowerCase();
@@ -212,7 +209,6 @@ async function checkMediaStinger(title, year) {
             if (subtitle.includes("after")) hasPost = true;
         }
 
-        // Strict Blooper DOM Check
         if (targetUrl) {
             const movieRes = await axios.get(targetUrl, config);
             const $$ = cheerio.load(movieRes.data);
@@ -220,7 +216,7 @@ async function checkMediaStinger(title, year) {
             
             if (pText.match(/\b(bloopers?|outtakes?)\b/)) {
                 bloopers = true;
-                hasMid = false; // Strip false positives
+                hasMid = false; 
             }
         }
         
@@ -257,7 +253,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.0',
+        version: '1.6.1',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -300,11 +296,12 @@ const streamHandler = async (req, res) => {
         const year = metaRes.data?.meta?.year; 
 
         if (title) {
+            
+            // --- TIER 1: The Web Race (AfterCredits & MediaStinger) ---
             let result = await new Promise((resolve) => {
                 const sources = [
                     checkAfterCredits(title, year),
-                    checkMediaStinger(title, year),
-                    checkTmdb(id, apiKey)
+                    checkMediaStinger(title, year)
                 ];
 
                 let finished = 0;
@@ -325,10 +322,23 @@ const streamHandler = async (req, res) => {
                     });
                 });
                 
-                setTimeout(() => resolve(bestFallback), 5500);
+                setTimeout(() => resolve(bestFallback), 4500);
             });
 
-            if (!result || (!result.mid && !result.post && !result.bloopers)) {
+            // --- TIER 2: Metadata Fallback (TMDB) ---
+            if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
+                const tmdbResult = await checkTmdb(id, apiKey);
+                if (tmdbResult) {
+                    if (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers) {
+                        result = tmdbResult;
+                    } else if (!result) {
+                        result = tmdbResult; 
+                    }
+                }
+            }
+
+            // --- TIER 3: Ultimate Fallback (Wikipedia) ---
+            if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const wikiResult = await checkWikipedia(title);
                 if (wikiResult) {
                     result = wikiResult;
