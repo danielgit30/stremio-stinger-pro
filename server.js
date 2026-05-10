@@ -14,14 +14,6 @@ const config = {
 };
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
-// --- State & Caching ---
-const streamCache = new Map();
-const CACHE_TTL = 30 * 60 * 1000; 
-
-let wikiCache = new Map();
-let wikiLastFetched = 0;
-const WIKI_TTL = 24 * 60 * 60 * 1000;
-
 // --- Utilities ---
 const isTitleMatch = (linkText, targetTitle) => {
     let tLink = linkText.toLowerCase().replace(/\(\d{4}\)/g, '').trim();
@@ -45,15 +37,9 @@ const isTitleMatch = (linkText, targetTitle) => {
         if (safeSuffixes.test(remainder)) return true;
     }
     
-    if (tLink.length > 0 && tTarget.startsWith(tLink)) {
-         const remainder = tTarget.substring(tLink.length).trim();
-         if (safeSuffixes.test(remainder)) return true;
-    }
-
     return false;
 };
 
-// Strict normalization for Wikipedia dictionary matching
 const wikiNormalize = (title) => {
     return title.toLowerCase()
         .replace(/^(the|a|an)\s+/i, '')
@@ -70,13 +56,10 @@ const formatMessage = (styleConfig, data) => {
     const isSimple = styleConfig.style === 'simple';
 
     if (isSimple) {
-        if (data.mid && data.post) {
-            output.push("Mid-Credits Scene\nPost-Credits Scene");
-        } else if (data.mid && !data.post) {
-            output.push("Mid-Credits Scene");
-        } else if (data.post && !data.mid) {
-            output.push("Post-Credits Scene");
-        } else if (!data.bloopers || !styleConfig.showBloopers) { 
+        if (data.mid && data.post) output.push("Mid-Credits Scene\nPost-Credits Scene");
+        else if (data.mid) output.push("Mid-Credits Scene");
+        else if (data.post) output.push("Post-Credits Scene");
+        else if (!data.bloopers || !styleConfig.showBloopers) { 
             if (data.no || (data.bloopers && !styleConfig.showBloopers)) output.push("No Bonus Scenes");
             else output.push("No Stingers Found");
         }
@@ -102,50 +85,6 @@ const formatMessage = (styleConfig, data) => {
 };
 
 // --- Scrapers ---
-async function buildWikiIndex() {
-    if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
-    try {
-        const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', config);
-        const $ = cheerio.load(res.data);
-        const newCache = new Map();
-        
-        $("table.wikitable tr").each((i, el) => {
-            let titleText = $(el).find("i").first().text();
-            if (!titleText) {
-                const secondCol = $(el).find("td").eq(1).text();
-                if (secondCol) titleText = secondCol;
-            }
-            
-            if (!titleText) return;
-            const cleanTitle = wikiNormalize(titleText);
-
-            const rowText = $(el).text().toLowerCase();
-            let hasMid = rowText.includes('mid-') || rowText.includes('during');
-            let hasPost = rowText.includes('post-') || rowText.includes('after');
-            let hasBloopers = !!rowText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
-
-            if (hasBloopers) hasMid = false; 
-
-            newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
-        });
-        
-        wikiCache = newCache;
-        wikiLastFetched = Date.now();
-    } catch (e) {
-        console.error(`[Error] Wikipedia index failed: ${e.message}`);
-    }
-}
-
-async function checkWikipedia(title) {
-    await buildWikiIndex();
-    const cleanQuery = wikiNormalize(title);
-    if (wikiCache.has(cleanQuery)) {
-        const data = wikiCache.get(cleanQuery);
-        return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers);
-    }
-    return null;
-}
-
 async function checkAfterCredits(title, year) {
     try {
         const searchRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title)}`, config);
@@ -154,9 +93,12 @@ async function checkAfterCredits(title, year) {
         let potentialMatches = [];
         $('h3.entry-title a, .entry-title a').each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
-            const yearMatch = rawLinkText.match(/\((\d{4})\)/);
-            const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;
+            const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
+            const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
+
+            // Strict Year Check: Discard if both years known and diff > 2
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return;
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -168,9 +110,10 @@ async function checkAfterCredits(title, year) {
             }
         });
 
+        // Priority Sort: Year Match > Asterisk > Review Status
         potentialMatches.sort((a, b) => {
-            if (a.hasAsterisk !== b.hasAsterisk) return a.hasAsterisk ? -1 : 1;
             if (a.yearMatch !== b.yearMatch) return a.yearMatch ? -1 : 1;
+            if (a.hasAsterisk !== b.hasAsterisk) return a.hasAsterisk ? -1 : 1;
             if (a.isReview !== b.isReview) return a.isReview ? 1 : -1;
             return 0;
         });
@@ -178,40 +121,25 @@ async function checkAfterCredits(title, year) {
         if (potentialMatches.length === 0) return null;
 
         const bestMatch = potentialMatches[0];
-        const targetUrl = bestMatch.url;
-        const hasAsterisk = bestMatch.hasAsterisk;
-
-        const movieRes = await axios.get(targetUrl, config);
+        const movieRes = await axios.get(bestMatch.url, config);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
         
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const bodyText = $$(el).text().toLowerCase(); 
-
-            const localBloopers = bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
-            const isNegative = bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/);
-
-            if (localBloopers) {
-                bloopers = true;
-            } else if (!isNegative) {
+            if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
+            else if (!bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             }
         });
 
-        const contentText = $$('article, .entry-content, #main, .tagcloud, .tags, .post-tags, [rel="tag"]').text().toLowerCase();
-        if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
-            bloopers = true;
-        }
+        const contentText = $$('article, .entry-content, #main, [rel="tag"]').text().toLowerCase();
+        if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
+        if (bloopers) hasMid = false;
 
-        if (bloopers) {
-            hasMid = false;
-        }
-
-        const noStingers = (!hasAsterisk && !bloopers);
-
-        return getResultObj(hasMid, hasPost, noStingers, targetUrl, 'AfterCredits', bloopers);
+        return getResultObj(hasMid, hasPost, (!bestMatch.hasAsterisk && !bloopers), bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { return null; }
 }
 
@@ -224,9 +152,11 @@ async function checkMediaStinger(title, year) {
         $("ul.highlights li").each((i, el) => {
             const aTag = $(el).find("a").first();
             const rawLinkText = aTag.text().toLowerCase().trim();
-            const yearMatch = rawLinkText.match(/\((\d{4})\)/);
-            const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;
+            const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
+            const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
+
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return;
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -237,41 +167,21 @@ async function checkMediaStinger(title, year) {
             }
         });
 
-        potentialMatches.sort((a, b) => {
-            if (a.yearMatch !== b.yearMatch) return a.yearMatch ? -1 : 1;
-            return 0;
-        });
+        potentialMatches.sort((a, b) => (a.yearMatch !== b.yearMatch ? (a.yearMatch ? -1 : 1) : 0));
 
         if (potentialMatches.length === 0) return null;
 
         const bestMatch = potentialMatches[0];
-        const targetUrl = bestMatch.url;
-        const subtitle = bestMatch.subtitle;
-        
-        let hasMid = false;
-        let hasPost = false;
-        let noStinger = false;
-        let bloopers = false;
+        let hasMid = bestMatch.subtitle.includes("during"), hasPost = bestMatch.subtitle.includes("after"), noStinger = bestMatch.subtitle.includes("no extra") || bestMatch.subtitle.includes("no scene"), bloopers = false;
 
-        if (subtitle.includes("no extra") || subtitle.includes("no scene") || subtitle.includes("are no")) {
-            noStinger = true;
-        } else {
-            if (subtitle.includes("during")) hasMid = true;
-            if (subtitle.includes("after")) hasPost = true;
-        }
-
-        if (targetUrl) {
-            const movieRes = await axios.get(targetUrl, config);
+        if (bestMatch.url) {
+            const movieRes = await axios.get(bestMatch.url, config);
             const $$ = cheerio.load(movieRes.data);
-            const contentText = $$('article, #content, .post-content, #main, .entry, .tags, [rel="tag"]').text().toLowerCase();
-            
-            if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
-                bloopers = true;
-                hasMid = false; 
-            }
+            const contentText = $$('article, #content, [rel="tag"]').text().toLowerCase();
+            if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) { bloopers = true; hasMid = false; }
         }
         
-        return getResultObj(hasMid, hasPost, noStinger, targetUrl, 'MediaStinger', bloopers);
+        return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
     } catch (e) { return null; }
 }
 
