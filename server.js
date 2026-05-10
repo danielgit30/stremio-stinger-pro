@@ -97,7 +97,7 @@ const formatMessage = (styleConfig, data) => {
     }
 
     if (showBloopers && data.bloopers) {
-        output.push(isSimple ? "Outtake" : "🎭 Outtake");
+        output.push(isSimple ? "Outtakes" : "🎭 Outtakes");
     }
 
     return output.join('\n');
