@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 15000
+    timeout: 8000 
 };
 const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
@@ -97,7 +97,7 @@ const formatMessage = (styleConfig, data) => {
     }
 
     if (showBloopers && data.bloopers) {
-        output.push(isSimple ? "Outtakes" : "🎭 Outtakes");
+        output.push(isSimple ? "Outtakes Found" : "🎭 Stay For The Outtakes");
     }
 
     return output.join('\n');
@@ -119,6 +119,7 @@ async function buildWikiIndex(reqConfig = config) {
             let titleText = $(el).find("i").first().text();
             if (!titleText) titleText = $(el).find("td").eq(1).text(); 
             if (!titleText) return;
+            
             const cleanTitle = wikiNormalize(titleText);
             const rowText = $(el).text().toLowerCase();
             
@@ -145,8 +146,9 @@ async function checkWikipedia(title, reqConfig) {
     const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
-        console.log(`[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}`);
-        return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers);
+        let isDefinitive = true; // Any match in the Wikipedia list is considered a definitive state
+        console.log(`[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}, Definitive: ${isDefinitive}`);
+        return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers, isDefinitive);
     }
     console.log(`[Wikipedia] No match found.`);
     return null;
@@ -357,9 +359,14 @@ async function checkMediaStinger(title, year, reqConfig) {
             if (hasMid || hasPost || bloopers) noStinger = false;
             if (!hasMid && !hasPost && !bloopers && seoText === '') noStinger = true; 
         }
+
+        let isDefinitive = false;
+        if (hasMid || hasPost || bloopers || noStinger) {
+            isDefinitive = true;
+        }
         
-        console.log(`[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}`);
-        return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
+        console.log(`[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
+        return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers, isDefinitive);
     } catch (e) { 
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
             console.error(`[MediaStinger Error] ${e.message}`);
@@ -392,8 +399,9 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
             return null;
         }
 
-        console.log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}`);
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
+        let isDefinitive = true; // Finding scene keywords on TMDB is definitive
+        console.log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
+        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, isDefinitive);
     } catch (e) { 
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
             console.error(`[TMDB Error] ${e.message}`);
@@ -413,7 +421,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.5',
+        version: '1.8.4',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -495,27 +503,27 @@ const streamHandler = async (req, res) => {
                 // 2. Tier 2: MediaStinger
                 console.log(`[Stream] Firing Tier 2: MediaStinger`);
                 let msResult = await checkMediaStinger(title, year, reqConfig);
-                if (msResult && (msResult.mid || msResult.post || msResult.bloopers)) {
+                if (msResult && msResult.definitive) {
                     finalResult = msResult;
-                    console.log(`[Stream] Positive scene found by MediaStinger. Skipping remaining scrapers.`);
+                    console.log(`[Stream] Definitive state found by MediaStinger. Skipping remaining scrapers.`);
                 } else {
                     updateFallback(msResult);
 
                     // 3. Tier 3: TMDB
                     console.log(`[Stream] Firing Tier 3: TMDB`);
                     let tmdbResult = await checkTmdb(id, apiKey, reqConfig);
-                    if (tmdbResult && (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers)) {
+                    if (tmdbResult && tmdbResult.definitive) {
                         finalResult = tmdbResult;
-                        console.log(`[Stream] Positive scene found by TMDB. Skipping Wikipedia.`);
+                        console.log(`[Stream] Definitive state found by TMDB. Skipping Wikipedia.`);
                     } else {
                         updateFallback(tmdbResult);
 
                         // 4. Tier 4: Wikipedia
                         console.log(`[Stream] Firing Tier 4: Wikipedia`);
                         let wikiResult = await checkWikipedia(title, reqConfig);
-                        if (wikiResult && (wikiResult.mid || wikiResult.post || wikiResult.bloopers || (!wikiResult.mid && !wikiResult.post && !wikiResult.bloopers))) {
+                        if (wikiResult && wikiResult.definitive) {
                             finalResult = wikiResult;
-                            console.log(`[Stream] Match found by Wikipedia.`);
+                            console.log(`[Stream] Definitive state found by Wikipedia.`);
                         } else {
                             updateFallback(wikiResult);
                         }
