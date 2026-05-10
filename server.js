@@ -182,12 +182,13 @@ async function checkAfterCredits(title, year, reqConfig) {
         let hasMid = false, hasPost = false, bloopers = false;
         
         $$(".spoiler-wrap").each((i, el) => {
+            // Isolate head and body to prevent cross-contamination
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            const bodyText = $$(el).text().toLowerCase(); 
+            const bodyText = $$(el).find(".spoiler-body").text().toLowerCase(); 
             
             if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
                 bloopers = true;
-            } else if (!bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/) || bodyText.match(/(extra shot|audio|voice|laugh|but|however)/)) {
+            } else if (bodyText.includes("yes") || !bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             }
@@ -197,7 +198,9 @@ async function checkAfterCredits(title, year, reqConfig) {
         if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
         if (bloopers) hasMid = false;
 
-        const isNegative = (!bestMatch.hasAsterisk && !bloopers);
+        // Corrected Asterisk Logic
+        const isNegative = (bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
+        
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { 
         return null; 
