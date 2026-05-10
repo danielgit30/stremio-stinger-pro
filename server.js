@@ -17,20 +17,24 @@ const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e";
 // --- State & Caching ---
 const streamCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; 
-const MAX_CACHE_SIZE = 1000; 
 
 let wikiIndex = new Set();
 let wikiLastFetched = 0;
 const WIKI_TTL = 24 * 60 * 60 * 1000;
 
 // --- Utilities ---
-const normalizeTitle = (title) => {
-    return title.toLowerCase()
+const normalizeTitle = (title, isSearchLink = false) => {
+    let t = title.toLowerCase()
         .replace(/^(the|a|an)\s+/, '') 
         .replace(/,\s*(the|a|an)$/, '') 
-        .replace(/\s*\(.*?\)\s*/g, '') 
-        .replace(/[^a-z0-9]/g, '')     
-        .trim();
+        .replace(/\s*\(.*?\)\s*/g, '');
+    
+    // Selectively strip trailing tags from search links to allow exact matching
+    if (isSearchLink) {
+        t = t.replace(/\b(bloopers?|outtakes?|extras?|stingers?|post credits?|after credits?|reviews?)\b/g, '');
+    }
+    
+    return t.replace(/[^a-z0-9]/g, '').trim();
 };
 
 const getResultObj = (mid, post, no, url, source, bloopers = false) => ({ mid, post, no, url, source, bloopers });
@@ -117,9 +121,7 @@ async function checkAfterCredits(title, year) {
             if (targetUrl) return false;
 
             const rawLinkText = $(el).text().toLowerCase().trim();
-            if (rawLinkText.includes('review')) return;
-
-            const cleanLinkText = normalizeTitle(rawLinkText);
+            const cleanLinkText = normalizeTitle(rawLinkText, true);
             const yearMatch = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;
             const targetYear = year ? parseInt(year) : null;
@@ -184,7 +186,7 @@ async function checkMediaStinger(title, year) {
 
         $("ul.highlights li").each((i, el) => {
             const rawLinkText = $(el).find("a").first().text().toLowerCase().trim();
-            const cleanLinkText = normalizeTitle(rawLinkText);
+            const cleanLinkText = normalizeTitle(rawLinkText, true);
             
             const yearMatch = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatch ? parseInt(yearMatch[1]) : null;

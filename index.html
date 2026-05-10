@@ -132,7 +132,6 @@
             accent-color: #8a5aE9;
             cursor: pointer;
         }
-        /* CSS class to grey out disabled test options */
         .test-controls label.disabled-label {
             opacity: 0.3;
             cursor: not-allowed;
@@ -206,7 +205,7 @@
             
             <div class="checkbox-group">
                 <input type="checkbox" id="showSource" checked onchange="updatePreview()">
-                <label for="showSource">Show Source (e.g., "Source: TMDB")</label>
+                <label for="showSource">Show Source (e.g., "Source: AfterCredits")</label>
             </div>
             <div class="checkbox-group">
                 <input type="checkbox" id="showBloopers" onchange="updatePreview()">
@@ -255,21 +254,18 @@
         let currentHttpsUrl = '';
 
         function updatePreview() {
-            // Configuration Flags
             const style = document.getElementById('displayStyle').value;
             const configShowSource = document.getElementById('showSource').checked;
             const configShowBloopers = document.getElementById('showBloopers').checked;
             
-            // Toggle Blooper Test Option Visibility
             const testBloopersContainer = document.getElementById('testBloopersContainer');
             if (configShowBloopers) {
                 testBloopersContainer.style.display = 'flex';
             } else {
                 testBloopersContainer.style.display = 'none';
-                document.getElementById('testBloopers').checked = false; // Uncheck when hidden
+                document.getElementById('testBloopers').checked = false; 
             }
 
-            // Get Checkbox Elements
             const testWikiBox = document.getElementById('testWiki');
             const testMidBox = document.getElementById('testMid');
             const testPostBox = document.getElementById('testPost');
@@ -277,7 +273,6 @@
 
             const isWiki = testWikiBox.checked;
 
-            // Disable and grey out other options if Wiki is selected
             const dependentBoxes = [testMidBox, testPostBox, testBloopersBox];
             dependentBoxes.forEach(box => {
                 box.disabled = isWiki;
@@ -288,8 +283,6 @@
                 }
             });
 
-            // Simulation API Flags
-            // If Wiki is checked, treat the others as false regardless of their checked state
             const isMid = !isWiki && testMidBox.checked;
             const isPost = !isWiki && testPostBox.checked;
             const isBloopers = !isWiki && testBloopersBox.checked;
@@ -298,7 +291,6 @@
             
             let lines = [];
 
-            // Core Stinger Logic Match
             if (isWiki) {
                 lines.push(style === 'simple' ? "Unclassified Scene" : "❓ Unclassified Scene");
             } else {
@@ -308,22 +300,20 @@
                     lines.push(style === 'simple' ? "Mid-Credits Scene" : "⏳ Mid-Credits Scene");
                 } else if (isPost) {
                     lines.push(style === 'simple' ? "Post-Credits Scene" : "🎬 Post-Credits Scene");
-                } else if (!isBloopers) {
-                    // Suppress negative text if there are bloopers available
+                } else if (!isBloopers || !configShowBloopers) {
                     lines.push(style === 'simple' ? "No Stingers Found" : "🕵️‍♂️ Couldn't Find Stingers");
                 }
             }
 
-            // Blooper Logic Match
             if (configShowBloopers && isBloopers) {
                 lines.push(style === 'simple' ? "Outtakes Found" : "🎭 Stay For The Outtakes");
             }
 
-            // Source Logic Match
             if (configShowSource) {
-                let mockSource = "Aggregated";
+                let mockSource = "TMDB";
                 if (isWiki) mockSource = "Wikipedia";
                 else if (isMid || isPost || isBloopers) mockSource = "AfterCredits";
+                else mockSource = "Aggregated";
                 lines.push(`Source: ${mockSource}`);
             }
             
