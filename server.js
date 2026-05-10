@@ -169,7 +169,6 @@ const parseSearchPageAfterCredits = (html, title, targetYear) => {
         if (isTitleMatch(rawLinkText, title)) {
             matches.push({
                 url: $(el).attr('href'),
-                hasAsterisk: rawLinkText.includes('*'),
                 isReview: rawLinkText.includes('review'),
                 yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 2),
                 rawText: rawLinkText
@@ -227,9 +226,8 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
         console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
-        // Explicit Definitive Negation Check
-        if (categoryTags.includes('non-stingers') || bestMatch.hasAsterisk) {
-            console.log(`[AfterCredits] 'non-stingers' category or explicit asterisk detected. Forcing definitive negative state.`);
+        if (categoryTags.includes('non-stingers')) {
+            console.log(`[AfterCredits] 'non-stingers' category detected. Forcing definitive negative state.`);
             return getResultObj(false, false, true, bestMatch.url, 'AfterCredits', false, true);
         }
 
@@ -273,7 +271,6 @@ async function checkAfterCredits(title, year, reqConfig) {
             }
         });
 
-        // Set definitive flag if we found a verified scene
         let isDefinitive = false;
         if (hasMid || hasPost || bloopers) {
             isDefinitive = true;
@@ -480,7 +477,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.3',
+        version: '1.7.4',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
