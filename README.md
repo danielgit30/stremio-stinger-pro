@@ -8,7 +8,7 @@ Stremio Stinger Pro is a high-speed Stremio addon that detects mid-credit scenes
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
 ## Upcoming Features
-- [ ] Nothing for now.
+- [ ] Add option to see sequel setup stingers.
 
 ---
 
