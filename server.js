@@ -13,9 +13,9 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000
+    timeout: 15000
 };
-const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
+const DEFAULT_TMDB_KEY = "e547e17d4e91f3e62a571655cd1ccaff"; 
 
 const streamCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; 
@@ -438,9 +438,9 @@ const streamHandler = async (req, res) => {
                 });
                 
                 setTimeout(() => {
-                    console.log(`[Tier 1] 6500ms Hard Timeout reached. Passing best fallback: ${bestFallback ? bestFallback.source : 'None'}`);
+                    console.log(`[Tier 1] 13500ms Hard Timeout reached. Passing best fallback: ${bestFallback ? bestFallback.source : 'None'}`);
                     resolve(bestFallback);
-                }, 6500);
+                }, 13500);
             });
 
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
