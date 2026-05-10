@@ -213,7 +213,7 @@
                 <div class="test-controls">
                     <label><input type="checkbox" id="testMid" checked onchange="updatePreview()"> Mid</label>
                     <label><input type="checkbox" id="testPost" checked onchange="updatePreview()"> Post</label>
-                    <label><input type="checkbox" id="testBloopers" onchange="updatePreview()"> Bloopers</label>
+                    <label id="testBloopersContainer" style="display: none;"><input type="checkbox" id="testBloopers" onchange="updatePreview()"> Bloopers</label>
                     <label><input type="checkbox" id="testWiki" onchange="updatePreview()"> Wiki (Fallback)</label>
                 </div>
 
@@ -252,6 +252,15 @@
             const configShowSource = document.getElementById('showSource').checked;
             const configShowBloopers = document.getElementById('showBloopers').checked;
             
+            // Toggle Blooper Test Option Visibility
+            const testBloopersContainer = document.getElementById('testBloopersContainer');
+            if (configShowBloopers) {
+                testBloopersContainer.style.display = 'flex';
+            } else {
+                testBloopersContainer.style.display = 'none';
+                document.getElementById('testBloopers').checked = false; // Uncheck when hidden to clear payload
+            }
+
             // Simulation API Flags
             const isMid = document.getElementById('testMid').checked;
             const isPost = document.getElementById('testPost').checked;
@@ -272,10 +281,9 @@
                     lines.push(style === 'simple' ? "Mid-Credits Scene" : "⏳ Mid-Credits Scene");
                 } else if (isPost) {
                     lines.push(style === 'simple' ? "Post-Credits Scene" : "🎬 Post-Credits Scene");
-                } else if (isBloopers) {
+                } else if (!isBloopers) {
+                    // Suppress negative text if there are bloopers available
                     lines.push(style === 'simple' ? "No Stingers Found" : "🕵️‍♂️ Couldn't Find Stingers");
-                } else {
-                    lines.push(style === 'simple' ? "No Bonus Scenes" : "🏃‍♂️ Nothing But Credits");
                 }
             }
 

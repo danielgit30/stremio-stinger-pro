@@ -49,17 +49,23 @@ const formatMessage = (styleConfig, data) => {
                 output.push("Mid-Credits Scene");
             } else if (data.post && !data.mid) {
                 output.push("Post-Credits Scene");
-            } else if (data.no) {
-                output.push("No Bonus Scenes");
-            } else {
-                output.push("No Stingers Found");
+            } else if (!data.bloopers) { 
+                // Only append negative text if there are no bloopers
+                if (data.no) {
+                    output.push("No Bonus Scenes");
+                } else {
+                    output.push("No Stingers Found");
+                }
             }
         } else {
             if (data.mid && data.post) output.push("🍿 Mid & Post-Credits Scenes");
             else if (data.mid) output.push("⏳ Mid-Credits Scene");
             else if (data.post) output.push("🎬 Post-Credits Scene");
-            else if (data.no) output.push("🏃‍♂️ Nothing But Credits");
-            else output.push("🕵️‍♂️ Couldn't Find Stingers");
+            else if (!data.bloopers) { 
+                // Only append negative text if there are no bloopers
+                if (data.no) output.push("🏃‍♂️ Nothing But Credits");
+                else output.push("🕵️‍♂️ Couldn't Find Stingers");
+            }
         }
     }
 
@@ -147,14 +153,8 @@ async function checkAfterCredits(title, year) {
         
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            const bodyText = $$(el).text().toLowerCase(); 
-
-            if (bodyText.match(/\b(bloopers?|outtakes?)\b/)) {
-                bloopers = true;
-            } else {
-                if (headText.includes("during") || headText.includes("mid")) hasMid = true;
-                if (headText.includes("after") || headText.includes("post")) hasPost = true;
-            }
+            if (headText.includes("during") || headText.includes("mid")) hasMid = true;
+            if (headText.includes("after") || headText.includes("post")) hasPost = true;
         });
 
         const pText = $$('article p, .entry-content p, #main p').text().toLowerCase();
@@ -162,6 +162,7 @@ async function checkAfterCredits(title, year) {
             bloopers = true;
         }
 
+        // Global Override: Prevent Bloopers from registering as Mid-Credits
         if (bloopers) {
             hasMid = false;
         }
