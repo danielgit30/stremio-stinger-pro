@@ -38,7 +38,6 @@ const isTitleMatch = (linkText, targetTitle) => {
 
     if (tLink === tTarget) return true;
 
-    // Check suffix for safe fluff words to prevent sequel collisions
     const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|\s)+$/;
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
@@ -52,6 +51,16 @@ const isTitleMatch = (linkText, targetTitle) => {
     }
 
     return false;
+};
+
+// Strict normalization for Wikipedia dictionary matching
+const wikiNormalize = (title) => {
+    return title.toLowerCase()
+        .replace(/^(the|a|an)\s+/i, '')
+        .replace(/,\s*(the|a|an)$/i, '')
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
 };
 
 const getResultObj = (mid, post, no, url, source, bloopers = false) => ({ mid, post, no, url, source, bloopers });
@@ -108,14 +117,13 @@ async function buildWikiIndex() {
             }
             
             if (!titleText) return;
-            const cleanTitle = titleText.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').replace(/^(the|a|an)\s+/i, '').replace(/\s+(the|a|an)$/i, '').trim();
+            const cleanTitle = wikiNormalize(titleText);
 
             const rowText = $(el).text().toLowerCase();
             let hasMid = rowText.includes('mid-') || rowText.includes('during');
             let hasPost = rowText.includes('post-') || rowText.includes('after');
             let hasBloopers = !!rowText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
 
-            if (!hasMid && !hasPost && !hasBloopers) hasPost = true; 
             if (hasBloopers) hasMid = false; 
 
             newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
@@ -130,7 +138,7 @@ async function buildWikiIndex() {
 
 async function checkWikipedia(title) {
     await buildWikiIndex();
-    const cleanQuery = title.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').replace(/^(the|a|an)\s+/i, '').replace(/\s+(the|a|an)$/i, '').trim();
+    const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
         return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers);
@@ -173,7 +181,6 @@ async function checkAfterCredits(title, year) {
         const targetUrl = bestMatch.url;
         const hasAsterisk = bestMatch.hasAsterisk;
 
-        // Must fetch payload regardless of asterisk to check WP tags for bloopers
         const movieRes = await axios.get(targetUrl, config);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
@@ -193,7 +200,6 @@ async function checkAfterCredits(title, year) {
             }
         });
 
-        // Expanded DOM selector includes WP tags
         const contentText = $$('article, .entry-content, #main, .tagcloud, .tags, .post-tags, [rel="tag"]').text().toLowerCase();
         if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
             bloopers = true;
@@ -203,7 +209,6 @@ async function checkAfterCredits(title, year) {
             hasMid = false;
         }
 
-        // If no asterisk and no bloopers were found, it's a true negative
         const noStingers = (!hasAsterisk && !bloopers);
 
         return getResultObj(hasMid, hasPost, noStingers, targetUrl, 'AfterCredits', bloopers);
@@ -301,7 +306,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.3',
+        version: '1.6.4',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -345,7 +350,6 @@ const streamHandler = async (req, res) => {
 
         if (title) {
             
-            // --- TIER 1: The Web Race (AfterCredits & MediaStinger) ---
             let result = await new Promise((resolve) => {
                 const sources = [
                     checkAfterCredits(title, year),
@@ -373,7 +377,6 @@ const streamHandler = async (req, res) => {
                 setTimeout(() => resolve(bestFallback), 4500);
             });
 
-            // --- TIER 2: Metadata Fallback (TMDB) ---
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const tmdbResult = await checkTmdb(id, apiKey);
                 if (tmdbResult) {
@@ -381,7 +384,6 @@ const streamHandler = async (req, res) => {
                 }
             }
 
-            // --- TIER 3: Ultimate Fallback (Wikipedia) ---
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
                 const wikiResult = await checkWikipedia(title);
                 if (wikiResult) {
