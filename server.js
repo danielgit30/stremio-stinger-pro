@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000 
+    timeout: 10000 
 };
 const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
@@ -137,7 +137,9 @@ async function buildWikiIndex(reqConfig = config) {
         wikiLastFetched = Date.now();
         console.log(`[Wiki] Built ${wikiCache.size} entries.`);
     } catch (e) {
-        console.error(`[Wiki Error] ${e.message}`);
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[Wiki Error] ${e.message}`);
+        }
     }
 }
 
@@ -188,13 +190,11 @@ async function checkAfterCredits(title, year, reqConfig) {
         const searchRes = await axios.get(searchUrl, reqConfig);
         let potentialMatches = parseSearchPageAfterCredits(searchRes.data, title, targetYear);
 
-        // Fallback Search 1: Year - 1
         if (potentialMatches.length === 0 && targetYear) {
             console.log(`[AfterCredits] Target not on Page 1. Executing targeted fallback search for year ${targetYear - 1}...`);
             const fallbackRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title + ' ' + (targetYear - 1))}`, reqConfig);
             potentialMatches = parseSearchPageAfterCredits(fallbackRes.data, title, targetYear);
 
-            // Fallback Search 2: Year + 1
             if (potentialMatches.length === 0) {
                 console.log(`[AfterCredits] Target not found with year - 1. Executing targeted fallback search for year ${targetYear + 1}...`);
                 const fallbackRes2 = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title + ' ' + (targetYear + 1))}`, reqConfig);
@@ -281,7 +281,9 @@ async function checkAfterCredits(title, year, reqConfig) {
         console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive);
     } catch (e) { 
-        console.error(`[AfterCredits Error] ${e.message}`);
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[AfterCredits Error] ${e.message}`);
+        }
         return null; 
     }
 }
@@ -424,7 +426,9 @@ async function checkMediaStinger(title, year, reqConfig) {
         console.log(`[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
     } catch (e) { 
-        console.error(`[MediaStinger Error] ${e.message}`);
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[MediaStinger Error] ${e.message}`);
+        }
         return null; 
     }
 }
@@ -461,7 +465,9 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
         console.log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { 
-        console.error(`[TMDB Error] ${e.message}`);
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[TMDB Error] ${e.message}`);
+        }
         return null; 
     }
 }
@@ -477,7 +483,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.4',
+        version: '1.7.5',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -606,7 +612,9 @@ const streamHandler = async (req, res) => {
             return res.json({ streams: [stream] });
         }
     } catch (e) { 
-        console.error(`[Stream Error] Main Handler Failed: ${e.message}`); 
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[Stream Error] Main Handler Failed: ${e.message}`); 
+        }
     } finally {
         clearTimeout(timeoutId);
         controller.abort();
