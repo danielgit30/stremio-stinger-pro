@@ -259,7 +259,8 @@ async function checkAfterCredits(title, year, reqConfig) {
 async function checkMediaStinger(title, year, reqConfig) {
     console.log(`\n--- [MediaStinger] Execution Start: "${title}" ---`);
     try {
-        const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(title).replace(/%20/g, '+')}&x=0&y=0`;
+        const cleanSearchTitle = title.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+        const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
