@@ -67,8 +67,8 @@ const wikiNormalize = (title) => {
         .trim();
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false) => {
-    return { mid, post, no, url, source, bloopers };
+const getResultObj = (mid, post, no, url, source, bloopers = false, definitive = false) => {
+    return { mid, post, no, url, source, bloopers, definitive };
 };
 
 const formatMessage = (styleConfig, data) => {
@@ -154,11 +154,10 @@ async function checkWikipedia(title, reqConfig) {
     return null;
 }
 
-// Helper function to extract search results and prevent franchise burying
 const parseSearchPageAfterCredits = (html, title, targetYear) => {
     const $ = cheerio.load(html);
     let matches = [];
-    $("h2 a, h3 a, .entry-title a, .title a, .post-title a, article a").each((i, el) => {
+    $("h2 a, h3 a, .entry-title a, .title a, .post-title a").each((i, el) => {
         const rawLinkText = $(el).text().toLowerCase().trim();
         if (!rawLinkText) return;
 
@@ -190,15 +189,22 @@ async function checkAfterCredits(title, year, reqConfig) {
         const searchRes = await axios.get(searchUrl, reqConfig);
         let potentialMatches = parseSearchPageAfterCredits(searchRes.data, title, targetYear);
 
-        // Fallback Search for Franchise Burying (e.g. Insidious 2011 -> searches 2010 to pull it to page 1)
+        // Fallback Search 1: Year - 1
         if (potentialMatches.length === 0 && targetYear) {
             console.log(`[AfterCredits] Target not on Page 1. Executing targeted fallback search for year ${targetYear - 1}...`);
             const fallbackRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title + ' ' + (targetYear - 1))}`, reqConfig);
             potentialMatches = parseSearchPageAfterCredits(fallbackRes.data, title, targetYear);
+
+            // Fallback Search 2: Year + 1
+            if (potentialMatches.length === 0) {
+                console.log(`[AfterCredits] Target not found with year - 1. Executing targeted fallback search for year ${targetYear + 1}...`);
+                const fallbackRes2 = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title + ' ' + (targetYear + 1))}`, reqConfig);
+                potentialMatches = parseSearchPageAfterCredits(fallbackRes2.data, title, targetYear);
+            }
         }
 
         if (potentialMatches.length === 0) {
-            console.log(`[AfterCredits] Aborting: No match within boundaries after fallback.`);
+            console.log(`[AfterCredits] Aborting: No match within boundaries after fallbacks.`);
             return null;
         }
 
@@ -222,10 +228,10 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
         console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
-        // Explicit "Non-Stingers" Override
-        if (categoryTags.includes('non-stingers')) {
-            console.log(`[AfterCredits] 'non-stingers' category detected. Forcing negative state.`);
-            return getResultObj(false, false, true, bestMatch.url, 'AfterCredits', false);
+        // Explicit Definitive Negation Check
+        if (categoryTags.includes('non-stingers') || bestMatch.hasAsterisk) {
+            console.log(`[AfterCredits] 'non-stingers' category or explicit asterisk detected. Forcing definitive negative state.`);
+            return getResultObj(false, false, true, bestMatch.url, 'AfterCredits', false, true);
         }
 
         if (categoryTags.length > 0) {
@@ -246,7 +252,7 @@ async function checkAfterCredits(title, year, reqConfig) {
             if (headText.includes("during") || headText.includes("mid")) {
                 if (isBlooper) {
                     bloopers = true;
-                    hasMid = false; // Localized blooper wipe
+                    hasMid = false; 
                     console.log(`[AfterCredits] Blooper found in MID container. Wiping mid flag.`);
                 } else if (!isNegative) {
                     hasMid = true;
@@ -258,7 +264,7 @@ async function checkAfterCredits(title, year, reqConfig) {
             if (headText.includes("after") || headText.includes("post")) {
                 if (isBlooper) {
                     bloopers = true;
-                    hasPost = false; // Localized blooper wipe
+                    hasPost = false; 
                     console.log(`[AfterCredits] Blooper found in POST container. Wiping post flag.`);
                 } else if (!isNegative) {
                     hasPost = true;
@@ -268,16 +274,22 @@ async function checkAfterCredits(title, year, reqConfig) {
             }
         });
 
-        const isNegative = (!bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
-        console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}`);
-        return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
+        // Set definitive flag if we found a verified scene
+        let isDefinitive = false;
+        if (hasMid || hasPost || bloopers) {
+            isDefinitive = true;
+        }
+
+        const isNegative = (!hasMid && !hasPost && !bloopers);
+        
+        console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
+        return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive);
     } catch (e) { 
         console.error(`[AfterCredits Error] ${e.message}`);
         return null; 
     }
 }
 
-// Helper function to extract search results and prevent franchise burying
 const parseSearchPageMediaStinger = (html, title, targetYear) => {
     const $ = cheerio.load(html);
     let matches = [];
@@ -311,7 +323,6 @@ async function checkMediaStinger(title, year, reqConfig) {
         const searchRes = await axios.get(searchUrl, reqConfig);
         let potentialMatches = parseSearchPageMediaStinger(searchRes.data, title, targetYear);
 
-        // Fallback Search for Franchise Burying (MediaStinger usually aligns closely with targetYear)
         if (potentialMatches.length === 0 && targetYear) {
             console.log(`[MediaStinger] Target not on Page 1. Executing targeted fallback search for year ${targetYear}...`);
             const fallbackRes = await axios.get(`http://www.mediastinger.com/?s=${encodeURIComponent(title + ' ' + targetYear)}`, reqConfig);
@@ -368,7 +379,6 @@ async function checkMediaStinger(title, year, reqConfig) {
             const postYes = /after (the )?credits\W{1,30}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
             const postNo = /after (the )?credits\W{1,30}no\b/.test(fullText);
 
-            // Localized Proximity Blooper Checks
             const midBlooper = /during (the )?credits\W{1,40}(bloopers?|outtakes?|gags?|gag reel)/.test(fullText) || /(bloopers?|outtakes?|gags?|gag reel)\W{1,40}during (the )?credits/.test(fullText);
             const postBlooper = /after (the )?credits\W{1,40}(bloopers?|outtakes?|gags?|gag reel)/.test(fullText) || /(bloopers?|outtakes?|gags?|gag reel)\W{1,40}after (the )?credits/.test(fullText);
 
@@ -395,7 +405,6 @@ async function checkMediaStinger(title, year, reqConfig) {
             if ((seoPost === true || bodyPost) && !postNo && !legacyPostNo && !postIsAudio && seoPost !== 'false') hasPost = true;
             if (seoBloopers || bodyBloopers) bloopers = true;
 
-            // Apply Localized Wipe
             if (midBlooper) {
                 bloopers = true;
                 hasMid = false;
@@ -443,6 +452,11 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
         let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
         let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
         
+        if (bloopers) {
+            hasMid = false;
+            hasPost = false;
+        }
+
         if (!hasMid && !hasPost && !bloopers) {
             console.log(`[TMDB] No stinger keywords found.`);
             return null;
@@ -467,7 +481,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.2',
+        version: '1.7.3',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -536,18 +550,17 @@ const streamHandler = async (req, res) => {
                 }
             };
 
-            // STRICT SEQUENTIAL EXECUTION
-            
-            // 1. AfterCredits
+            // 1. Tier 1: AfterCredits
             console.log(`[Stream] Firing Tier 1: AfterCredits`);
             let acResult = await checkAfterCredits(title, year, reqConfig);
-            if (acResult && (acResult.mid || acResult.post || acResult.bloopers)) {
+            
+            if (acResult && acResult.definitive) {
                 finalResult = acResult;
-                console.log(`[Stream] Positive scene found by AfterCredits. Skipping remaining scrapers.`);
+                console.log(`[Stream] Definitive scene or non-stinger found by AfterCredits. Skipping remaining scrapers.`);
             } else {
                 updateFallback(acResult);
                 
-                // 2. MediaStinger
+                // 2. Tier 2: MediaStinger
                 console.log(`[Stream] Firing Tier 2: MediaStinger`);
                 let msResult = await checkMediaStinger(title, year, reqConfig);
                 if (msResult && (msResult.mid || msResult.post || msResult.bloopers)) {
@@ -556,7 +569,7 @@ const streamHandler = async (req, res) => {
                 } else {
                     updateFallback(msResult);
 
-                    // 3. TMDB
+                    // 3. Tier 3: TMDB
                     console.log(`[Stream] Firing Tier 3: TMDB`);
                     let tmdbResult = await checkTmdb(id, apiKey, reqConfig);
                     if (tmdbResult && (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers)) {
@@ -565,7 +578,7 @@ const streamHandler = async (req, res) => {
                     } else {
                         updateFallback(tmdbResult);
 
-                        // 4. Wikipedia
+                        // 4. Tier 4: Wikipedia
                         console.log(`[Stream] Firing Tier 4: Wikipedia`);
                         let wikiResult = await checkWikipedia(title, reqConfig);
                         if (wikiResult && (wikiResult.mid || wikiResult.post || wikiResult.bloopers)) {
