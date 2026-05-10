@@ -105,7 +105,6 @@
             display: block;
         }
         
-        /* New Test Controls Styling */
         .test-controls {
             display: flex;
             gap: 12px;
@@ -124,6 +123,7 @@
             margin: 0;
             color: #a0a0b0;
             cursor: pointer;
+            transition: opacity 0.2s ease;
         }
         .test-controls input {
             margin-right: 5px;
@@ -131,6 +131,14 @@
             height: 13px;
             accent-color: #8a5aE9;
             cursor: pointer;
+        }
+        /* CSS class to grey out disabled test options */
+        .test-controls label.disabled-label {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .test-controls label.disabled-label input {
+            cursor: not-allowed;
         }
 
         .stream-box {
@@ -211,8 +219,8 @@
                 </div>
                 
                 <div class="test-controls">
-                    <label><input type="checkbox" id="testMid" checked onchange="updatePreview()"> Mid</label>
-                    <label><input type="checkbox" id="testPost" checked onchange="updatePreview()"> Post</label>
+                    <label id="lblTestMid"><input type="checkbox" id="testMid" checked onchange="updatePreview()"> Mid</label>
+                    <label id="lblTestPost"><input type="checkbox" id="testPost" checked onchange="updatePreview()"> Post</label>
                     <label id="testBloopersContainer" style="display: none;"><input type="checkbox" id="testBloopers" onchange="updatePreview()"> Bloopers</label>
                     <label><input type="checkbox" id="testWiki" onchange="updatePreview()"> Wiki (Fallback)</label>
                 </div>
@@ -258,14 +266,33 @@
                 testBloopersContainer.style.display = 'flex';
             } else {
                 testBloopersContainer.style.display = 'none';
-                document.getElementById('testBloopers').checked = false; // Uncheck when hidden to clear payload
+                document.getElementById('testBloopers').checked = false; // Uncheck when hidden
             }
 
+            // Get Checkbox Elements
+            const testWikiBox = document.getElementById('testWiki');
+            const testMidBox = document.getElementById('testMid');
+            const testPostBox = document.getElementById('testPost');
+            const testBloopersBox = document.getElementById('testBloopers');
+
+            const isWiki = testWikiBox.checked;
+
+            // Disable and grey out other options if Wiki is selected
+            const dependentBoxes = [testMidBox, testPostBox, testBloopersBox];
+            dependentBoxes.forEach(box => {
+                box.disabled = isWiki;
+                if (isWiki) {
+                    box.parentElement.classList.add('disabled-label');
+                } else {
+                    box.parentElement.classList.remove('disabled-label');
+                }
+            });
+
             // Simulation API Flags
-            const isMid = document.getElementById('testMid').checked;
-            const isPost = document.getElementById('testPost').checked;
-            const isBloopers = document.getElementById('testBloopers').checked;
-            const isWiki = document.getElementById('testWiki').checked;
+            // If Wiki is checked, treat the others as false regardless of their checked state
+            const isMid = !isWiki && testMidBox.checked;
+            const isPost = !isWiki && testPostBox.checked;
+            const isBloopers = !isWiki && testBloopersBox.checked;
             
             const previewText = document.getElementById('streamPreviewText');
             
