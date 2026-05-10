@@ -13,17 +13,17 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 15000
+    timeout: 4000 
 };
-const DEFAULT_TMDB_KEY = "e547e17d4e91f3e62a571655cd1ccaff"; 
+const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
 const streamCache = new Map();
-const CACHE_TTL = 30 * 60 * 1000; 
+const CACHE_TTL_SUCCESS = 30 * 60 * 1000; 
+const CACHE_TTL_ERROR = 60 * 1000;        
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
 const WIKI_TTL = 24 * 60 * 60 * 1000; 
-
 
 // ==========================================
 // 2. STRING UTILITIES & FORMATTERS
@@ -103,15 +103,14 @@ const formatMessage = (styleConfig, data) => {
     return output.join('\n');
 };
 
-
 // ==========================================
 // 3. CORE SCRAPERS
 // ==========================================
 
-async function buildWikiIndex() {
+async function buildWikiIndex(reqConfig = config) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
     try {
-        const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', config);
+        const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', reqConfig);
         const $ = cheerio.load(res.data);
         const newCache = new Map();
         
@@ -130,30 +129,25 @@ async function buildWikiIndex() {
         
         wikiCache = newCache;
         wikiLastFetched = Date.now();
-        console.log(`[System] Wikipedia Index Built: ${wikiCache.size} titles.`);
     } catch (e) {
-        console.error(`[Error] Wikipedia index failed: ${e.message}`);
+        // Suppress background errors
     }
 }
 
-async function checkWikipedia(title) {
-    console.log(`\n--- [Wikipedia] Execution Start: "${title}" ---`);
-    await buildWikiIndex();
+async function checkWikipedia(title, reqConfig) {
+    await buildWikiIndex(reqConfig);
     const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
-        console.log(`[Wikipedia] Found in local dictionary -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}`);
         return getResultObj(data.mid, data.post, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia', data.bloopers);
     }
-    console.log(`[Wikipedia] No match found in dictionary for "${cleanQuery}".`);
     return null;
 }
 
-async function checkAfterCredits(title, year) {
-    console.log(`\n--- [AfterCredits] Execution Start: "${title}" (${year}) ---`);
+async function checkAfterCredits(title, year, reqConfig) {
     try {
         const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(title)}`;
-        const searchRes = await axios.get(searchUrl, config);
+        const searchRes = await axios.get(searchUrl, reqConfig);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
@@ -170,17 +164,12 @@ async function checkAfterCredits(title, year) {
                     url: $(el).attr('href'),
                     hasAsterisk: rawLinkText.includes('*'),
                     isReview: rawLinkText.includes('review'),
-                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1),
-                    rawText: rawLinkText
+                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1)
                 });
             }
         });
 
-        console.log(`[AfterCredits] Matches Found: ${potentialMatches.length}`);
-        if (potentialMatches.length === 0) {
-            console.log(`[AfterCredits] Aborting: No valid matches found.`);
-            return null;
-        }
+        if (potentialMatches.length === 0) return null;
 
         potentialMatches.sort((a, b) => {
             if (a.yearMatch !== b.yearMatch) return a.yearMatch ? -1 : 1;
@@ -190,9 +179,7 @@ async function checkAfterCredits(title, year) {
         });
 
         const bestMatch = potentialMatches[0];
-        console.log(`[AfterCredits] Fetching Payload -> ${bestMatch.url}`);
-
-        const movieRes = await axios.get(bestMatch.url, config);
+        const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
         
@@ -213,20 +200,16 @@ async function checkAfterCredits(title, year) {
         if (bloopers) hasMid = false;
 
         const isNegative = (!bestMatch.hasAsterisk && !bloopers);
-        console.log(`[AfterCredits] Extracted -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}`);
-        
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { 
-        console.error(`[AfterCredits] Error: ${e.message}`);
         return null; 
     }
 }
 
-async function checkMediaStinger(title, year) {
-    console.log(`\n--- [MediaStinger] Execution Start: "${title}" (${year}) ---`);
+async function checkMediaStinger(title, year, reqConfig) {
     try {
         const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(title)}`;
-        const searchRes = await axios.get(searchUrl, config);
+        const searchRes = await axios.get(searchUrl, reqConfig);
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
@@ -242,26 +225,20 @@ async function checkMediaStinger(title, year) {
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
                     url: aTag.attr('href'),
-                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1),
-                    rawText: rawLinkText
+                    yearMatch: (targetYear && linkYear && Math.abs(targetYear - linkYear) <= 1)
                 });
             }
         });
 
-        console.log(`[MediaStinger] Matches Found: ${potentialMatches.length}`);
-        if (potentialMatches.length === 0) {
-            console.log(`[MediaStinger] Aborting: No valid matches found.`);
-            return null;
-        }
+        if (potentialMatches.length === 0) return null;
 
         potentialMatches.sort((a, b) => (a.yearMatch !== b.yearMatch ? (a.yearMatch ? -1 : 1) : 0));
         const bestMatch = potentialMatches[0];
-        console.log(`[MediaStinger] Fetching Payload -> ${bestMatch.url}`);
         
         let hasMid = false, hasPost = false, noStinger = false, bloopers = false;
 
         if (bestMatch.url) {
-            const movieRes = await axios.get(bestMatch.url, config);
+            const movieRes = await axios.get(bestMatch.url, reqConfig);
             const $$ = cheerio.load(movieRes.data);
             
             const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
@@ -280,8 +257,6 @@ async function checkMediaStinger(title, year) {
             if (midNo && postNo) noStinger = true;
 
             if (!hasMid && !hasPost && !noStinger) {
-                console.log(`[MediaStinger] Falling back to Legacy Regex parsing...`);
-                
                 const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/.test(fullText);
                 const legacyPostNo = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/.test(fullText);
 
@@ -293,34 +268,26 @@ async function checkMediaStinger(title, year) {
                 } else if (!hasMid && !hasPost && (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra'))) {
                     noStinger = true;
                 }
-                console.log(`[MediaStinger] Legacy Match Result -> Mid: ${hasMid}, Post: ${hasPost}`);
             }
 
             if (hasMid || hasPost || bloopers) noStinger = false;
         }
         
-        console.log(`[MediaStinger] Extracted -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers);
     } catch (e) { 
-        console.error(`[MediaStinger] Error: ${e.message}`);
         return null; 
     }
 }
 
-async function checkTmdb(imdbId, apiKey) {
-    console.log(`\n--- [TMDB] Execution Start: ID ${imdbId} ---`);
+async function checkTmdb(imdbId, apiKey, reqConfig) {
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
-        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, config);
+        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, reqConfig);
         const movieMatch = findRes.data.movie_results?.[0];
-        if (!movieMatch) {
-            console.log(`[TMDB] Aborting: No movie match found for ID ${imdbId}.`);
-            return null;
-        }
+        if (!movieMatch) return null;
         
         const tmdbId = Number(movieMatch.id);
-        console.log(`[TMDB] TMDB Internal ID found: ${tmdbId}. Fetching keywords...`);
-        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, config);
+        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, reqConfig);
         const keywords = kwRes.data.keywords || [];
         
         let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
@@ -329,19 +296,13 @@ async function checkTmdb(imdbId, apiKey) {
         
         if (bloopers) hasMid = false;
 
-        if (!hasMid && !hasPost && !bloopers) {
-            console.log(`[TMDB] No relevant stinger keywords found.`);
-            return null;
-        }
+        if (!hasMid && !hasPost && !bloopers) return null;
 
-        console.log(`[TMDB] Keywords Extracted -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}`);
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
     } catch (e) { 
-        console.error(`[TMDB] Error: ${e.message}`);
         return null; 
     }
 }
-
 
 // ==========================================
 // 4. EXPRESS APP & API ROUTES
@@ -354,7 +315,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.14',
+        version: '1.6.17',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -376,9 +337,6 @@ const streamHandler = async (req, res) => {
     const { type, id } = req.params;
     if (type !== 'movie') return res.json({ streams: [] });
 
-    console.log(`\n========== NEW REQUEST ==========`);
-    console.log(`[Stream] Request Type: ${type} | ID: ${id}`);
-
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
 
@@ -389,26 +347,30 @@ const streamHandler = async (req, res) => {
     };
 
     const cacheKey = `${id}_${rawStyle}`;
-    if (CACHE_TTL > 0 && streamCache.has(cacheKey)) {
+    if (streamCache.has(cacheKey)) {
         const cached = streamCache.get(cacheKey);
-        if (Date.now() - cached.timestamp < CACHE_TTL) {
-            console.log(`[Stream] Cache HIT. Returning payload.`);
-            console.log(`=================================\n`);
+        if (Date.now() < cached.expiresAt) {
             return res.json({ streams: [cached.stream] });
+        } else {
+            streamCache.delete(cacheKey);
         }
     }
-    console.log(`[Stream] Cache MISS. Initiating scraper sequence.`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const reqConfig = { ...config, signal: controller.signal };
 
     try {
-        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`);
+        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, reqConfig);
         const title = metaRes.data?.meta?.name;
         const year = metaRes.data?.meta?.year; 
-        console.log(`[Stream] Cinemeta Details -> Title: "${title}", Year: ${year}`);
 
         if (title) {
-            console.log(`[Stream] Firing TIER 1 Race: AfterCredits vs MediaStinger`);
             let result = await new Promise((resolve) => {
-                const sources = [ checkAfterCredits(title, year), checkMediaStinger(title, year) ];
+                const sources = [ 
+                    checkAfterCredits(title, year, reqConfig), 
+                    checkMediaStinger(title, year, reqConfig) 
+                ];
                 let finished = 0;
                 let bestFallback = null;
 
@@ -417,10 +379,8 @@ const streamHandler = async (req, res) => {
                         finished++;
                         if (val) {
                             if (val.mid || val.post) {
-                                console.log(`[Tier 1] Positive scene found by ${val.source}. Resolving race early.`);
                                 resolve(val); 
                             } else {
-                                console.log(`[Tier 1] Potential fallback queued from ${val.source}.`);
                                 if (val.bloopers) {
                                     bestFallback = val; 
                                 } else if (val.no && (!bestFallback || !bestFallback.bloopers)) {
@@ -430,33 +390,23 @@ const streamHandler = async (req, res) => {
                                 }
                             }
                         }
-                        if (finished === sources.length) {
-                            console.log(`[Tier 1] All sources finished. Passing best fallback: ${bestFallback ? bestFallback.source : 'None'}`);
-                            resolve(bestFallback);
-                        }
+                        if (finished === sources.length) resolve(bestFallback);
                     });
                 });
-                
-                setTimeout(() => {
-                    console.log(`[Tier 1] 13500ms Hard Timeout reached. Passing best fallback: ${bestFallback ? bestFallback.source : 'None'}`);
-                    resolve(bestFallback);
-                }, 13500);
             });
 
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
-                console.log(`[Stream] Tier 1 yielded no definitive results. Triggering TIER 2: TMDB`);
-                const tmdbResult = await checkTmdb(id, apiKey);
+                const tmdbResult = await checkTmdb(id, apiKey, reqConfig);
                 if (tmdbResult) result = tmdbResult; 
             }
 
             if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
-                console.log(`[Stream] Tier 2 yielded no definitive results. Triggering TIER 3: Wikipedia`);
-                const wikiResult = await checkWikipedia(title);
+                const wikiResult = await checkWikipedia(title, reqConfig);
                 if (wikiResult) result = wikiResult;
             }
 
+            const isAggregatedError = !result;
             const finalResult = result || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(title)}`, source: 'Aggregated' };
-            console.log(`[Stream] Final Resolution -> Source Used: ${finalResult.source}`);
 
             const stream = {
                 name: 'After-Credits Scenes',
@@ -464,17 +414,18 @@ const streamHandler = async (req, res) => {
                 externalUrl: finalResult.url || `https://aftercredits.com/?s=${encodeURIComponent(title)}`
             };
 
-            streamCache.set(cacheKey, { timestamp: Date.now(), stream });
-            console.log(`[Stream] Payload generated and cached. Sequence complete.`);
-            console.log(`=================================\n`);
+            const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
+            streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
+            
             return res.json({ streams: [stream] });
         }
     } catch (e) { 
-        console.error(`[Stream Error] Main Handler Failed: ${e.message}`); 
+        // Suppress errors and fall through to empty response
+    } finally {
+        clearTimeout(timeoutId);
+        controller.abort();
     }
     
-    console.log(`[Stream] Sequence aborted. Returning empty streams.`);
-    console.log(`=================================\n`);
     res.json({ streams: [] });
 };
 
@@ -484,5 +435,4 @@ app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
 
 app.listen(process.env.PORT || 7000, () => {
     buildWikiIndex(); 
-    console.log('[System] Stremio Stinger Pro initialized.');
 });
