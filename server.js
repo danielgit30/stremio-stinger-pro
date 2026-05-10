@@ -39,9 +39,8 @@ const formatMessage = (styleConfig, data) => {
     let output = [];
     const isSimple = styleConfig.style === 'simple';
 
-    // Output overridden for Wikipedia due to lack of mid/post distinction
     if (data.source === 'Wikipedia') {
-        output.push(isSimple ? "Unknown Scene Found." : "❓ Found An Unknown Scene.");
+        output.push(isSimple ? "Unclassified Scene" : "❓ Unclassified Scene");
     } else {
         if (isSimple) {
             if (data.mid || data.post) {
@@ -49,19 +48,19 @@ const formatMessage = (styleConfig, data) => {
             } else if (data.no) {
                 output.push("Mid-Credits: No\nPost-Credits: No");
             } else {
-                output.push("No Stingers Found.");
+                output.push("No Stingers Found");
             }
         } else {
-            if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes!');
-            else if (data.mid) output.push('⏳ Mid-Credits Scene Only.');
-            else if (data.post) output.push('🎬 Post-Credits Scene Only.');
-            else if (data.no) output.push('🏃‍♂️ Nothing But Credits.');
-            else output.push('🕵️‍♂️ Couldn\'t Find Stingers.');
+            if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes');
+            else if (data.mid) output.push('⏳ Mid-Credits Scene');
+            else if (data.post) output.push('🎬 Post-Credits Scene');
+            else if (data.no) output.push('🏃‍♂️ Nothing But Credits');
+            else output.push('🕵️‍♂️ Couldn\'t Find Stingers');
         }
     }
 
     if (styleConfig.showBloopers && data.bloopers) {
-        output.push(isSimple ? "Outtakes Found." : "🎭 Stay For The Outtakes.");
+        output.push(isSimple ? "Outtakes Found" : "🎭 Stay For The Outtakes");
     }
 
     return output.join('\n');
@@ -94,27 +93,41 @@ async function checkWikipedia(title) {
     await buildWikiIndex();
     const cleanQuery = normalizeTitle(title);
     if (wikiIndex.has(cleanQuery)) {
-        // Return false for mid/post flags to trigger the generic unclassified formatter
         return getResultObj(false, false, false, 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', 'Wikipedia');
     }
     return null;
 }
 
-async function checkAfterCredits(title) {
+async function checkAfterCredits(title, year) {
     try {
         const searchRes = await axios.get(`https://aftercredits.com/?s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
         const cleanTargetTitle = normalizeTitle(title);
+        
         let targetUrl = null;
         let hasAsterisk = false;
+        let foundPerfectMatch = false;
 
        $('h3.entry-title a, .entry-title a').each((i, el) => {
+            if (foundPerfectMatch) return false;
+
             const rawLinkText = $(el).text().toLowerCase().trim();
+            if (rawLinkText.includes('review')) return;
+
             const cleanLinkText = normalizeTitle(rawLinkText);
-            if (!rawLinkText.includes('review') && (cleanLinkText.startsWith(cleanTargetTitle) || cleanTargetTitle.startsWith(cleanLinkText))) {
+            const yearMatch = rawLinkText.match(/\((\d{4})\)/);
+            const linkYear = yearMatch ? yearMatch[1] : null;
+
+            const isExactTitle = cleanLinkText === cleanTargetTitle;
+            const isPartialTitle = cleanLinkText.startsWith(cleanTargetTitle) || cleanTargetTitle.startsWith(cleanLinkText);
+
+            if (isExactTitle && year && linkYear && String(year) === String(linkYear)) {
                 targetUrl = $(el).attr('href');
                 hasAsterisk = rawLinkText.endsWith('*');
-                return false; 
+                foundPerfectMatch = true;
+            } else if (!targetUrl && (isExactTitle || isPartialTitle)) {
+                targetUrl = $(el).attr('href');
+                hasAsterisk = rawLinkText.endsWith('*');
             }
         });
 
@@ -141,20 +154,51 @@ async function checkAfterCredits(title) {
     } catch (e) { return null; }
 }
 
-async function checkMediaStinger(title) {
+async function checkMediaStinger(title, year) {
     try {
         const searchRes = await axios.get(`http://www.mediastinger.com/?tab=MOVIES&s=${encodeURIComponent(title)}`, config);
         const $ = cheerio.load(searchRes.data);
-        const $result = $("ul.highlights li").first();
-        if ($result.length === 0) return null;
-
-        const targetUrl = $result.find("a").first().attr("href");
-        const subtitle = $result.find(".subtitle").first().text().trim().toLowerCase();
+        const cleanTargetTitle = normalizeTitle(title);
         
-        let hasMid = subtitle.includes("during");
-        let hasPost = subtitle.includes("after");
-        let noStinger = subtitle.includes("no") && !hasMid && !hasPost;
+        let exactMatchWithYear = null;
+        let exactMatch = null;
+        let bestMatch = null;
+
+        $("ul.highlights li").each((i, el) => {
+            const rawLinkText = $(el).find("a").first().text().toLowerCase().trim();
+            const cleanLinkText = normalizeTitle(rawLinkText);
+            
+            const yearMatch = rawLinkText.match(/\((\d{4})\)/);
+            const linkYear = yearMatch ? yearMatch[1] : null;
+
+            if (cleanLinkText === cleanTargetTitle) {
+                if (year && linkYear && String(year) === String(linkYear)) {
+                    exactMatchWithYear = el;
+                    return false; 
+                }
+                if (!exactMatch) exactMatch = el;
+            } else if (!bestMatch && (cleanLinkText.startsWith(cleanTargetTitle) || cleanTargetTitle.startsWith(cleanLinkText))) {
+                bestMatch = el; 
+            }
+        });
+
+        const finalMatch = exactMatchWithYear || exactMatch || bestMatch;
+        if (!finalMatch) return null;
+
+        const targetUrl = $(finalMatch).find("a").first().attr("href");
+        const subtitle = $(finalMatch).find(".subtitle").first().text().trim().toLowerCase();
+        
+        let hasMid = false;
+        let hasPost = false;
+        let noStinger = false;
         let bloopers = false;
+
+        if (subtitle.includes("no extra") || subtitle.includes("no scene") || subtitle.includes("are no")) {
+            noStinger = true;
+        } else {
+            if (subtitle.includes("during")) hasMid = true;
+            if (subtitle.includes("after")) hasPost = true;
+        }
 
         if (targetUrl) {
             const movieRes = await axios.get(targetUrl, config);
@@ -238,12 +282,13 @@ const streamHandler = async (req, res) => {
     try {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`);
         const title = metaRes.data?.meta?.name;
+        const year = metaRes.data?.meta?.year; // Extracted for precise indexing
 
         if (title) {
             let result = await new Promise((resolve) => {
                 const sources = [
-                    checkAfterCredits(title),
-                    checkMediaStinger(title),
+                    checkAfterCredits(title, year),
+                    checkMediaStinger(title, year),
                     checkTmdb(id, apiKey)
                 ];
 
@@ -268,8 +313,6 @@ const streamHandler = async (req, res) => {
                 setTimeout(() => resolve(bestFallback), 5500);
             });
 
-            // --- Tier 3: Wikipedia Ultimate Fallback ---
-            // Execution Gate: Do not query Wikipedia if primary scrapers found bloopers
             if (!result || (!result.mid && !result.post && !result.bloopers)) {
                 const wikiResult = await checkWikipedia(title);
                 if (wikiResult) {
