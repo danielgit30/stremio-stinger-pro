@@ -210,7 +210,6 @@ async function checkAfterCredits(title, year, reqConfig) {
 
         potentialMatches.sort((a, b) => {
             if (a.yearMatch !== b.yearMatch) return a.yearMatch ? -1 : 1;
-            if (a.hasAsterisk !== b.hasAsterisk) return a.hasAsterisk ? -1 : 1;
             if (a.isReview !== b.isReview) return a.isReview ? 1 : -1;
             return 0;
         });
