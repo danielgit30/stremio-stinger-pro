@@ -13,25 +13,22 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 10000 // 10 seconds 
+    timeout: 10000
 };
 const DEFAULT_TMDB_KEY = "849503460613279144415848525b682e"; 
 
-// Dynamic Stream Cache (In-Memory)
 const streamCache = new Map();
-const CACHE_TTL = 30 * 60 * 1000; // 30 Minutes
+const CACHE_TTL = 30 * 60 * 1000; 
 
-// Wikipedia Dictionary Cache
 let wikiCache = new Map();
 let wikiLastFetched = 0;
-const WIKI_TTL = 24 * 60 * 60 * 1000; // 24 Hours
+const WIKI_TTL = 24 * 60 * 60 * 1000; 
 
 
 // ==========================================
 // 2. STRING UTILITIES & FORMATTERS
 // ==========================================
 
-// Safely evaluates search result titles against Stremio metadata
 const isTitleMatch = (linkText, targetTitle) => {
     let tLink = linkText.toLowerCase().replace(/\(\d{4}\)/g, '').trim();
     let tTarget = targetTitle.toLowerCase().trim();
@@ -46,7 +43,6 @@ const isTitleMatch = (linkText, targetTitle) => {
 
     if (tLink === tTarget) return true;
 
-    // Allows appended descriptive tags (e.g. "and outtakes") without triggering sequel collisions
     const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|\s)+$/;
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
@@ -62,7 +58,6 @@ const isTitleMatch = (linkText, targetTitle) => {
     return false;
 };
 
-// Extremely aggressive string crushing strictly for WP dictionary hashing
 const wikiNormalize = (title) => {
     return title.toLowerCase()
         .replace(/^(the|a|an)\s+/i, '')
@@ -76,7 +71,6 @@ const getResultObj = (mid, post, no, url, source, bloopers = false) => {
     return { mid, post, no, url, source, bloopers };
 };
 
-// Translates boolean data into Stremio UI text based on user config
 const formatMessage = (styleConfig, data) => {
     let output = [];
     const isSimple = styleConfig.style === 'simple';
@@ -123,7 +117,7 @@ async function buildWikiIndex() {
         
         $("table.wikitable tr").each((i, el) => {
             let titleText = $(el).find("i").first().text();
-            if (!titleText) titleText = $(el).find("td").eq(1).text(); // Fallback to 2nd col if no italics
+            if (!titleText) titleText = $(el).find("td").eq(1).text(); 
             
             if (!titleText) return;
             const cleanTitle = wikiNormalize(titleText);
@@ -162,14 +156,13 @@ async function checkAfterCredits(title, year) {
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
-        // 1. Gather & Filter Matches
         $('h3.entry-title a, .entry-title a').each((i, el) => {
             const rawLinkText = $(el).text().toLowerCase().trim();
             const yearMatchStr = rawLinkText.match(/\((\d{4})\)/);
             const linkYear = yearMatchStr ? parseInt(yearMatchStr[1]) : null;
             const targetYear = year ? parseInt(year) : null;
 
-            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; // Hard collision gate
+            if (targetYear && linkYear && Math.abs(targetYear - linkYear) > 2) return; 
 
             if (isTitleMatch(rawLinkText, title)) {
                 potentialMatches.push({
@@ -181,7 +174,6 @@ async function checkAfterCredits(title, year) {
             }
         });
 
-        // Priority Sort: Year Match > Asterisk > Non-Review
         potentialMatches.sort((a, b) => {
             if (a.yearMatch !== b.yearMatch) return a.yearMatch ? -1 : 1;
             if (a.hasAsterisk !== b.hasAsterisk) return a.hasAsterisk ? -1 : 1;
@@ -192,7 +184,6 @@ async function checkAfterCredits(title, year) {
         if (potentialMatches.length === 0) return null;
         const bestMatch = potentialMatches[0];
 
-        // 2. Fetch Best Match Payload
         const movieRes = await axios.get(bestMatch.url, config);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
@@ -209,7 +200,6 @@ async function checkAfterCredits(title, year) {
             }
         });
 
-        // Ensure tags/meta-descriptions aren't missed
         const contentText = $$('article, .entry-content, #main, [rel="tag"]').text().toLowerCase();
         if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
         if (bloopers) hasMid = false;
@@ -224,7 +214,6 @@ async function checkMediaStinger(title, year) {
         const $ = cheerio.load(searchRes.data);
         let potentialMatches = [];
 
-        // 1. Broadly target modern WordPress link structures
         $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
             const aTag = $(el);
             const rawLinkText = aTag.text().toLowerCase().trim();
@@ -253,16 +242,15 @@ async function checkMediaStinger(title, year) {
         let bloopers = false;
 
         if (bestMatch.url) {
-            // 2. Extract Data directly from payload body
             const movieRes = await axios.get(bestMatch.url, config);
             const $$ = cheerio.load(movieRes.data);
             
-            // Constrain text extraction to main articles to prevent sidebar contamination
-            const fullText = $$('main, article, #content, .entry-content').text().toLowerCase().replace(/\s+/g, ' ');
+            // Isolate the primary text container, falling back through legacy DOM structures
+            const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
+            const fullText = contentNode.text().toLowerCase().replace(/\s+/g, ' ');
 
             if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
 
-            // Highly flexible regex allowing up to 15 non-word characters between "credits" and "yes/no"
             const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
             const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
 
@@ -272,14 +260,12 @@ async function checkMediaStinger(title, year) {
             if (midYes) hasMid = true;
             if (postYes) hasPost = true;
 
-            // Confirm true negative state
             if (midNo && postNo) {
                 noStinger = true;
             }
 
-            // Fallback checking for legacy MediaStinger paragraph structures
             if (!hasMid && !hasPost && !noStinger) {
-                if (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra')) {
+                if (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra') || fullText.includes('no extras after')) {
                     noStinger = true;
                 } else {
                     if (/(extra scene|stinger|animation).{0,60}during the credits/.test(fullText)) hasMid = true;
@@ -311,7 +297,6 @@ async function checkTmdb(imdbId, apiKey) {
         
         if (bloopers) hasMid = false;
 
-        // Force null return if no valid keywords exist so Wikipedia fallback can trigger
         if (!hasMid && !hasPost && !bloopers) return null;
 
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers);
