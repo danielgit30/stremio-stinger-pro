@@ -13,7 +13,7 @@ app.use(cors());
 
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 4000 
+    timeout: 5000 
 };
 const DEFAULT_TMDB_KEY = "dc0aefa944df1ef858fafd8085d2e60f"; 
 
@@ -181,26 +181,28 @@ async function checkAfterCredits(title, year, reqConfig) {
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
         
+        const bodyText = $$('body').text().toLowerCase().replace(/\s+/g, ' ');
+        
+        // Explicit Metadata Parsing native to AfterCredits layout
+        if (bodyText.includes('during credits? yes')) hasMid = true;
+        if (bodyText.includes('after credits? yes')) hasPost = true;
+        
         $$(".spoiler-wrap").each((i, el) => {
-            // Isolate head and body to prevent cross-contamination
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-            const bodyText = $$(el).find(".spoiler-body").text().toLowerCase(); 
+            const blockText = $$(el).text().toLowerCase(); 
             
-            if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
+            if (blockText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) {
                 bloopers = true;
-            } else if (bodyText.includes("yes") || !bodyText.match(/(no extra|no stinger|nothing|are no|no scene)/)) {
+            } else if (!blockText.match(/(no extra|no stinger|nothing|are no|no scene)/) || blockText.match(/(extra shot|audio|voice|laugh|but|however)/)) {
                 if (headText.includes("during") || headText.includes("mid")) hasMid = true;
                 if (headText.includes("after") || headText.includes("post")) hasPost = true;
             }
         });
 
-        const contentText = $$('article, .entry-content, #main, [rel="tag"]').text().toLowerCase();
-        if (contentText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
+        if (bodyText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
         if (bloopers) hasMid = false;
 
-        // Corrected Asterisk Logic
         const isNegative = (bestMatch.hasAsterisk && !hasMid && !hasPost && !bloopers);
-        
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers);
     } catch (e) { 
         return null; 
@@ -241,35 +243,19 @@ async function checkMediaStinger(title, year, reqConfig) {
         if (bestMatch.url) {
             const movieRes = await axios.get(bestMatch.url, reqConfig);
             const $$ = cheerio.load(movieRes.data);
-            
-            const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
-            const rawHtml = contentNode.html() || '';
-            const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
+            const fullText = $$('body').text().toLowerCase().replace(/\s+/g, ' ');
 
             if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bloopers = true;
 
-            const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
-            const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
-            const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene)/.test(fullText);
-            const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
+            // Strict Positive Templates native to MediaStinger
+            if (fullText.match(/(stinger|extra scene|extra scenes|extra shot|extra animation|animations shown).{0,30}during the credits/)) hasMid = true;
+            if (fullText.match(/(stinger|extra scene|extra scenes|extra shot|extra animation).{0,30}after the credits/)) hasPost = true;
 
-            if (midYes) hasMid = true;
-            if (postYes) hasPost = true;
-            if (midNo && postNo) noStinger = true;
-
-            if (!hasMid && !hasPost && !noStinger) {
-                const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras|shot|audio).{0,40}during the credits/.test(fullText);
-                const legacyPostNo = /(no|zero) (extra|scene|stinger|extras|shot|audio).{0,40}after the credits/.test(fullText);
-
-                if (/(extra scene|stinger|animation|extra shot|shot|audio|voice).{0,60}during the credits/.test(fullText) && !legacyMidNo) hasMid = true;
-                if (/(extra scene|stinger|extra shot|shot|audio|voice).{0,60}after the credits/.test(fullText) && !legacyPostNo) hasPost = true;
-
-                if (legacyMidNo && legacyPostNo) {
-                    noStinger = true;
-                } else if (!hasMid && !hasPost && (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra'))) {
-                    noStinger = true;
-                }
-            }
+            // Strict Negative Templates native to MediaStinger
+            if (fullText.match(/(no extra|no extras|no stinger|nothing).{0,30}during the credits/)) hasMid = false;
+            if (fullText.match(/(no extra|no extras|no stinger|nothing).{0,30}after the credits/)) hasPost = false;
+            
+            if (!hasMid && !hasPost && (fullText.includes('are no extras') || fullText.includes('no extra scenes'))) noStinger = true;
 
             if (hasMid || hasPost || bloopers) noStinger = false;
         }
@@ -316,7 +302,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.18',
+        version: '1.6.19',
         name: 'Stremio Stinger Pro',
         description: 'Blazing fast mid/post-credit scene detection.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -358,7 +344,7 @@ const streamHandler = async (req, res) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const reqConfig = { ...config, signal: controller.signal };
 
     try {
@@ -396,14 +382,20 @@ const streamHandler = async (req, res) => {
                 });
             });
 
-            if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
+            // Positive Ascendancy: Allow TMDB to override a Tier 1 Negative
+            if (!result || (!result.mid && !result.post && !result.bloopers)) {
                 const tmdbResult = await checkTmdb(id, apiKey, reqConfig);
-                if (tmdbResult) result = tmdbResult; 
+                if (tmdbResult && (tmdbResult.mid || tmdbResult.post || tmdbResult.bloopers)) {
+                    result = tmdbResult; 
+                }
             }
 
-            if (!result || (!result.mid && !result.post && !result.bloopers && !result.no)) {
+            // Positive Ascendancy: Allow Wikipedia to override a Tier 1 Negative
+            if (!result || (!result.mid && !result.post && !result.bloopers)) {
                 const wikiResult = await checkWikipedia(title, reqConfig);
-                if (wikiResult) result = wikiResult;
+                if (wikiResult && (wikiResult.mid || wikiResult.post || wikiResult.bloopers)) {
+                    result = wikiResult;
+                }
             }
 
             const isAggregatedError = !result;
