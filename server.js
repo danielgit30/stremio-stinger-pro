@@ -206,6 +206,19 @@ async function checkAfterCredits(title, year, reqConfig) {
         const bestMatch = potentialMatches[0];
         console.log(`[AfterCredits] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
         
+        // Security: Prevent SSRF by validating the URL before fetching
+        try {
+            const parsedUrl = new URL(bestMatch.url, 'https://aftercredits.com');
+            if (parsedUrl.hostname !== 'aftercredits.com' && parsedUrl.hostname !== 'www.aftercredits.com') {
+                console.warn(`[Security] Blocked untrusted URL: ${bestMatch.url}`);
+                return null;
+            }
+            bestMatch.url = parsedUrl.href;
+        } catch (e) {
+            console.warn(`[Security] Invalid URL format: ${bestMatch.url}`);
+            return null;
+        }
+
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
         let hasMid = false, hasPost = false, bloopers = false;
@@ -308,6 +321,19 @@ async function checkMediaStinger(title, year, reqConfig) {
         let hasMid = false, hasPost = false, noStinger = false, bloopers = false;
 
         if (bestMatch.url) {
+            // Security: Prevent SSRF by validating the URL before fetching
+            try {
+                const parsedUrl = new URL(bestMatch.url, 'http://www.mediastinger.com');
+                if (parsedUrl.hostname !== 'mediastinger.com' && parsedUrl.hostname !== 'www.mediastinger.com') {
+                    console.warn(`[Security] Blocked untrusted URL: ${bestMatch.url}`);
+                    return null;
+                }
+                bestMatch.url = parsedUrl.href;
+            } catch (e) {
+                console.warn(`[Security] Invalid URL format: ${bestMatch.url}`);
+                return null;
+            }
+
             const movieRes = await axios.get(bestMatch.url, reqConfig);
             const $$ = cheerio.load(movieRes.data);
             
