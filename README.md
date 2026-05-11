@@ -18,6 +18,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 
 - [⚙️ What It Does](#️-key-features)
 - [📡 Data Sources](#-data-sources)
+- [⛏️ Core Scraping Logic] (#-core-scraping-logic)
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
