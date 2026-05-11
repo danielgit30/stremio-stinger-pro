@@ -315,7 +315,7 @@ async function checkMediaStinger(title, year, reqConfig) {
                 }
             }
 
-            const contentNode = $$('.post_secwrapper, main, article, .article, .post, #content, .entry-content').first();
+            const contentNode = $$('.post_secwrapper').first();
             const rawHtml = contentNode.html() || '';
             const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
 
@@ -323,10 +323,10 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bodyBloopers = true;
 
-            const midYes = /during (the )?credits\W{1,30}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
-            const midNo = /during (the )?credits\W{1,30}no\b/.test(fullText);
-            const postYes = /after (the )?credits\W{1,30}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
-            const postNo = /after (the )?credits\W{1,30}no\b/.test(fullText);
+            const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
+            const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
+            const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
+            const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
 
             if (midYes) bodyMid = true;
             if (postYes) bodyPost = true;
@@ -421,9 +421,9 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.6.5',
+        version: '1.7.0',
         name: 'Stremio Stinger Pro',
-        description: 'Blazing fast mid/post-credit scene detection.',
+        description: 'Detects mid/post-credit scenes with optional support to explicitlytag bloopers/outtakes. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
         types: ['movie'],
         catalogs: [],
