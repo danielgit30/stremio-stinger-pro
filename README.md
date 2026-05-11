@@ -50,7 +50,8 @@ The addon queries the following databases simultaneously and posts the best resu
 
 ### Executes all scrapers concurrently to drastically reduce tail latency. If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
 
-```         // Await them in priority order, so we can short-circuit
+```         
+        // Await them in priority order, so we can short-circuit
             let acResult = await pAc;
             if (acResult && acResult.definitive) {
                 finalResult = acResult;
