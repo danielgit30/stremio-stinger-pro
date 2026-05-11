@@ -490,37 +490,41 @@ const streamHandler = async (req, res) => {
                 }
             };
 
-            // 1. Tier 1: AfterCredits
-            console.log(`[Stream] Firing Tier 1: AfterCredits`);
-            let acResult = await checkAfterCredits(title, year, reqConfig);
-            
+            console.log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+            // Execute all scrapers concurrently to drastically reduce tail latency
+            // If a higher priority scraper finds a definitive result, the AbortController
+            // in the finally block will cancel the pending lower-priority requests.
+            const pAc = checkAfterCredits(title, year, reqConfig);
+            const pMs = checkMediaStinger(title, year, reqConfig);
+            const pTmdb = checkTmdb(id, apiKey, reqConfig);
+            const pWiki = checkWikipedia(title, reqConfig);
+
+            // Await them in priority order, so we can short-circuit
+            let acResult = await pAc;
             if (acResult && acResult.definitive) {
                 finalResult = acResult;
-                console.log(`[Stream] Definitive state found by AfterCredits. Skipping remaining scrapers.`);
+                console.log(`[Stream] Definitive state found by AfterCredits. Aborting others...`);
+                controller.abort();
             } else {
                 updateFallback(acResult);
                 
-                // 2. Tier 2: MediaStinger
-                console.log(`[Stream] Firing Tier 2: MediaStinger`);
-                let msResult = await checkMediaStinger(title, year, reqConfig);
+                let msResult = await pMs;
                 if (msResult && msResult.definitive) {
                     finalResult = msResult;
-                    console.log(`[Stream] Definitive state found by MediaStinger. Skipping remaining scrapers.`);
+                    console.log(`[Stream] Definitive state found by MediaStinger. Aborting others...`);
+                    controller.abort();
                 } else {
                     updateFallback(msResult);
 
-                    // 3. Tier 3: TMDB
-                    console.log(`[Stream] Firing Tier 3: TMDB`);
-                    let tmdbResult = await checkTmdb(id, apiKey, reqConfig);
+                    let tmdbResult = await pTmdb;
                     if (tmdbResult && tmdbResult.definitive) {
                         finalResult = tmdbResult;
-                        console.log(`[Stream] Definitive state found by TMDB. Skipping Wikipedia.`);
+                        console.log(`[Stream] Definitive state found by TMDB. Aborting others...`);
+                        controller.abort();
                     } else {
                         updateFallback(tmdbResult);
 
-                        // 4. Tier 4: Wikipedia
-                        console.log(`[Stream] Firing Tier 4: Wikipedia`);
-                        let wikiResult = await checkWikipedia(title, reqConfig);
+                        let wikiResult = await pWiki;
                         if (wikiResult && wikiResult.definitive) {
                             finalResult = wikiResult;
                             console.log(`[Stream] Definitive state found by Wikipedia.`);
