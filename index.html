@@ -1,361 +1,545 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Configure Stremio Stinger Pro</title>
-    <link rel="icon" type="image/png" href="https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true">
-    
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true"
+    />
+
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #0f0f15; 
-            background-image: url('https://github.com/schultz911/stremio-stinger-pro/blob/main/bg.png?raw=true');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            color: #eaeaea; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            margin: 0; 
-        }
-        
-        body::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: -1;
-        }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: #0f0f15;
+        background-image: url("https://github.com/schultz911/stremio-stinger-pro/blob/main/bg.png?raw=true");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        color: #eaeaea;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+      }
 
-        .card { 
-            background: rgba(26, 26, 36, 0.85); 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 12px; 
-            padding: 40px; 
-            max-width: 450px; 
-            width: 100%; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.7); 
-            text-align: center; 
-            position: relative;
-        }
-        h1 { margin-top: 0; font-size: 24px; color: #fff; }
-        p.description { font-size: 14px; color: #a0a0b0; line-height: 1.5; margin-bottom: 30px; }
-        .input-group { text-align: left; margin-bottom: 25px; }
-        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #c0c0d0; }
-        
-        input[type="password"], select { 
-            width: 100%; 
-            padding: 12px; 
-            border-radius: 6px; 
-            border: 1px solid #333; 
-            background: rgba(0, 0, 0, 0.4); 
-            color: #fff; 
-            box-sizing: border-box; 
-            font-family: monospace;
-        }
-        select { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        input[type="password"]:focus, select:focus { outline: none; border-color: #8a5aE9; }
-        select option { background: #1a1a24; color: #fff; }
-        
-        .checkbox-group { display: flex; align-items: center; margin-top: 10px; margin-bottom: 0;}
-        .checkbox-group input { width: auto; margin-right: 10px; accent-color: #8a5aE9; cursor: pointer; width: 16px; height: 16px;}
-        .checkbox-group label { margin-bottom: 0; cursor: pointer; display: flex; align-items: center; font-weight: normal; font-size: 13px;}
+      body::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: -1;
+      }
 
-        .optional-text { font-size: 12px; color: #888; display: block; margin-top: 6px; }
-        button { 
-            background: #8a5aE9; 
-            color: white; 
-            border: none; 
-            padding: 14px 20px; 
-            font-size: 15px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            width: 100%; 
-            transition: background 0.2s; 
-            margin-top: 15px;
-        }
-        button:hover { background: #7141cc; }
-        
-        .preview-container {
-            margin-top: 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 12px;
-        }
-        .preview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .preview-label {
-            font-size: 10px;
-            color: #888;
-            font-weight: bold;
-            letter-spacing: 1px;
-            margin-bottom: 0;
-            display: block;
-        }
-        
-        .test-controls {
-            display: flex;
-            gap: 12px;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 8px 10px;
-            border-radius: 6px;
-            border: 1px solid #2a2a35;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-        .test-controls label {
-            display: flex;
-            align-items: center;
-            font-size: 11px;
-            font-weight: normal;
-            margin: 0;
-            color: #a0a0b0;
-            cursor: pointer;
-            transition: opacity 0.2s ease;
-        }
-        .test-controls input {
-            margin-right: 5px;
-            width: 13px;
-            height: 13px;
-            accent-color: #8a5aE9;
-            cursor: pointer;
-        }
-        .test-controls label.disabled-label {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        .test-controls label.disabled-label input {
-            cursor: not-allowed;
-        }
+      .card {
+        background: rgba(26, 26, 36, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 40px;
+        max-width: 450px;
+        width: 100%;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+        text-align: center;
+        position: relative;
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 24px;
+        color: #fff;
+      }
+      p.description {
+        font-size: 14px;
+        color: #a0a0b0;
+        line-height: 1.5;
+        margin-bottom: 30px;
+      }
+      .input-group {
+        text-align: left;
+        margin-bottom: 25px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #c0c0d0;
+      }
 
-        .stream-box {
-            background: #1e1e24;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 10px;
-            transition: all 0.2s ease;
-        }
-        .stream-title {
-            color: #fff;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        .stream-desc {
-            color: #a0a0b0;
-            font-size: 12px;
-            line-height: 1.4;
-        }
+      input[type="password"],
+      select {
+        width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        background: rgba(0, 0, 0, 0.4);
+        color: #fff;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+      select {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      input[type="password"]:focus,
+      select:focus {
+        outline: none;
+        border-color: #8a5ae9;
+      }
+      select option {
+        background: #1a1a24;
+        color: #fff;
+      }
 
-        #result-container { 
-            margin-top: 25px; 
-            display: none; 
-            background: rgba(0, 0, 0, 0.5); 
-            padding: 20px; 
-            border-radius: 8px; 
-            border: 1px solid #2a2a35; 
-            text-align: left; 
-        }
-        #result-container p { margin-top: 0; font-size: 13px; color: #ffcc00; line-height: 1.4; }
-        .code-box { 
-            background: rgba(0, 0, 0, 0.7); 
-            padding: 12px; 
-            border-radius: 6px; 
-            word-break: break-all; 
-            font-family: monospace; 
-            font-size: 12px;
-            color: #00ff88; 
-            margin-bottom: 15px; 
-            border: 1px solid #333;
-        }
-        .copy-btn { background: #444; padding: 10px; font-size: 14px; border: 1px solid #555;}
-        .copy-btn:hover { background: #555; }
-        
-        .footer {
-            margin-top: 30px;
-            font-size: 11px;
-            color: #888;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 15px;
-        }
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        margin-top: 10px;
+        margin-bottom: 0;
+      }
+      .checkbox-group input {
+        width: auto;
+        margin-right: 10px;
+        accent-color: #8a5ae9;
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+      }
+      .checkbox-group label {
+        margin-bottom: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        font-weight: normal;
+        font-size: 13px;
+      }
+
+      .optional-text {
+        font-size: 12px;
+        color: #888;
+        display: block;
+        margin-top: 6px;
+      }
+      button {
+        background: #8a5ae9;
+        color: white;
+        border: none;
+        padding: 14px 20px;
+        font-size: 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        width: 100%;
+        transition: background 0.2s;
+        margin-top: 15px;
+      }
+      button:hover {
+        background: #7141cc;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid #8a5ae9;
+        outline-offset: 2px;
+      }
+
+      .preview-container {
+        margin-top: 20px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .preview-label {
+        font-size: 10px;
+        color: #888;
+        font-weight: bold;
+        letter-spacing: 1px;
+        margin-bottom: 0;
+        display: block;
+      }
+
+      .test-controls {
+        display: flex;
+        gap: 12px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #2a2a35;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .test-controls label {
+        display: flex;
+        align-items: center;
+        font-size: 11px;
+        font-weight: normal;
+        margin: 0;
+        color: #a0a0b0;
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+      }
+      .test-controls input {
+        margin-right: 5px;
+        width: 13px;
+        height: 13px;
+        accent-color: #8a5ae9;
+        cursor: pointer;
+      }
+      .test-controls label.disabled-label {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .test-controls label.disabled-label input {
+        cursor: not-allowed;
+      }
+
+      .stream-box {
+        background: #1e1e24;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 10px;
+        transition: all 0.2s ease;
+      }
+      .stream-title {
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .stream-desc {
+        color: #a0a0b0;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      #result-container {
+        margin-top: 25px;
+        display: none;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #2a2a35;
+        text-align: left;
+      }
+      #result-container p {
+        margin-top: 0;
+        font-size: 13px;
+        color: #ffcc00;
+        line-height: 1.4;
+      }
+      .code-box {
+        background: rgba(0, 0, 0, 0.7);
+        padding: 12px;
+        border-radius: 6px;
+        word-break: break-all;
+        font-family: monospace;
+        font-size: 12px;
+        color: #00ff88;
+        margin-bottom: 15px;
+        border: 1px solid #333;
+      }
+      .copy-btn {
+        background: #444;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid #555;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border-radius: 4px;
+        color: white;
+      }
+      .copy-btn:hover {
+        background: #555;
+      }
+      .copy-btn:focus-visible {
+        outline: 2px solid #8a5ae9;
+        outline-offset: 2px;
+      }
+
+      .footer {
+        margin-top: 30px;
+        font-size: 11px;
+        color: #888;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 15px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="card">
-        <h1>Stremio Stinger Pro</h1>
-        <p class="description">Find out if a movie has mid and post-credits scenes before you watch it - <em>right from your stream list!</em></p>
-        <div class="input-group">
-            <label for="displayStyle">Choose your style:</label>
-            <select id="displayStyle" onchange="updatePreview()">
-                <option value="colorful">Colorful</option>
-                <option value="simple">Simple</option>
-            </select>
-            
-            <div class="checkbox-group">
-                <input type="checkbox" id="showSource" checked onchange="updatePreview()">
-                <label for="showSource">Show Source (e.g., "Source: AfterCredits")</label>
+      <h1>Stremio Stinger Pro</h1>
+      <p class="description">
+        Find out if a movie has mid and post-credits scenes before you watch it
+        - <em>right from your stream list!</em>
+      </p>
+      <div class="input-group">
+        <label for="displayStyle">Choose your style:</label>
+        <select id="displayStyle" onchange="updatePreview()">
+          <option value="colorful">Colorful</option>
+          <option value="simple">Simple</option>
+        </select>
+
+        <div class="checkbox-group">
+          <input
+            type="checkbox"
+            id="showSource"
+            checked
+            onchange="updatePreview()"
+          />
+          <label for="showSource"
+            >Show Source (e.g., "Source: AfterCredits")</label
+          >
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="showBloopers" onchange="updatePreview()" />
+          <label for="showBloopers">Include Outtakes (Bloopers and BTS)</label>
+        </div>
+
+        <div class="preview-container">
+          <div class="preview-header">
+            <span class="preview-label">LIVE PREVIEW</span>
+          </div>
+
+          <div class="test-controls">
+            <label id="lblTestMid"
+              ><input
+                type="checkbox"
+                id="testMid"
+                checked
+                onchange="updatePreview()"
+              />
+              Mid</label
+            >
+            <label id="lblTestPost"
+              ><input
+                type="checkbox"
+                id="testPost"
+                checked
+                onchange="updatePreview()"
+              />
+              Post</label
+            >
+            <label id="testBloopersContainer" style="display: none"
+              ><input
+                type="checkbox"
+                id="testBloopers"
+                onchange="updatePreview()"
+              />
+              Bloopers</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                id="testWiki"
+                onchange="updatePreview()"
+              />
+              Wiki (Unknown)</label
+            >
+          </div>
+
+          <div class="stream-box">
+            <div class="stream-title">After-Credits Scenes</div>
+            <div class="stream-desc" id="streamPreviewText">
+              🍿 Mid & Post-Credits Scenes<br />Source: AfterCredits
             </div>
-            <div class="checkbox-group">
-                <input type="checkbox" id="showBloopers" onchange="updatePreview()">
-                <label for="showBloopers">Include Outtakes (Bloopers and BTS)</label>
-            </div>
-
-            <div class="preview-container">
-                <div class="preview-header">
-                    <span class="preview-label">LIVE PREVIEW</span>
-                </div>
-                
-                <div class="test-controls">
-                    <label id="lblTestMid"><input type="checkbox" id="testMid" checked onchange="updatePreview()"> Mid</label>
-                    <label id="lblTestPost"><input type="checkbox" id="testPost" checked onchange="updatePreview()"> Post</label>
-                    <label id="testBloopersContainer" style="display: none;"><input type="checkbox" id="testBloopers" onchange="updatePreview()"> Bloopers</label>
-                    <label><input type="checkbox" id="testWiki" onchange="updatePreview()"> Wiki (Unknown)</label>
-                </div>
-
-                <div class="stream-box">
-                    <div class="stream-title">After-Credits Scenes</div>
-                    <div class="stream-desc" id="streamPreviewText">🍿 Mid & Post-Credits Scenes<br>Source: AfterCredits</div>
-                </div>
-            </div>
+          </div>
         </div>
+      </div>
 
-        <div class="input-group">
-            <label for="apiKey">Enter your TMDB API Key</label>
-            <input type="password" id="apiKey" placeholder="Enter key or leave blank">
-            <span class="optional-text">If left blank, the addon will use the default community API key.</span>
-        </div>
-        
-        <button onclick="installAddon()">Install</button>
+      <div class="input-group">
+        <label for="apiKey">Enter your TMDB API Key</label>
+        <input
+          type="password"
+          id="apiKey"
+          placeholder="Enter key or leave blank"
+        />
+        <span class="optional-text"
+          >If left blank, the addon will use the default community API
+          key.</span
+        >
+      </div>
 
-        <div id="result-container">
-            <p>If Stremio didn't open automatically or you use a different app, copy the manifest below to add it manually to your addon library:</p>
-            <div class="code-box" id="install-link"></div>
-            <button class="copy-btn" onclick="copyLink()">Copy Manifest URL</button>
-        </div>
+      <button onclick="installAddon()">Install</button>
 
-        <div class="footer">
-            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.6.5</a> | Developed by schultz911
-        </div>
+      <div id="result-container">
+        <p>
+          If Stremio didn't open automatically or you use a different app, copy
+          the manifest below to add it manually to your addon library:
+        </p>
+        <div class="code-box" id="install-link"></div>
+        <button class="copy-btn" onclick="copyLink()">Copy Manifest URL</button>
+      </div>
+
+      <div class="footer">
+        <a
+          href="https://github.com/schultz911/stremio-stinger-pro"
+          target="_blank"
+          >Release v1.6.5</a
+        >
+        | Developed by schultz911
+      </div>
     </div>
 
     <script>
-        let currentHttpsUrl = '';
+      let currentHttpsUrl = "";
 
-        function updatePreview() {
-            const style = document.getElementById('displayStyle').value;
-            const configShowSource = document.getElementById('showSource').checked;
-            const configShowBloopers = document.getElementById('showBloopers').checked;
-            
-            const testBloopersContainer = document.getElementById('testBloopersContainer');
-            if (configShowBloopers) {
-                testBloopersContainer.style.display = 'flex';
-            } else {
-                testBloopersContainer.style.display = 'none';
-                document.getElementById('testBloopers').checked = false; 
-            }
+      function updatePreview() {
+        const style = document.getElementById("displayStyle").value;
+        const configShowSource = document.getElementById("showSource").checked;
+        const configShowBloopers =
+          document.getElementById("showBloopers").checked;
 
-            const testWikiBox = document.getElementById('testWiki');
-            const testMidBox = document.getElementById('testMid');
-            const testPostBox = document.getElementById('testPost');
-            const testBloopersBox = document.getElementById('testBloopers');
-
-            const isWiki = testWikiBox.checked;
-
-            const dependentBoxes = [testMidBox, testPostBox, testBloopersBox];
-            dependentBoxes.forEach(box => {
-                box.disabled = isWiki;
-                if (isWiki) {
-                    box.parentElement.classList.add('disabled-label');
-                } else {
-                    box.parentElement.classList.remove('disabled-label');
-                }
-            });
-
-            const isMid = !isWiki && testMidBox.checked;
-            const isPost = !isWiki && testPostBox.checked;
-            const isBloopers = !isWiki && testBloopersBox.checked;
-            
-            const previewText = document.getElementById('streamPreviewText');
-            
-            let lines = [];
-
-            if (isWiki) {
-                lines.push(style === 'simple' ? "Unclassified Scene" : "❓ Unclassified Scene");
-            } else {
-                if (isMid && isPost) {
-                    lines.push(style === 'simple' ? "Mid-Credits Scene<br>Post-Credits Scene" : "🍿 Mid & Post-Credits Scenes");
-                } else if (isMid) {
-                    lines.push(style === 'simple' ? "Mid-Credits Scene" : "⏳ Mid-Credits Scene");
-                } else if (isPost) {
-                    lines.push(style === 'simple' ? "Post-Credits Scene" : "🎬 Post-Credits Scene");
-                } else if (!isBloopers || !configShowBloopers) {
-                    lines.push(style === 'simple' ? "No Bonus Scenes" : "🏃‍♂️ Nothing But Credits");
-                }
-            }
-
-            if (configShowBloopers && isBloopers) {
-                lines.push(style === 'simple' ? "Outtakes" : "🎭 Outtakes");
-            }
-
-            if (configShowSource) {
-                let mockSource = "TMDB";
-                if (isWiki) mockSource = "Wikipedia";
-                else if (isMid || isPost || isBloopers) mockSource = "AfterCredits";
-                else mockSource = "Aggregated";
-                lines.push(`Source: ${mockSource}`);
-            }
-            
-            previewText.innerHTML = lines.join('<br>');
-        }
-        
-        window.onload = updatePreview;
-
-        function installAddon() {
-            const key = document.getElementById('apiKey').value.trim();
-            let style = document.getElementById('displayStyle').value;
-            
-            if (!document.getElementById('showSource').checked) style += '-nosource';
-            if (document.getElementById('showBloopers').checked) style += '-bloopers';
-            
-            const host = window.location.host;
-            const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-            const httpProtocol = isLocal ? 'http://' : 'https://';
-            
-            let pathParts = [''];
-            pathParts.push(style);
-            if (key) pathParts.push(encodeURIComponent(key));
-            pathParts.push('manifest.json');
-            
-            const path = pathParts.join('/');
-            
-            const stremioUrl = `stremio://${host}${path}`;
-            currentHttpsUrl = `${httpProtocol}${host}${path}`;
-            
-            document.getElementById('result-container').style.display = 'block';
-            document.getElementById('install-link').innerText = currentHttpsUrl;
-            
-            window.location.href = stremioUrl;
+        const testBloopersContainer = document.getElementById(
+          "testBloopersContainer",
+        );
+        if (configShowBloopers) {
+          testBloopersContainer.style.display = "flex";
+        } else {
+          testBloopersContainer.style.display = "none";
+          document.getElementById("testBloopers").checked = false;
         }
 
-        function copyLink() {
-            navigator.clipboard.writeText(currentHttpsUrl).then(() => {
-                alert('Manifest link copied!');
-            }).catch(err => {
-                alert('Failed to copy to clipboard. Please copy it manually.');
-            });
+        const testWikiBox = document.getElementById("testWiki");
+        const testMidBox = document.getElementById("testMid");
+        const testPostBox = document.getElementById("testPost");
+        const testBloopersBox = document.getElementById("testBloopers");
+
+        const isWiki = testWikiBox.checked;
+
+        const dependentBoxes = [testMidBox, testPostBox, testBloopersBox];
+        dependentBoxes.forEach((box) => {
+          box.disabled = isWiki;
+          if (isWiki) {
+            box.parentElement.classList.add("disabled-label");
+          } else {
+            box.parentElement.classList.remove("disabled-label");
+          }
+        });
+
+        const isMid = !isWiki && testMidBox.checked;
+        const isPost = !isWiki && testPostBox.checked;
+        const isBloopers = !isWiki && testBloopersBox.checked;
+
+        const previewText = document.getElementById("streamPreviewText");
+
+        let lines = [];
+
+        if (isWiki) {
+          lines.push(
+            style === "simple" ? "Unclassified Scene" : "❓ Unclassified Scene",
+          );
+        } else {
+          if (isMid && isPost) {
+            lines.push(
+              style === "simple"
+                ? "Mid-Credits Scene<br>Post-Credits Scene"
+                : "🍿 Mid & Post-Credits Scenes",
+            );
+          } else if (isMid) {
+            lines.push(
+              style === "simple" ? "Mid-Credits Scene" : "⏳ Mid-Credits Scene",
+            );
+          } else if (isPost) {
+            lines.push(
+              style === "simple"
+                ? "Post-Credits Scene"
+                : "🎬 Post-Credits Scene",
+            );
+          } else if (!isBloopers || !configShowBloopers) {
+            lines.push(
+              style === "simple" ? "No Bonus Scenes" : "🏃‍♂️ Nothing But Credits",
+            );
+          }
         }
+
+        if (configShowBloopers && isBloopers) {
+          lines.push(style === "simple" ? "Outtakes" : "🎭 Outtakes");
+        }
+
+        if (configShowSource) {
+          let mockSource = "TMDB";
+          if (isWiki) mockSource = "Wikipedia";
+          else if (isMid || isPost || isBloopers) mockSource = "AfterCredits";
+          else mockSource = "Aggregated";
+          lines.push(`Source: ${mockSource}`);
+        }
+
+        previewText.innerHTML = lines.join("<br>");
+      }
+
+      window.onload = updatePreview;
+
+      function installAddon() {
+        const key = document.getElementById("apiKey").value.trim();
+        let style = document.getElementById("displayStyle").value;
+
+        if (!document.getElementById("showSource").checked)
+          style += "-nosource";
+        if (document.getElementById("showBloopers").checked)
+          style += "-bloopers";
+
+        const host = window.location.host;
+        const isLocal =
+          host.includes("localhost") || host.includes("127.0.0.1");
+        const httpProtocol = isLocal ? "http://" : "https://";
+
+        let pathParts = [""];
+        pathParts.push(style);
+        if (key) pathParts.push(encodeURIComponent(key));
+        pathParts.push("manifest.json");
+
+        const path = pathParts.join("/");
+
+        const stremioUrl = `stremio://${host}${path}`;
+        currentHttpsUrl = `${httpProtocol}${host}${path}`;
+
+        document.getElementById("result-container").style.display = "block";
+        document.getElementById("install-link").innerText = currentHttpsUrl;
+
+        window.location.href = stremioUrl;
+      }
+
+      function copyLink() {
+        const copyBtn = document.querySelector(".copy-btn");
+        const originalText = copyBtn.innerText;
+        navigator.clipboard
+          .writeText(currentHttpsUrl)
+          .then(() => {
+            copyBtn.innerText = "Copied! ✓";
+            copyBtn.style.background = "#2e7d32";
+            copyBtn.style.borderColor = "#4caf50";
+            setTimeout(() => {
+              copyBtn.innerText = originalText;
+              copyBtn.style.background = "";
+              copyBtn.style.borderColor = "";
+            }, 2000);
+          })
+          .catch((err) => {
+            copyBtn.innerText = "Failed to copy";
+            setTimeout(() => {
+              copyBtn.innerText = originalText;
+            }, 2000);
+          });
+      }
     </script>
-</body>
+  </body>
 </html>
