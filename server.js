@@ -3,6 +3,8 @@ const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const path = require('path');
+const http = require('http');
+const https = require('https');
 
 const app = express();
 app.use(cors());
@@ -11,9 +13,13 @@ app.use(cors());
 // 1. CONFIGURATION & STATE
 // ==========================================
 
+// ⚡ Bolt: Use Keep-Alive agents to reuse TCP connections across requests,
+// significantly reducing latency when making multiple API calls concurrently.
 const config = {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-    timeout: 8000 
+    timeout: 8000,
+    httpAgent: new http.Agent({ keepAlive: true }),
+    httpsAgent: new https.Agent({ keepAlive: true })
 };
 const DEFAULT_TMDB_KEY = process.env.TMDB_API_KEY;  
 
