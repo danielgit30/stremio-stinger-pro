@@ -46,8 +46,7 @@ The addon queries the following databases in order.
 
 <details>
 <summary>Core Scraping Logic</summary>
-```
-            
+          
             // 1. Tier 1: AfterCredits
             console.log(`[Stream] Firing Tier 1: AfterCredits`);
             let acResult = await checkAfterCredits(title, year, reqConfig);
