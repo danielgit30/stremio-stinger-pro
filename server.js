@@ -17,7 +17,22 @@ const config = {
 };
 const DEFAULT_TMDB_KEY = process.env.TMDB_API_KEY;  
 
-const streamCache = new Map();
+
+const MAX_CACHE_SIZE = 5000;
+const streamCache = {
+    _cache: new Map(),
+    has(key) { return this._cache.has(key); },
+    get(key) { return this._cache.get(key); },
+    delete(key) { return this._cache.delete(key); },
+    set(key, value) {
+        if (this._cache.size >= MAX_CACHE_SIZE) {
+            const firstKey = this._cache.keys().next().value;
+            this._cache.delete(firstKey);
+        }
+        this._cache.set(key, value);
+    }
+};
+
 const CACHE_TTL_SUCCESS = 30 * 60 * 1000; 
 const CACHE_TTL_ERROR = 60 * 1000;        
 
@@ -379,7 +394,7 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
     console.log(`\n--- [TMDB] Execution Start: ID ${imdbId} ---`);
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
-        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${key}`, reqConfig);
+        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`, reqConfig);
         const movieMatch = findRes.data.movie_results?.[0];
         if (!movieMatch) {
             console.log(`[TMDB] No match found.`);
@@ -387,7 +402,7 @@ async function checkTmdb(imdbId, apiKey, reqConfig) {
         }
         
         const tmdbId = Number(movieMatch.id);
-        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/keywords?api_key=${key}`, reqConfig);
+        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`, reqConfig);
         const keywords = kwRes.data.keywords || [];
         
         let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
@@ -440,14 +455,26 @@ app.get('/:style/:apiKey/manifest.json', manifestHandler);
 const streamHandler = async (req, res) => {
     res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
 
+
     const { type, id } = req.params;
     if (type !== 'movie') return res.json({ streams: [] });
+    if (!id || !/^tt\d+$/.test(id)) {
+        console.warn(`[Stream] Invalid ID format: ${id}`);
+        return res.json({ streams: [] });
+    }
+
 
     console.log(`\n========== NEW REQUEST ==========`);
     console.log(`[Stream] Request Type: ${type} | ID: ${id}`);
 
+
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
+
+    // Security: Input length limits
+    if (rawStyle.length > 50) rawStyle = 'colorful';
+    if (apiKey && apiKey.length > 100) apiKey = null;
+
 
     const styleConfig = {
         style: rawStyle.replace(/-nosource|-bloopers/g, ''),
