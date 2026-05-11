@@ -87,13 +87,15 @@ The addon queries the following databases in order.
 </details>
 
 ## 🌍 Configuration and Installation
-**🚨 Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
 
 1.  Navigate to `https://stremio-stinger-pro.onrender.com/configure`
 2.  Select your preferred display style (Colorful or Simple).
 3.  Toggle the checkboxes to include/exclude source attribution and bloopers.
-4.  (Optional) Enter your personal TMDB API key to prevent rate-limiting.
+4.  (Optional) Enter your personal TMDB API key.
 5.  Click **Install** to open Stremio and add the configuration, or copy the generated Manifest URL to add it manually.
+
+> [!CAUTION]
+> Using the community TMDB key could lead to rate limiting.
 
 ## 🚀 Development
 ### Tech Stack
@@ -103,6 +105,8 @@ The addon queries the following databases in order.
 ### Deployment
 * **Hosting:** Deployed via a continuous Node.js container on Render (Free Tier).
 * **Keep-Alive:** The server is maintained in an active state via scheduled Cronjobs to prevent cold-start delays.
+### Maintenance
+* **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
 
