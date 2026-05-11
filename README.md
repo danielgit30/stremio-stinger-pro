@@ -40,7 +40,7 @@ The addon queries the following databases in order.
 3. **The Movie Database (TMDB):** 
 4. **Wikipedia:** 
 
-> [!INFO]
+> [!NOTE]
 > * TMDB is configured to use a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
 > * Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
 
