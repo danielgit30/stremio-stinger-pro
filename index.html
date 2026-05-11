@@ -356,7 +356,7 @@
             >
           </div>
 
-          <div class="stream-box">
+          <div class="stream-box" aria-live="polite" aria-atomic="true">
             <div class="stream-title">After-Credits Scenes</div>
             <div class="stream-desc" id="streamPreviewText">
               🍿 Mid & Post-Credits Scenes<br />Source: AfterCredits
@@ -371,8 +371,9 @@
           type="password"
           id="apiKey"
           placeholder="Enter key or leave blank"
+          aria-describedby="apiKeyHelp"
         />
-        <span class="optional-text"
+        <span class="optional-text" id="apiKeyHelp"
           >If left blank, the addon will use the default community API
           key.</span
         >
@@ -380,7 +381,7 @@
 
       <button onclick="installAddon()">Install</button>
 
-      <div id="result-container">
+      <div id="result-container" aria-live="polite">
         <p>
           If Stremio didn't open automatically or you use a different app, copy
           the manifest below to add it manually to your addon library:
