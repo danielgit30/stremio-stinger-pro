@@ -35,15 +35,17 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 ## 📡 Data Sources
 The addon queries the following databases in order.
 
-1. **AfterCredits.com:**
-2. **MediaStinger.com:** 
-3. **The Movie Database (TMDB):** 
-4. **Wikipedia:** 
+1. **AfterCredits.com**
+2. **MediaStinger.com** 
+3. **The Movie Database (TMDB)** 
+4. **Wikipedia** 
 
 > [!NOTE]
 > * TMDB is configured to use a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
 > * Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
 
+<details>
+<summary>Core Scraping Logic</summary>
 ```
 // 1. Tier 1: AfterCredits
             console.log(`[Stream] Firing Tier 1: AfterCredits`);
@@ -83,6 +85,7 @@ The addon queries the following databases in order.
                             updateFallback(wikiResult);
 
 ```
+</details>
 
 ## 🌍 Configuration and Installation
 **🚨 Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
