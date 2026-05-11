@@ -46,14 +46,8 @@ The addon queries the following databases simultaneously and posts the best resu
 
 <details>
 <summary>Core Scraping Logic</summary>
-            console.log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
-            // Execute all scrapers concurrently to drastically reduce tail latency
-            // If a higher priority scraper finds a definitive result, the AbortController
-            // in the finally block will cancel the pending lower-priority requests.
-            const pAc = checkAfterCredits(title, year, reqConfig);
-            const pMs = checkMediaStinger(title, year, reqConfig);
-            const pTmdb = checkTmdb(id, apiKey, reqConfig);
-            const pWiki = checkWikipedia(title, reqConfig);
+Execute all scrapers concurrently to drastically reduce tail latency
+If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
 
             // Await them in priority order, so we can short-circuit
             let acResult = await pAc;
@@ -86,10 +80,7 @@ The addon queries the following databases simultaneously and posts the best resu
                             console.log(`[Stream] Definitive state found by Wikipedia.`);
                         } else {
                             updateFallback(wikiResult);
-                        }
-                    }
-                }
-            }
+
 </details>
 
 ## 🌍 Configuration and Installation
