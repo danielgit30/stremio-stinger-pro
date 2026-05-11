@@ -45,11 +45,12 @@ The addon queries the following databases simultaneously and posts the best resu
 > * Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
 
 <details>
-<summary>Core Scraping Logic</summary>
-Execute all scrapers concurrently to drastically reduce tail latency
-If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
 
-            // Await them in priority order, so we can short-circuit
+<summary>Core Scraping Logic</summary>
+
+### Executes all scrapers concurrently to drastically reduce tail latency. If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
+
+```         // Await them in priority order, so we can short-circuit
             let acResult = await pAc;
             if (acResult && acResult.definitive) {
                 finalResult = acResult;
@@ -80,6 +81,7 @@ If a higher priority scraper finds a definitive result, the AbortController in t
                             console.log(`[Stream] Definitive state found by Wikipedia.`);
                         } else {
                             updateFallback(wikiResult);
+```
 
 </details>
 
