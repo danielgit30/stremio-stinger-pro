@@ -1,3 +1,3 @@
-## 2024-05-11 - Node.js Concurrent Await Optimization
-**Learning:** For a Node.js scraper app that cascades multiple HTTP fetch tasks, using `await a(); await b();` introduces cumulative latency and causes requests to wait sequentially. By starting all requests simultaneously (`const pa = a(); const pb = b();`), and then `await`ing them in priority order, you can drastically reduce the "tail latency" while maintaining priority cascading logic.
-**Action:** Use concurrent Promise initialization before awaiting sequentially when prioritizing cascade-style network requests.
+## 2024-05-24 - Optimizing RegExp evaluations in scraping routines
+**Learning:** In highly repetitive scraping tasks (like iterating over rows or matching large blocks of text), using `String.prototype.match()` just to check for the presence of a pattern creates unnecessary overhead because it constructs array objects. Furthermore, compiling regex within tight loops is costly.
+**Action:** Always prefer `RegExp.prototype.test()` over `.match()` when you only need a boolean response. Pre-compile `RegExp` objects outside of iteration blocks to avoid compiling the same pattern repeatedly.

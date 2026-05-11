@@ -115,6 +115,9 @@ async function buildWikiIndex(reqConfig = config) {
         const $ = cheerio.load(res.data);
         const newCache = new Map();
         
+        // Use a pre-compiled RegExp with .test() for performance inside loops
+        const blooperRegex = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
+
         $("table.wikitable tr").each((i, el) => {
             let titleText = $(el).find("i").first().text();
             if (!titleText) titleText = $(el).find("td").eq(1).text(); 
@@ -125,7 +128,7 @@ async function buildWikiIndex(reqConfig = config) {
             
             let hasMid = rowText.includes('mid-') || rowText.includes('during');
             let hasPost = rowText.includes('post-') || rowText.includes('after');
-            let hasBloopers = !!rowText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
+            let hasBloopers = blooperRegex.test(rowText);
             
             newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
         });
@@ -215,8 +218,8 @@ async function checkAfterCredits(title, year, reqConfig) {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase(); 
             
-            const isBlooper = blockText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/);
-            const isNegative = blockText.match(/(no extra|no stinger|nothing|are no|no scene)/) && !blockText.match(/(extra shot|audio|voice|laugh|but|however)/);
+            const isBlooper = /\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(blockText);
+            const isNegative = /(no extra|no stinger|nothing|are no|no scene)/.test(blockText) && !/(extra shot|audio|voice|laugh|but|however)/.test(blockText);
 
             if (headText.includes("during") || headText.includes("mid")) {
                 if (isBlooper) {
@@ -299,7 +302,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             if (seoText) {
                 console.log(`[MediaStinger] SEO Header Found: "${seoText}"`);
                 
-                if (seoText.match(/\b(no|zero)\b/)) {
+                if (/\b(no|zero)\b/.test(seoText)) {
                     console.log(`[MediaStinger] SEO Header negation detected.`);
                     seoNo = true;
                     if (seoText.includes('during') || seoText.includes('mid')) seoMid = 'false';
@@ -321,7 +324,7 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             let bodyMid = false, bodyPost = false, bodyBloopers = false;
 
-            if (fullText.match(/\b(bloopers?|outtakes?|gags?|gag reel)\b/)) bodyBloopers = true;
+            if (/\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(fullText)) bodyBloopers = true;
 
             const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
             const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
