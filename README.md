@@ -1,22 +1,25 @@
-![logo](/icon.png)
-
 # Stremio Stinger Pro
-**Version 1.7.0**
+
+## Version 1.7.0
+
+![logo](/icon.png)
 
 Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mid-credit scenes, post-credit scenes, and blooper reels before watching a movie. It integrates directly into your stream list with customizable display configurations.
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
 ## Upcoming Features
+
 - [ ] Add option to see *sequel setup* stingers.
 
 ---
 
 ## Table of Contents
-* [⚙️ What It Does](#️-key-features)
-* [📡 Data Sources](#-data-sources)
-* [🌍 Configuration and Installation](#-configuration-and-installation)
-* [🚀 Development](#-development)
+
+- [⚙️ What It Does](#️-key-features)
+- [📡 Data Sources](#-data-sources)
+- [🌍 Configuration and Installation](#-configuration-and-installation)
+- [🚀 Development](#-development)
 
 [Latest Release: v1.7.0](#release-v170)
 > [!WARNING]
@@ -25,6 +28,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 ---
 
 ## ⚙️ Key Features
+
 * **High-Fidelity Logic:** Queries sources concurrently but follows a priority for results based on the reliability of the source. Resolves instantly the millisecond the highest-priority stinger is confirmed.
 * **Outtake Detection:** Automatically distinguishes between narrative stingers and outtake reels. Outtake and blooper flagging is optional and can be configured.
 * **Wikipedia Indexing:** Utilizes an auto-updating, O(1) in-memory index of Wikipedia's post-credit database to instantly catch obscure films if primary scrapers fail.
@@ -33,22 +37,22 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 * **Configuration-Aware Caching:** Stream results are cached efficiently based on your exact URL parameters, preventing conflicting data across different user preferences.
 
 ## 📡 Data Sources
+
 The addon queries the following databases simultaneously and posts the best result based on the below priority.
 
 1. **AfterCredits.com**
-2. **MediaStinger.com** 
-3. **The Movie Database (TMDB)** 
-4. **Wikipedia** 
+2. **MediaStinger.com**
+3. **The Movie Database (TMDB)**
+4. **Wikipedia**
 
 > [!NOTE]
-> * TMDB is configured to use a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
-> * Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
+>
+> - TMDB is configured to use a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
+> - Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
 
-<details>
+### Core Scraping Logic
 
-<summary>Core Scraping Logic</summary>
-
-### Executes all scrapers concurrently to drastically reduce tail latency. If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
+Executes all scrapers concurrently to drastically reduce tail latency. If a higher priority scraper finds a definitive result, the AbortController in the final block will cancel the pending lower-priority requests.
 
 ```         
         // Await them in priority order, so we can short-circuit
