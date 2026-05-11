@@ -35,17 +35,19 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 ## 📡 Data Sources
 The addon queries the following databases in order.
 
-1. **AfterCredits.com:**
-2. **MediaStinger.com:** 
-3. **The Movie Database (TMDB):** 
-4. **Wikipedia:** 
+1. **AfterCredits.com**
+2. **MediaStinger.com** 
+3. **The Movie Database (TMDB)** 
+4. **Wikipedia** 
 
-> [!INFO]
+> [!NOTE]
 > * TMDB is configured to use a community API key by default, but users can provide a personal v3 API key for dedicated rate limits.
 > * Wikipedia doesn't classify after-credit scenes as mid- or post-credits scenes explicitly and relies on regex. You may see some results tagged as **"Unclassified Scene"**.
 
-```
-// 1. Tier 1: AfterCredits
+<details>
+<summary>Core Scraping Logic</summary>
+          
+            // 1. Tier 1: AfterCredits
             console.log(`[Stream] Firing Tier 1: AfterCredits`);
             let acResult = await checkAfterCredits(title, year, reqConfig);
             
@@ -82,16 +84,18 @@ The addon queries the following databases in order.
                         } else {
                             updateFallback(wikiResult);
 
-```
+</details>
 
 ## 🌍 Configuration and Installation
-**🚨 Note for existing users:** Because v1.6.0 introduces new configuration parameters in the installation URL, you must uninstall any previous versions of Stremio Stinger Pro from your Stremio client before upgrading.
 
 1.  Navigate to `https://stremio-stinger-pro.onrender.com/configure`
 2.  Select your preferred display style (Colorful or Simple).
 3.  Toggle the checkboxes to include/exclude source attribution and bloopers.
-4.  (Optional) Enter your personal TMDB API key to prevent rate-limiting.
+4.  (Optional) Enter your personal TMDB API key.
 5.  Click **Install** to open Stremio and add the configuration, or copy the generated Manifest URL to add it manually.
+
+> [!CAUTION]
+> Using the community TMDB key could lead to rate limiting.
 
 ## 🚀 Development
 ### Tech Stack
@@ -101,6 +105,8 @@ The addon queries the following databases in order.
 ### Deployment
 * **Hosting:** Deployed via a continuous Node.js container on Render (Free Tier).
 * **Keep-Alive:** The server is maintained in an active state via scheduled Cronjobs to prevent cold-start delays.
+### Maintenance
+* **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
 
