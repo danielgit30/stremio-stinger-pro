@@ -77,6 +77,7 @@
       }
 
       input[type="password"],
+      input[type="text"]#apiKey,
       select {
         width: 100%;
         padding: 12px;
@@ -93,6 +94,7 @@
           Arial, sans-serif;
       }
       input[type="password"]:focus,
+      input[type="text"]#apiKey:focus,
       select:focus {
         outline: none;
         border-color: #8a5ae9;
@@ -377,6 +379,14 @@
           >If left blank, the addon will use the default community API
           key.</span
         >
+        <div class="checkbox-group" style="margin-top: 15px">
+          <input
+            type="checkbox"
+            id="showApiKey"
+            onchange="toggleApiKeyVisibility()"
+          />
+          <label for="showApiKey">Show API Key</label>
+        </div>
       </div>
 
       <button onclick="installAddon()">Install</button>
@@ -391,12 +401,23 @@
       </div>
 
       <div class="footer">
-        <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.7.0</a> | Developed by schultz911
+        <a
+          href="https://github.com/schultz911/stremio-stinger-pro"
+          target="_blank"
+          >Release v1.7.0</a
+        >
+        | Developed by schultz911
       </div>
     </div>
 
     <script>
       let currentHttpsUrl = "";
+
+      function toggleApiKeyVisibility() {
+        const apiKeyInput = document.getElementById("apiKey");
+        const showApiKeyCheckbox = document.getElementById("showApiKey");
+        apiKeyInput.type = showApiKeyCheckbox.checked ? "text" : "password";
+      }
 
       function updatePreview() {
         const style = document.getElementById("displayStyle").value;
