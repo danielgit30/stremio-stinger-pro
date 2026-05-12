@@ -50,13 +50,21 @@ const WIKI_TTL = 24 * 60 * 60 * 1000;
 // 2. STRING UTILITIES & FORMATTERS
 // ==========================================
 
+// ⚡ Bolt: Pre-compiled regexes for hot string utilities
+const RE_YEAR = /\(\d{4}\)/g;
+const RE_NON_WORD = /[^\w\s]/g;
+const RE_MULTI_SPACE = /\s+/g;
+const RE_ARTICLE_START = /^(the|a|an)\s+/i;
+const RE_ARTICLE_END = /\s+(the|a|an)$/i;
+const RE_SAFE_SUFFIXES = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
+
 const isTitleMatch = (linkText, targetTitle) => {
-    let tLink = linkText.toLowerCase().replace(/\(\d{4}\)/g, '').trim();
+    let tLink = linkText.toLowerCase().replace(RE_YEAR, '').trim();
     let tTarget = targetTitle.toLowerCase().trim();
 
     const clean = (str) => {
-        let s = str.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-        return s.replace(/^(the|a|an)\s+/i, '').replace(/\s+(the|a|an)$/i, '').trim(); 
+        let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
+        return s.replace(RE_ARTICLE_START, '').replace(RE_ARTICLE_END, '').trim();
     };
 
     tLink = clean(tLink);
@@ -64,7 +72,7 @@ const isTitleMatch = (linkText, targetTitle) => {
 
     if (tLink === tTarget) return true;
 
-    const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
+    const safeSuffixes = RE_SAFE_SUFFIXES;
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
         const remainder = tLink.substring(tTarget.length).trim();
@@ -79,12 +87,17 @@ const isTitleMatch = (linkText, targetTitle) => {
     return false;
 };
 
+const RE_WIKI_ARTICLE_START = /^(the|a|an)\s+/i;
+const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
+const RE_WIKI_PARENS = /\s*\(.*?\)\s*/g;
+const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
+
 const wikiNormalize = (title) => {
     return title.toLowerCase()
-        .replace(/^(the|a|an)\s+/i, '')
-        .replace(/,\s*(the|a|an)$/i, '')
-        .replace(/\s*\(.*?\)\s*/g, '')
-        .replace(/[^a-z0-9]/g, '')
+        .replace(RE_WIKI_ARTICLE_START, '')
+        .replace(RE_WIKI_ARTICLE_END, '')
+        .replace(RE_WIKI_PARENS, '')
+        .replace(RE_WIKI_NON_ALNUM, '')
         .trim();
 };
 
@@ -127,6 +140,23 @@ const formatMessage = (styleConfig, data) => {
 // ==========================================
 // 3. CORE SCRAPERS
 // ==========================================
+
+const RE_MS_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
+const RE_MS_MID_YES = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
+const RE_MS_MID_NO = /during (the )?credits\W{1,15}no\b/;
+const RE_MS_POST_YES = /after (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
+const RE_MS_POST_NO = /after (the )?credits\W{1,15}no\b/;
+const RE_MS_LEGACY_MID_NO = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/;
+const RE_MS_LEGACY_POST_NO = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/;
+const RE_MS_MID_FALLBACK = /(extra scene|stinger|animation|extra shot|shot).{0,60}during the credits/;
+const RE_MS_POST_FALLBACK = /(extra scene|stinger|extra shot|shot).{0,60}after the credits/;
+const RE_MS_SEO_NO = /\b(no|zero)\b/;
+const RE_AC_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
+const RE_AC_NEGATIVE = /(no extra|no stinger|nothing|are no|no scene)/;
+const RE_AC_NOT_NEGATIVE = /(extra shot|audio|voice|laugh|but|however)/;
+const RE_MS_AUDIO_1 = /\b(audio|voice|hear|heard|message|tribute|dedication|honored)\b/;
+const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/;
+
 
 async function buildWikiIndex(reqConfig = config) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
@@ -252,8 +282,8 @@ async function checkAfterCredits(title, year, reqConfig) {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase(); 
             
-            const isBlooper = /\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(blockText);
-            const isNegative = /(no extra|no stinger|nothing|are no|no scene)/.test(blockText) && !/(extra shot|audio|voice|laugh|but|however)/.test(blockText);
+            const isBlooper = RE_AC_BLOOPERS.test(blockText);
+            const isNegative = RE_AC_NEGATIVE.test(blockText) && !RE_AC_NOT_NEGATIVE.test(blockText);
 
             if (headText.includes("during") || headText.includes("mid")) {
                 if (isBlooper) {
@@ -349,7 +379,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             if (seoText) {
                 console.log(`[MediaStinger] SEO Header Found: "${seoText}"`);
                 
-                if (/\b(no|zero)\b/.test(seoText)) {
+                if (RE_MS_SEO_NO.test(seoText)) {
                     console.log(`[MediaStinger] SEO Header negation detected.`);
                     seoNo = true;
                     if (seoText.includes('during') || seoText.includes('mid')) seoMid = 'false';
@@ -367,31 +397,32 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             const contentNode = $$('.post_secwrapper').first();
             const rawHtml = contentNode.html() || '';
-            const fullText = cheerio.load(rawHtml.replace(/</g, ' <')).text().toLowerCase().replace(/\s+/g, ' ');
+            // ⚡ Bolt: Replaced expensive cheerio.load() with fast regex to strip HTML tags for text extraction.
+            const fullText = rawHtml.replace(/<[^>]*>/g, ' ').toLowerCase().replace(/\s+/g, ' ');
 
             let bodyMid = false, bodyPost = false, bodyBloopers = false;
 
-            if (/\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(fullText)) bodyBloopers = true;
+            if (RE_MS_BLOOPERS.test(fullText)) bodyBloopers = true;
 
-            const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
-            const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
-            const postYes = /after (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
-            const postNo = /after (the )?credits\W{1,15}no\b/.test(fullText);
+            const midYes = RE_MS_MID_YES.test(fullText);
+            const midNo = RE_MS_MID_NO.test(fullText);
+            const postYes = RE_MS_POST_YES.test(fullText);
+            const postNo = RE_MS_POST_NO.test(fullText);
 
             if (midYes) bodyMid = true;
             if (postYes) bodyPost = true;
 
-            const legacyMidNo = /(no|zero) (extra|scene|stinger|animation|extras).{0,40}during the credits/.test(fullText);
-            const legacyPostNo = /(no|zero) (extra|scene|stinger|extras).{0,40}after the credits/.test(fullText);
+            const legacyMidNo = RE_MS_LEGACY_MID_NO.test(fullText);
+            const legacyPostNo = RE_MS_LEGACY_POST_NO.test(fullText);
 
-            if (/(extra scene|stinger|animation|extra shot|shot).{0,60}during the credits/.test(fullText) && !legacyMidNo) bodyMid = true;
-            if (/(extra scene|stinger|extra shot|shot).{0,60}after the credits/.test(fullText) && !legacyPostNo) bodyPost = true;
+            if (RE_MS_MID_FALLBACK.test(fullText) && !legacyMidNo) bodyMid = true;
+            if (RE_MS_POST_FALLBACK.test(fullText) && !legacyPostNo) bodyPost = true;
 
             const validateContext = (keyword) => {
                 const idx = fullText.indexOf(keyword);
                 if (idx === -1) return false;
                 const context = fullText.substring(Math.max(0, idx - 80), Math.min(fullText.length, idx + 120));
-                return /\b(audio|voice|hear|heard|message|tribute|dedication|honored)\b/.test(context) && !/\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/.test(context);
+                return RE_MS_AUDIO_1.test(context) && !RE_MS_AUDIO_2.test(context);
             };
 
             const midIsAudio = validateContext('during the credits') || validateContext('during credits');
