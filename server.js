@@ -85,19 +85,16 @@ const RE_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_ARTICLE_END = /\s+(the|a|an)$/i;
 const RE_SAFE_SUFFIXES = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
 
-const isTitleMatch = (linkText, targetTitle) => {
+const cleanTitle = (str) => {
+    let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
+    return s.replace(RE_ARTICLE_START, '').replace(RE_ARTICLE_END, '').trim();
+};
+
+const isTitleMatch = (linkText, cleanedTargetTitle) => {
     let tLink = linkText.toLowerCase().replace(RE_YEAR, '').trim();
-    let tTarget = targetTitle.toLowerCase().trim();
+    tLink = cleanTitle(tLink);
 
-    const clean = (str) => {
-        let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
-        return s.replace(RE_ARTICLE_START, '').replace(RE_ARTICLE_END, '').trim();
-    };
-
-    tLink = clean(tLink);
-    tTarget = clean(tTarget);
-
-    if (tLink === tTarget) return true;
+    if (tLink === cleanedTargetTitle) return true;
 
     // Security: Replace regex with Set to prevent ReDoS
     const safeTokens = new Set([
@@ -111,13 +108,13 @@ const isTitleMatch = (linkText, targetTitle) => {
         return str.split(/\s+/).every(word => word === '' || safeTokens.has(word));
     };
 
-    if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
-        const remainder = tLink.substring(tTarget.length).trim();
+    if (cleanedTargetTitle.length > 0 && tLink.startsWith(cleanedTargetTitle)) {
+        const remainder = tLink.substring(cleanedTargetTitle.length).trim();
         if (isSafeSuffix(remainder)) return true;
     }
 
-    if (tLink.length > 0 && tTarget.startsWith(tLink)) {
-        const remainder = tTarget.substring(tLink.length).trim();
+    if (tLink.length > 0 && cleanedTargetTitle.startsWith(tLink)) {
+        const remainder = cleanedTargetTitle.substring(tLink.length).trim();
         if (isSafeSuffix(remainder)) return true;
     }
 
@@ -249,6 +246,7 @@ async function checkWikipedia(title, reqConfig) {
 async function checkAfterCredits(title, year, reqConfig) {
     console.log(`\n--- [AfterCredits] Execution Start: "${title}" ---`);
     try {
+        const cleanedTitle = cleanTitle(title.toLowerCase().trim());
         const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
         const $ = cheerio.load(searchRes.data);
@@ -258,7 +256,7 @@ async function checkAfterCredits(title, year, reqConfig) {
             const rawLinkText = $(el).text().toLowerCase().trim();
             if (!rawLinkText) return;
 
-            if (isTitleMatch(rawLinkText, title)) {
+            if (isTitleMatch(rawLinkText, cleanedTitle)) {
                 potentialMatches.push({
                     url: $(el).attr('href'),
                     isReview: rawLinkText.includes('review'),
@@ -355,6 +353,7 @@ async function checkAfterCredits(title, year, reqConfig) {
 async function checkMediaStinger(title, year, reqConfig) {
     console.log(`\n--- [MediaStinger] Execution Start: "${title}" ---`);
     try {
+        const cleanedTitle = cleanTitle(title.toLowerCase().trim());
         const cleanSearchTitle = title.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
         const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
         const searchRes = await axios.get(searchUrl, reqConfig);
@@ -365,7 +364,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             const rawLinkText = $(el).text().toLowerCase().trim();
             if (!rawLinkText) return;
 
-            if (isTitleMatch(rawLinkText, title)) {
+            if (isTitleMatch(rawLinkText, cleanedTitle)) {
                 potentialMatches.push({
                     url: $(el).attr('href'),
                     rawText: rawLinkText
