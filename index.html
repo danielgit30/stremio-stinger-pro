@@ -516,7 +516,19 @@
         lines.push(`Source: ${mockSource}`);
       }
 
-      previewText.innerHTML = lines.join("<br>");
+      previewText.textContent = "";
+      lines.forEach((line, index) => {
+        const parts = line.split("<br>");
+        parts.forEach((part, partIndex) => {
+          previewText.appendChild(document.createTextNode(part));
+          if (partIndex < parts.length - 1) {
+            previewText.appendChild(document.createElement("br"));
+          }
+        });
+        if (index < lines.length - 1) {
+          previewText.appendChild(document.createElement("br"));
+        }
+      });
     }
 
     window.onload = updatePreview;
