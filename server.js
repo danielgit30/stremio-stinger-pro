@@ -691,6 +691,32 @@ app.listen(process.env.PORT || 7000, () => {
 if (require.main === module) {
     const assert = require('assert');
 
+    // formatMessage tests
+    // 1. Simple style
+    const simpleStyle = { style: 'simple', showBloopers: true, showSequel: true };
+    assert.strictEqual(formatMessage(simpleStyle, { source: 'Wikipedia', mid: false, post: false, bloopers: false }), "Unclassified Scene");
+    assert.strictEqual(formatMessage(simpleStyle, { mid: true, post: true }), "Mid-Credits Scene\nPost-Credits Scene");
+    assert.strictEqual(formatMessage(simpleStyle, { mid: true }), "Mid-Credits Scene");
+    assert.strictEqual(formatMessage(simpleStyle, { post: true }), "Post-Credits Scene");
+    assert.strictEqual(formatMessage(simpleStyle, { no: true }), "No Bonus Scenes");
+    assert.strictEqual(formatMessage(simpleStyle, { bloopers: true }), "Outtakes");
+    assert.strictEqual(formatMessage(simpleStyle, { sequel: true, source: 'AfterCredits' }), "No Stingers Found\nSequel Setup");
+
+    // 2. Colorful style
+    const colorfulStyle = { style: 'colorful', showBloopers: true, showSequel: true };
+    assert.strictEqual(formatMessage(colorfulStyle, { source: 'Wikipedia', mid: false, post: false, bloopers: false }), "❓ Unclassified Scene");
+    assert.strictEqual(formatMessage(colorfulStyle, { mid: true, post: true }), "🍿 Mid & Post-Credits Scenes");
+    assert.strictEqual(formatMessage(colorfulStyle, { mid: true }), "⏳ Mid-Credits Scene");
+    assert.strictEqual(formatMessage(colorfulStyle, { post: true }), "🎬 Post-Credits Scene");
+    assert.strictEqual(formatMessage(colorfulStyle, { no: true }), "🏃‍♂️ Nothing But Credits");
+    assert.strictEqual(formatMessage(colorfulStyle, { bloopers: true }), "🎭 Outtakes");
+    assert.strictEqual(formatMessage(colorfulStyle, { sequel: true, source: 'AfterCredits' }), "🕵️‍♂️ Couldn't Find Stingers\n🔮 Sets Up For A Sequel");
+
+    // 3. Bloopers and Sequel configuration
+    const noExtrasStyle = { style: 'simple', showBloopers: false, showSequel: false };
+    assert.strictEqual(formatMessage(noExtrasStyle, { bloopers: true }), "No Bonus Scenes");
+    assert.strictEqual(formatMessage(noExtrasStyle, { sequel: true, source: 'AfterCredits' }), "No Stingers Found");
+
     // validateUrl
     assert.strictEqual(validateUrl('/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://aftercredits.com/page');
     assert.strictEqual(validateUrl('https://www.aftercredits.com/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://www.aftercredits.com/page');
