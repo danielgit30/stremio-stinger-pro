@@ -64,16 +64,26 @@ const isTitleMatch = (linkText, targetTitle) => {
 
     if (tLink === tTarget) return true;
 
-    const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
+    // Security: Replace regex with Set to prevent ReDoS
+    const safeTokens = new Set([
+        'blooper', 'bloopers', 'outtake', 'outtakes', 'extra', 'extras', 'and', 'or', 'with',
+        'scene', 'scenes', 'credit', 'credits', 'stinger', 'stingers', 'review', 'reviews',
+        'post', 'mid', 'after', 'end', 'during', 'the', 'is', 'a', 'an', 'there', 'are', 'movie', 'film'
+    ]);
+
+    const isSafeSuffix = (str) => {
+        if (!str) return false;
+        return str.split(/\s+/).every(word => word === '' || safeTokens.has(word));
+    };
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
         const remainder = tLink.substring(tTarget.length).trim();
-        if (safeSuffixes.test(remainder)) return true;
+        if (isSafeSuffix(remainder)) return true;
     }
     
     if (tLink.length > 0 && tTarget.startsWith(tLink)) {
          const remainder = tTarget.substring(tLink.length).trim();
-         if (safeSuffixes.test(remainder)) return true;
+         if (isSafeSuffix(remainder)) return true;
     }
 
     return false;
