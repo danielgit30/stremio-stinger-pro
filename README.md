@@ -4,7 +4,7 @@
 
 ![logo](/icon.png)
 
-Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mid-credit scenes, post-credit scenes, and blooper reels before watching a movie. It integrates directly into your stream list with customizable display configurations.
+Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mid-credit scenes, post-credit scenes, outtakes, and sequel setups. It integrates directly into your stream list with customizable display configurations.
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
