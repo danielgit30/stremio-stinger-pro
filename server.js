@@ -695,5 +695,16 @@ if (require.main === module) {
     assert.strictEqual(validateUrl('/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://aftercredits.com/page');
     assert.strictEqual(validateUrl('https://www.aftercredits.com/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://www.aftercredits.com/page');
     assert.strictEqual(validateUrl('https://evil.com/page', 'https://aftercredits.com', 'aftercredits.com'), null);
+
+    // wikiNormalize
+    assert.strictEqual(wikiNormalize("The Avengers"), "avengers"); // 'The ' prefix
+    assert.strictEqual(wikiNormalize("A Bug's Life"), "bugslife"); // 'A ' prefix
+    assert.strictEqual(wikiNormalize("An American Tail"), "americantail"); // 'An ' prefix
+    assert.strictEqual(wikiNormalize("Avengers, The"), "avengers"); // ', The' suffix
+    assert.strictEqual(wikiNormalize("Spider-Man (2002 film)"), "spiderman"); // Parentheses removal
+    assert.strictEqual(wikiNormalize("Batman v Superman: Dawn of Justice"), "batmanvsupermandawnofjustice"); // Non-alphanumeric strip & lowercase
+    assert.strictEqual(wikiNormalize("The Matrix Reloaded (film)"), "matrixreloaded"); // Multiple rules combined
+    assert.strictEqual(wikiNormalize("  Space Jam  "), "spacejam"); // Trimming spaces
+
     console.log("All unit tests passed.");
 }
