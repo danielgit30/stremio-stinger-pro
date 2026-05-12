@@ -295,6 +295,16 @@ async function checkAfterCredits(title, year, reqConfig) {
         }
 
         console.log(`[AfterCredits] Parsing body containers...`);
+
+        const updateStingerState = (isBlooper, isNegative, currentState, type) => {
+            if (isBlooper) {
+                bloopers = true;
+                console.log(`[AfterCredits] Blooper found in ${type} container.`);
+                return currentState;
+            }
+            return !isNegative;
+        };
+
         $$(".spoiler-wrap").each((i, el) => {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase();
@@ -303,25 +313,11 @@ async function checkAfterCredits(title, year, reqConfig) {
             const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 
             if (headText.includes("during") || headText.includes("mid")) {
-                if (isBlooper) {
-                    bloopers = true;
-                    console.log(`[AfterCredits] Blooper found in MID container.`);
-                } else if (!isNegative) {
-                    hasMid = true;
-                } else if (isNegative) {
-                    hasMid = false;
-                }
+                hasMid = updateStingerState(isBlooper, isNegative, hasMid, 'MID');
             }
 
             if (headText.includes("after") || headText.includes("post")) {
-                if (isBlooper) {
-                    bloopers = true;
-                    console.log(`[AfterCredits] Blooper found in POST container.`);
-                } else if (!isNegative) {
-                    hasPost = true;
-                } else if (isNegative) {
-                    hasPost = false;
-                }
+                hasPost = updateStingerState(isBlooper, isNegative, hasPost, 'POST');
             }
         });
 
