@@ -4,3 +4,8 @@
 ## 2024-05-19 - The Criticality of Connection Pooling in Aggregators
 **Learning:** In a multi-tiered aggregator architecture that fires concurrent HTTP requests (e.g., `checkAfterCredits`, `checkMediaStinger`, `checkTmdb`), establishing new TCP/TLS connections for every single request creates severe tail latency bottlenecks (almost halving the throughput). The `stremio-stinger-pro` app was previously not pooling connections for Axios, leading to >600ms times just for setting up the parallel handshakes.
 **Action:** When working on Node.js apps that frequently poll external services, always verify that `http.Agent` and `https.Agent` are instantiated with `{ keepAlive: true }` and passed to the HTTP client (like Axios) to enable connection reuse.
+## 2026-05-12 - Regex Pre-compilation Optimization
+
+**Learning:** Pre-compiling regexes used in loops or frequently avoids redundant instantiation and compilation in JavaScript, which can measurably improve performance in hot code paths.
+
+**Action:** Always move static regex patterns out of loops or frequently called functions to the top-level scope as constants.

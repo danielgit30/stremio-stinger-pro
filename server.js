@@ -23,6 +23,11 @@ const config = {
 };
 const DEFAULT_TMDB_KEY = process.env.TMDB_API_KEY;  
 
+// ⚡ Bolt: Pre-compile regexes used in loops or frequently to avoid redundant instantiation/compilation.
+const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
+const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
+const STINGER_EXCEPTION_REGEX = /(extra shot|audio|voice|laugh|but|however)/;
+const SAFE_SUFFIXES_REGEX = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
 
 const MAX_CACHE_SIZE = 5000;
 const streamCache = {
@@ -63,17 +68,15 @@ const isTitleMatch = (linkText, targetTitle) => {
     tTarget = clean(tTarget);
 
     if (tLink === tTarget) return true;
-
-    const safeSuffixes = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
     
     if (tTarget.length > 0 && tLink.startsWith(tTarget)) {
         const remainder = tLink.substring(tTarget.length).trim();
-        if (safeSuffixes.test(remainder)) return true;
+        if (SAFE_SUFFIXES_REGEX.test(remainder)) return true;
     }
     
     if (tLink.length > 0 && tTarget.startsWith(tLink)) {
          const remainder = tTarget.substring(tLink.length).trim();
-         if (safeSuffixes.test(remainder)) return true;
+         if (SAFE_SUFFIXES_REGEX.test(remainder)) return true;
     }
 
     return false;
@@ -135,9 +138,6 @@ async function buildWikiIndex(reqConfig = config) {
         const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', reqConfig);
         const $ = cheerio.load(res.data);
         const newCache = new Map();
-        
-        // Use a pre-compiled RegExp with .test() for performance inside loops
-        const blooperRegex = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 
         $("table.wikitable tr").each((i, el) => {
             let titleText = $(el).find("i").first().text();
@@ -149,7 +149,7 @@ async function buildWikiIndex(reqConfig = config) {
             
             let hasMid = rowText.includes('mid-') || rowText.includes('during');
             let hasPost = rowText.includes('post-') || rowText.includes('after');
-            let hasBloopers = blooperRegex.test(rowText);
+            let hasBloopers = BLOOPER_REGEX.test(rowText);
             
             newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
         });
@@ -252,8 +252,8 @@ async function checkAfterCredits(title, year, reqConfig) {
             const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
             const blockText = $$(el).text().toLowerCase(); 
             
-            const isBlooper = /\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(blockText);
-            const isNegative = /(no extra|no stinger|nothing|are no|no scene)/.test(blockText) && !/(extra shot|audio|voice|laugh|but|however)/.test(blockText);
+            const isBlooper = BLOOPER_REGEX.test(blockText);
+            const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 
             if (headText.includes("during") || headText.includes("mid")) {
                 if (isBlooper) {
@@ -371,7 +371,7 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             let bodyMid = false, bodyPost = false, bodyBloopers = false;
 
-            if (/\b(bloopers?|outtakes?|gags?|gag reel)\b/.test(fullText)) bodyBloopers = true;
+            if (BLOOPER_REGEX.test(fullText)) bodyBloopers = true;
 
             const midYes = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/.test(fullText);
             const midNo = /during (the )?credits\W{1,15}no\b/.test(fullText);
