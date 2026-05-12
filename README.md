@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 1.7.0
+## Version 2.0.0
 
 ![logo](/icon.png)
 
@@ -10,7 +10,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 
 ## Upcoming Features
 
-- [ ] Add option to see *sequel setup* stingers.
+- [ ] Add support for TV series.
 
 ---
 
@@ -22,7 +22,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v1.7.0](#release-v170)
+[Latest Release: v2.0.0](#release-v200)
 > [!WARNING]
 > The latest version implements changes to the configuration and you are advised to reinstall the addon for an updated experience.
 
@@ -32,6 +32,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 
 - **High-Fidelity Logic:** Queries sources concurrently but follows a priority for results based on the reliability of the source. Resolves instantly the millisecond the highest-priority stinger is confirmed.
 - **Outtake Detection:** Automatically distinguishes between narrative stingers and outtake reels. Outtake and blooper flagging is optional and can be configured.
+- **Sequel Setup Detection:** Adds the ability to identify and display if a movie sets up a sequel, utilizing metadata directly from AfterCredits. Optional and configurable.
 - **Wikipedia Indexing:** Utilizes an auto-updating, O(1) in-memory index of Wikipedia's post-credit database to instantly catch obscure films if primary scrapers fail.
 - **Dual Display Modes:** Choose between "Colorful" (emoji-based visual flags) or "Simple" (clean text output).
 - **Interactive Configuration:** A web-based `/configure` portal allows users to toggle blooper tracking, hide/show data sources, input custom TMDB API keys, and view a live preview of the stream output.
@@ -118,6 +119,12 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 - **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
+
+## Release: v2.0.0
+
+- **Feature:** Added sequel setup detection configuration option, which works specifically when the source is AfterCredits.
+- **Feature:** Added dynamic updating preview for sequel setup configuration in the configuration portal.
+- **Fix:** Fixed boolean flags to integrate the `sequel` data across all scraping strategies.
 
 ## Release: v1.7.0
 
