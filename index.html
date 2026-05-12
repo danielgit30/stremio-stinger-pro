@@ -313,6 +313,10 @@
           <input type="checkbox" id="showBloopers" onchange="updatePreview()" />
           <label for="showBloopers">Include Outtakes (Bloopers and BTS)</label>
         </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="showSequel" onchange="updatePreview()" />
+          <label for="showSequel">Show Sequel Setup <small>(Works correctly only when Source is AfterCredits)</small></label>
+        </div>
 
         <div class="preview-container">
           <div class="preview-header">
@@ -345,6 +349,14 @@
                 onchange="updatePreview()"
               />
               Bloopers</label
+            >
+            <label id="testSequelContainer" style="display: none"
+              ><input
+                type="checkbox"
+                id="testSequel"
+                onchange="updatePreview()"
+              />
+              Sequel Setup</label
             >
             <label
               ><input
@@ -391,7 +403,7 @@
       </div>
 
       <div class="footer">
-        <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v1.7.0</a> | Developed by schultz911
+        <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v2.0.0</a> | Developed by schultz911
       </div>
     </div>
 
@@ -403,6 +415,8 @@
         const configShowSource = document.getElementById("showSource").checked;
         const configShowBloopers =
           document.getElementById("showBloopers").checked;
+        const configShowSequel =
+          document.getElementById("showSequel").checked;
 
         const testBloopersContainer = document.getElementById(
           "testBloopersContainer",
@@ -414,14 +428,25 @@
           document.getElementById("testBloopers").checked = false;
         }
 
+        const testSequelContainer = document.getElementById(
+          "testSequelContainer",
+        );
+        if (configShowSequel) {
+          testSequelContainer.style.display = "flex";
+        } else {
+          testSequelContainer.style.display = "none";
+          document.getElementById("testSequel").checked = false;
+        }
+
         const testWikiBox = document.getElementById("testWiki");
         const testMidBox = document.getElementById("testMid");
         const testPostBox = document.getElementById("testPost");
         const testBloopersBox = document.getElementById("testBloopers");
+        const testSequelBox = document.getElementById("testSequel");
 
         const isWiki = testWikiBox.checked;
 
-        const dependentBoxes = [testMidBox, testPostBox, testBloopersBox];
+        const dependentBoxes = [testMidBox, testPostBox, testBloopersBox, testSequelBox];
         dependentBoxes.forEach((box) => {
           box.disabled = isWiki;
           if (isWiki) {
@@ -434,6 +459,7 @@
         const isMid = !isWiki && testMidBox.checked;
         const isPost = !isWiki && testPostBox.checked;
         const isBloopers = !isWiki && testBloopersBox.checked;
+        const isSequel = !isWiki && testSequelBox.checked;
 
         const previewText = document.getElementById("streamPreviewText");
 
@@ -471,10 +497,14 @@
           lines.push(style === "simple" ? "Outtakes" : "🎭 Outtakes");
         }
 
+        if (configShowSequel && isSequel) {
+          lines.push(style === "simple" ? "Sequel Setup" : "🔮 Sets Up For A Sequel");
+        }
+
         if (configShowSource) {
           let mockSource = "TMDB";
           if (isWiki) mockSource = "Wikipedia";
-          else if (isMid || isPost || isBloopers) mockSource = "AfterCredits";
+          else if (isMid || isPost || isBloopers || isSequel) mockSource = "AfterCredits";
           else mockSource = "Aggregated";
           lines.push(`Source: ${mockSource}`);
         }
@@ -492,6 +522,8 @@
           style += "-nosource";
         if (document.getElementById("showBloopers").checked)
           style += "-bloopers";
+        if (document.getElementById("showSequel").checked)
+          style += "-sequel";
 
         const host = window.location.host;
         const isLocal =

@@ -88,8 +88,8 @@ const wikiNormalize = (title) => {
         .trim();
 };
 
-const getResultObj = (mid, post, no, url, source, bloopers = false, definitive = false) => {
-    return { mid, post, no, url, source, bloopers, definitive };
+const getResultObj = (mid, post, no, url, source, bloopers = false, definitive = false, sequel = false) => {
+    return { mid, post, no, url, source, bloopers, definitive, sequel };
 };
 
 const formatMessage = (styleConfig, data) => {
@@ -119,6 +119,10 @@ const formatMessage = (styleConfig, data) => {
 
     if (showBloopers && data.bloopers) {
         output.push(isSimple ? "Outtakes" : "🎭 Outtakes");
+    }
+
+    if (styleConfig.showSequel && data.sequel && data.source === 'AfterCredits') {
+        output.push(isSimple ? "Sequel Setup" : "🔮 Sets Up For A Sequel");
     }
 
     return output.join('\n');
@@ -227,7 +231,7 @@ async function checkAfterCredits(title, year, reqConfig) {
 
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
-        let hasMid = false, hasPost = false, bloopers = false;
+        let hasMid = false, hasPost = false, bloopers = false, sequel = false;
 
         let categoryTags = [];
         $$('ul.td-category li.entry-category a').each((i, el) => {
@@ -245,6 +249,7 @@ async function checkAfterCredits(title, year, reqConfig) {
             if (categoryTags.includes('during credits')) { hasMid = true; }
             if (categoryTags.includes('after credits')) { hasPost = true; }
             if (categoryTags.some(t => ['outtake', 'musical', 'blooper', 'humorous credit'].includes(t))) { bloopers = true; }
+            if (categoryTags.includes('sequel setup')) { sequel = true; }
         }
 
         console.log(`[AfterCredits] Parsing body containers...`);
@@ -279,14 +284,14 @@ async function checkAfterCredits(title, year, reqConfig) {
         });
 
         let isDefinitive = false;
-        if (hasMid || hasPost || bloopers) {
+        if (hasMid || hasPost || bloopers || sequel) {
             isDefinitive = true;
         }
 
         const isNegative = (!hasMid && !hasPost && !bloopers);
         
-        console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
-        return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive);
+        console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`);
+        return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive, sequel);
     } catch (e) { 
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
             console.error(`[AfterCredits Error] ${e.message}`);
@@ -471,7 +476,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '1.7.0',
+        version: '2.0.0',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes with the option to explicitly tag bloopers/outtakes. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true', 
@@ -512,9 +517,10 @@ const streamHandler = async (req, res) => {
 
 
     const styleConfig = {
-        style: rawStyle.replace(/-nosource|-bloopers/g, ''),
+        style: rawStyle.replace(/-nosource|-bloopers|-sequel/g, ''),
         showSource: !rawStyle.includes('-nosource'),
-        showBloopers: rawStyle.includes('-bloopers')
+        showBloopers: rawStyle.includes('-bloopers'),
+        showSequel: rawStyle.includes('-sequel')
     };
 
     const cacheKey = `${id}_${rawStyle}`;
@@ -598,7 +604,7 @@ const streamHandler = async (req, res) => {
             }
 
             const isAggregatedError = !finalResult && !bestFallback;
-            const resolvedResult = finalResult || bestFallback || { mid: false, post: false, no: false, bloopers: false, url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`, source: 'Aggregated' };
+            const resolvedResult = finalResult || bestFallback || { mid: false, post: false, no: false, bloopers: false, sequel: false, url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`, source: 'Aggregated' };
 
             console.log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
 
