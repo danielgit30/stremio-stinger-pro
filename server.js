@@ -55,6 +55,28 @@ const WIKI_TTL = 24 * 60 * 60 * 1000;
 // 2. STRING UTILITIES & FORMATTERS
 // ==========================================
 
+/**
+ * Security: Prevent SSRF by validating the URL before fetching
+ * @param {string} targetUrl - The URL to validate
+ * @param {string} baseUrl - The base URL to use for relative URLs
+ * @param {string} expectedHostname - The hostname that is allowed
+ * @returns {string|null} - The validated URL or null if blocked
+ */
+function validateUrl(targetUrl, baseUrl, expectedHostname) {
+    try {
+        const parsedUrl = new URL(targetUrl, baseUrl);
+        if (parsedUrl.hostname !== expectedHostname && parsedUrl.hostname !== `www.${expectedHostname}`) {
+            console.warn(`[Security] Blocked untrusted URL: ${targetUrl}`);
+            return null;
+        }
+        return parsedUrl.href;
+    } catch (e) {
+        console.warn(`[Security] Invalid URL format: ${targetUrl}`);
+        return null;
+    }
+}
+
+
 // ⚡ Bolt: Pre-compiled regexes for hot string utilities
 const RE_YEAR = /\(\d{4}\)/g;
 const RE_NON_WORD = /[^\w\s]/g;
@@ -259,17 +281,9 @@ async function checkAfterCredits(title, year, reqConfig) {
         console.log(`[AfterCredits] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
 
         // Security: Prevent SSRF by validating the URL before fetching
-        try {
-            const parsedUrl = new URL(bestMatch.url, 'https://aftercredits.com');
-            if (parsedUrl.hostname !== 'aftercredits.com' && parsedUrl.hostname !== 'www.aftercredits.com') {
-                console.warn(`[Security] Blocked untrusted URL: ${bestMatch.url}`);
-                return null;
-            }
-            bestMatch.url = parsedUrl.href;
-        } catch (e) {
-            console.warn(`[Security] Invalid URL format: ${bestMatch.url}`);
-            return null;
-        }
+        const safeUrl = validateUrl(bestMatch.url, 'https://aftercredits.com', 'aftercredits.com');
+        if (!safeUrl) return null;
+        bestMatch.url = safeUrl;
 
         const movieRes = await axios.get(bestMatch.url, reqConfig);
         const $$ = cheerio.load(movieRes.data);
@@ -371,17 +385,9 @@ async function checkMediaStinger(title, year, reqConfig) {
 
         if (bestMatch.url) {
             // Security: Prevent SSRF by validating the URL before fetching
-            try {
-                const parsedUrl = new URL(bestMatch.url, 'http://www.mediastinger.com');
-                if (parsedUrl.hostname !== 'mediastinger.com' && parsedUrl.hostname !== 'www.mediastinger.com') {
-                    console.warn(`[Security] Blocked untrusted URL: ${bestMatch.url}`);
-                    return null;
-                }
-                bestMatch.url = parsedUrl.href;
-            } catch (e) {
-                console.warn(`[Security] Invalid URL format: ${bestMatch.url}`);
-                return null;
-            }
+            const safeUrl = validateUrl(bestMatch.url, 'http://www.mediastinger.com', 'mediastinger.com');
+            if (!safeUrl) return null;
+            bestMatch.url = safeUrl;
 
             const movieRes = await axios.get(bestMatch.url, reqConfig);
             const $$ = cheerio.load(movieRes.data);
@@ -682,3 +688,13 @@ app.listen(process.env.PORT || 7000, () => {
     buildWikiIndex();
     console.log('[System] Stremio Stinger Pro initialized.');
 });
+// Tests
+if (require.main === module) {
+    const assert = require('assert');
+
+    // validateUrl
+    assert.strictEqual(validateUrl('/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://aftercredits.com/page');
+    assert.strictEqual(validateUrl('https://www.aftercredits.com/page', 'https://aftercredits.com', 'aftercredits.com'), 'https://www.aftercredits.com/page');
+    assert.strictEqual(validateUrl('https://evil.com/page', 'https://aftercredits.com', 'aftercredits.com'), null);
+    console.log("All unit tests passed.");
+}
