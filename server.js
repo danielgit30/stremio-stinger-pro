@@ -90,23 +90,24 @@ const cleanTitle = (str) => {
     return s.replace(RE_ARTICLE_START, '').replace(RE_ARTICLE_END, '').trim();
 };
 
+// Security: Replace regex with Set to prevent ReDoS
+// ⚡ Bolt: Extracted safeTokens Set and isSafeSuffix to outer scope to avoid redundant instantiations
+const safeTokens = new Set([
+    'blooper', 'bloopers', 'outtake', 'outtakes', 'extra', 'extras', 'and', 'or', 'with',
+    'scene', 'scenes', 'credit', 'credits', 'stinger', 'stingers', 'review', 'reviews',
+    'post', 'mid', 'after', 'end', 'during', 'the', 'is', 'a', 'an', 'there', 'are', 'movie', 'film'
+]);
+
+const isSafeSuffix = (str) => {
+    if (!str) return false;
+    return str.split(/\s+/).every(word => word === '' || safeTokens.has(word));
+};
+
 const isTitleMatch = (linkText, cleanedTargetTitle) => {
     let tLink = linkText.toLowerCase().replace(RE_YEAR, '').trim();
     tLink = cleanTitle(tLink);
 
     if (tLink === cleanedTargetTitle) return true;
-
-    // Security: Replace regex with Set to prevent ReDoS
-    const safeTokens = new Set([
-        'blooper', 'bloopers', 'outtake', 'outtakes', 'extra', 'extras', 'and', 'or', 'with',
-        'scene', 'scenes', 'credit', 'credits', 'stinger', 'stingers', 'review', 'reviews',
-        'post', 'mid', 'after', 'end', 'during', 'the', 'is', 'a', 'an', 'there', 'are', 'movie', 'film'
-    ]);
-
-    const isSafeSuffix = (str) => {
-        if (!str) return false;
-        return str.split(/\s+/).every(word => word === '' || safeTokens.has(word));
-    };
 
     if (cleanedTargetTitle.length > 0 && tLink.startsWith(cleanedTargetTitle)) {
         const remainder = tLink.substring(cleanedTargetTitle.length).trim();
