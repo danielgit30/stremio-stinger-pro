@@ -717,5 +717,25 @@ if (require.main === module) {
     assert.strictEqual(wikiNormalize("The Matrix Reloaded (film)"), "matrixreloaded"); // Multiple rules combined
     assert.strictEqual(wikiNormalize("  Space Jam  "), "spacejam"); // Trimming spaces
 
-    console.log("All unit tests passed.");
+    console.log("All synchronous unit tests passed.");
+
+    // checkMediaStinger Error Handling
+    (async () => {
+        const originalGet = axios.get;
+        let testPassed = false;
+        try {
+            axios.get = async () => { throw new Error('Mocked Network Error'); };
+            const result = await checkMediaStinger('Some Title', '2024', {});
+            assert.strictEqual(result, null, 'checkMediaStinger should return null on error');
+            testPassed = true;
+            console.log('checkMediaStinger error handling test passed.');
+        } catch (e) {
+            console.error('checkMediaStinger error handling test failed:', e);
+        } finally {
+            axios.get = originalGet;
+            if (!testPassed) process.exit(1);
+            else process.exit(0); // auto-terminate on success
+        }
+    })();
+
 }
