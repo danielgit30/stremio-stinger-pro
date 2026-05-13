@@ -624,38 +624,22 @@ const streamHandler = async (req, res) => {
             const pWiki = checkWikipedia(title, reqConfig);
 
             // Await them in priority order, so we can short-circuit
-            let acResult = await pAc;
-            if (acResult && acResult.definitive) {
-                finalResult = acResult;
-                console.log(`[Stream] Definitive state found by AfterCredits. Aborting others...`);
-                controller.abort();
-            } else {
-                updateFallback(acResult);
+            const scrapers = [
+                { name: 'AfterCredits', promise: pAc },
+                { name: 'MediaStinger', promise: pMs },
+                { name: 'TMDB', promise: pTmdb },
+                { name: 'Wikipedia', promise: pWiki }
+            ];
 
-                let msResult = await pMs;
-                if (msResult && msResult.definitive) {
-                    finalResult = msResult;
-                    console.log(`[Stream] Definitive state found by MediaStinger. Aborting others...`);
-                    controller.abort();
+            for (const scraper of scrapers) {
+                const result = await scraper.promise;
+                if (result && result.definitive) {
+                    finalResult = result;
+                    console.log(`[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`);
+                    if (scraper.name !== 'Wikipedia') controller.abort();
+                    break;
                 } else {
-                    updateFallback(msResult);
-
-                    let tmdbResult = await pTmdb;
-                    if (tmdbResult && tmdbResult.definitive) {
-                        finalResult = tmdbResult;
-                        console.log(`[Stream] Definitive state found by TMDB. Aborting others...`);
-                        controller.abort();
-                    } else {
-                        updateFallback(tmdbResult);
-
-                        let wikiResult = await pWiki;
-                        if (wikiResult && wikiResult.definitive) {
-                            finalResult = wikiResult;
-                            console.log(`[Stream] Definitive state found by Wikipedia.`);
-                        } else {
-                            updateFallback(wikiResult);
-                        }
-                    }
+                    updateFallback(result);
                 }
             }
 
