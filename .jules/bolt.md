@@ -14,3 +14,6 @@
 ## 2024-05-13 - Extracted Set Instantiation in isTitleMatch
 **Learning:** Instantiating a `Set` on every function call inside a loop iterating over DOM elements is a noticeable performance hit.
 **Action:** Always move `Set` or `RegExp` declarations and their helper functions to the outer module scope to ensure they are created only once and reused across all function invocations.
+## 2026-05-13 - Fix LG and Samsung TV addon crashing
+ **Learning:** I learned that LG and Samsung TVs block `externalUrl` property from Stremio streams and it causes infinite loading.
+ **Action:** For addons working on TVs, ensure that `url` property is used instead of `externalUrl` to provide external links, or fallback links properly.
