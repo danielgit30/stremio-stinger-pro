@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 2.0.0
+## Version 2.0.1
 
 ![logo](/icon.png)
 
@@ -22,7 +22,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v2.0.0](#release-v200)
+[Latest Release: v2.0.1](#release-v201)
 > [!WARNING]
 > The latest version implements changes to the configuration and you are advised to reinstall the addon for an updated experience.
 
@@ -119,6 +119,12 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 - **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
+
+## Release: v2.0.1
+
+- **Fix:** Refactored deeply nested promise resolution logic.
+- **Fix:** Added CORS protection to prevent unauthorized usage.
+- **Fix:** Improved code readability and maintainability.
 
 ## Release: v2.0.0
 

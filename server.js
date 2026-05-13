@@ -7,7 +7,7 @@ const http = require('http');
 const https = require('https');
 
 const app = express();
-const allowedDomains = [ "strem.io", "stremio.com", "localhost", "127.0.0.1" ];
+const allowedDomains = ["strem.io", "stremio.com", "localhost", "127.0.0.1"];
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
@@ -532,7 +532,7 @@ app.get('/configure', serveConfig);
 const manifestHandler = (req, res) => {
     res.json({
         id: 'org.stinger.pro',
-        version: '2.0.0',
+        version: '2.0.1',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
         logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true',
