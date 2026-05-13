@@ -10,3 +10,7 @@
 ## 2024-05-12 - Extracted Target Title String Cleaning from Inner Loop
 **Learning:** String operations such as regex replacements and trimming can be expensive when executed in a tight loop. Refactoring code to lift constant computations out of a loop body drastically improves execution time. In this case, cleaning the target title inside the `isTitleMatch` function meant it was re-cleaned repeatedly during `.each` loops traversing scraped links.
 **Action:** When comparing a dynamically iterated list against a static value, pre-process and normalize the static value outside the loop so that the function acting inside the loop does fewer redundant string computations.
+
+## 2024-05-13 - Extracted Set Instantiation in isTitleMatch
+**Learning:** Instantiating a `Set` on every function call inside a loop iterating over DOM elements is a noticeable performance hit.
+**Action:** Always move `Set` or `RegExp` declarations and their helper functions to the outer module scope to ensure they are created only once and reused across all function invocations.
