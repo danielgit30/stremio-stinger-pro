@@ -7,7 +7,18 @@ const http = require('http');
 const https = require('https');
 
 const app = express();
-app.use(cors());
+const allowedDomains = [ "strem.io", "stremio.com", "localhost", "127.0.0.1" ];
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const isAllowed = allowedDomains.some(domain => origin.endsWith(domain));
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    }
+}));
 
 // ==========================================
 // 1. CONFIGURATION & STATE
