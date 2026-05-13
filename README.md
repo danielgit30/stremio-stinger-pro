@@ -123,7 +123,7 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 ## Release: v2.0.1
 
 - **Fix:** Refactored deeply nested promise resolution logic.
-- **Fix:** Added CORS protection to prevent unauthorized usage.
+- **Fix:** Added CORS protection to fix infinite loading on LG and Samsung TVs.
 - **Fix:** Improved code readability and maintainability.
 
 ## Release: v2.0.0
