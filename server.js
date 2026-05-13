@@ -7,7 +7,7 @@ const http = require('http');
 const https = require('https');
 
 const app = express();
-app.use(cors());
+app.use(cors({ optionsSuccessStatus: 200 }));
 
 // ==========================================
 // 1. CONFIGURATION & STATE
