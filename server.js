@@ -487,18 +487,24 @@ async function checkMediaStinger(title, year, reqConfig) {
 }
 
 
-async function checkTmdb(imdbId, apiKey, reqConfig) {
-    console.log(`\n--- [TMDB] Execution Start: ID ${imdbId} ---`);
+async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
+    console.log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
-        const findRes = await axios.get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`, reqConfig);
-        const movieMatch = findRes.data.movie_results?.[0];
-        if (!movieMatch) {
-            console.log(`[TMDB] No match found.`);
-            return null;
-        }
+        let tmdbId = tmdbIdRaw;
 
-        const tmdbId = Number(movieMatch.id);
+        // ⚡ Bolt: Use moviedb_id from cinemeta to skip redundant /3/find network roundtrip
+        // Expected impact: Removes ~100ms latency from TMDB scraper's critical path
+        // Fallback to searching if we don't have the tmdbId from cinemeta
+        if (!tmdbId) {
+            const findRes = await axios.get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`, reqConfig);
+            const movieMatch = findRes.data.movie_results?.[0];
+            if (!movieMatch) {
+                console.log(`[TMDB] No match found.`);
+                return null;
+            }
+            tmdbId = Number(movieMatch.id);
+        }
         const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`, reqConfig);
         const keywords = kwRes.data.keywords || [];
 
@@ -621,7 +627,7 @@ const streamHandler = async (req, res) => {
             // in the finally block will cancel the pending lower-priority requests.
             const pAc = checkAfterCredits(title, year, reqConfig);
             const pMs = checkMediaStinger(title, year, reqConfig);
-            const pTmdb = checkTmdb(id, apiKey, reqConfig);
+            const pTmdb = checkTmdb(id, metaRes.data?.meta?.moviedb_id, apiKey, reqConfig);
             const pWiki = checkWikipedia(title, reqConfig);
 
             // Await them in priority order, so we can short-circuit
