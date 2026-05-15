@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 2.0.1
+## Version 2.0.2
 
 ![logo](/icon.png)
 
@@ -22,7 +22,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v2.0.1](#release-v201)
+[Latest Release: v2.0.2](#release-v202)
 > [!WARNING]
 > The latest version implements changes to the configuration and you are advised to reinstall the addon for an updated experience.
 
@@ -119,6 +119,11 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 - **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
+
+## Release: v2.0.2
+
+- **Feature:** Optimized TMDB scraper by utilizing `moviedb_id` from Cinemeta.
+- **Performance:** Reduced network latency by ~100ms by skipping redundant TMDB API lookups.
 
 ## Release: v2.0.1
 
