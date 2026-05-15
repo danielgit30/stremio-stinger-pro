@@ -508,9 +508,14 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`, reqConfig);
         const keywords = kwRes.data.keywords || [];
 
-        let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
-        let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
-        let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
+        let hasMid = false, hasPost = false, bloopers = false;
+        for (const k of keywords) {
+            const name = k.name;
+            if (!hasMid && name.includes('duringcreditsstinger')) hasMid = true;
+            if (!hasPost && name.includes('aftercreditsstinger')) hasPost = true;
+            if (!bloopers && (name.includes('blooper') || name.includes('outtake'))) bloopers = true;
+            if (hasMid && hasPost && bloopers) break;
+        }
 
         if (!hasMid && !hasPost && !bloopers) {
             console.log(`[TMDB] No stinger keywords found.`);
