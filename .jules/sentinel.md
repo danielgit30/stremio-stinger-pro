@@ -1,4 +1,4 @@
-## 2026-05-13 - Insecure CORS Policy Fix
- **Vulnerability:** The application was using a completely permissive CORS policy (`app.use(cors())`) which exposed it to requests from arbitrary origins.
- **Learning:** Permissive CORS in a service handling API keys and stream metadata could allow cross-origin exploitation or data theft.
- **Prevention:** Use a restricted CORS policy that validates the `Origin` header against an explicitly allowed set of domains while still accommodating valid no-origin scenarios like desktop clients.
+## 2026-05-14 - Restricted CORS Policy
+ **Vulnerability:** Overly permissive CORS policy in `server.js` allowed all origins (`*`) by default, potentially exposing the Stremio addon to unauthorized cross-origin requests.
+ **Learning:** Default configurations in popular libraries like `cors` can lead to insecure deployments if not explicitly restricted to necessary origins. Enforcing HTTPS and whitelisting specific trusted domains is critical for security.
+ **Prevention:** Implement a whitelist for CORS origins, enforce the HTTPS protocol, and validate the `Origin` header in a custom function to allow only trusted domains and non-browser clients.
