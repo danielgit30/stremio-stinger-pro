@@ -7,7 +7,33 @@ const http = require('http');
 const https = require('https');
 
 const app = express();
-app.use(cors({ optionsSuccessStatus: 200 }));
+
+// 🛡️ Sentinel: Restrict CORS to known Stremio origins to prevent unauthorized cross-origin requests
+const allowedOrigins = [
+    'https://web.stremio.com',
+    'https://app.stremio.com',
+    'https://stremio-addons.net',
+    'https://strem.io'
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, desktop app, or curl)
+        if (!origin) return callback(null, true);
+
+        // Enforce HTTPS and restrict to trusted Stremio domains
+        const isAllowed = allowedOrigins.includes(origin) ||
+            (origin.startsWith('https://') && origin.endsWith('.strem.io'));
+
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            console.warn(`[Security] Blocked CORS request from origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    optionsSuccessStatus: 200
+}));
 
 // ==========================================
 // 1. CONFIGURATION & STATE
@@ -192,7 +218,6 @@ const RE_MS_POST_FALLBACK = /(extra scene|stinger|extra shot|shot).{0,60}after t
 const RE_MS_SEO_NO = /\b(no|zero)\b/;
 const RE_AC_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 const RE_AC_NEGATIVE = /(no extra|no stinger|nothing|are no|no scene)/;
-const RE_AC_NOT_NEGATIVE = /(extra shot|audio|voice|laugh|but|however)/;
 const RE_MS_AUDIO_1 = /\b(audio|voice|hear|heard|message|tribute|dedication|honored)\b/;
 const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/;
 
@@ -508,9 +533,14 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`, reqConfig);
         const keywords = kwRes.data.keywords || [];
 
-        let hasMid = keywords.some(k => k.name.includes('duringcreditsstinger'));
-        let hasPost = keywords.some(k => k.name.includes('aftercreditsstinger'));
-        let bloopers = keywords.some(k => k.name.includes('blooper') || k.name.includes('outtake'));
+        let hasMid = false, hasPost = false, bloopers = false;
+        for (const k of keywords) {
+            const name = k.name;
+            if (!hasMid && name.includes('duringcreditsstinger')) hasMid = true;
+            if (!hasPost && name.includes('aftercreditsstinger')) hasPost = true;
+            if (!bloopers && (name.includes('blooper') || name.includes('outtake'))) bloopers = true;
+            if (hasMid && hasPost && bloopers) break;
+        }
 
         if (!hasMid && !hasPost && !bloopers) {
             console.log(`[TMDB] No stinger keywords found.`);
