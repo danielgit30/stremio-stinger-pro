@@ -192,7 +192,6 @@ const RE_MS_POST_FALLBACK = /(extra scene|stinger|extra shot|shot).{0,60}after t
 const RE_MS_SEO_NO = /\b(no|zero)\b/;
 const RE_AC_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 const RE_AC_NEGATIVE = /(no extra|no stinger|nothing|are no|no scene)/;
-const RE_AC_NOT_NEGATIVE = /(extra shot|audio|voice|laugh|but|however)/;
 const RE_MS_AUDIO_1 = /\b(audio|voice|hear|heard|message|tribute|dedication|honored)\b/;
 const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/;
 
