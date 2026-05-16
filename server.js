@@ -135,7 +135,32 @@ const safeTokens = new Set([
 
 const isSafeSuffix = (str) => {
     if (!str) return false;
-    return str.split(/\s+/).every(word => word === '' || safeTokens.has(word));
+    let start = 0;
+    const len = str.length;
+
+    while (start < len) {
+        let code = str.charCodeAt(start);
+        if (code === 32 || (code >= 9 && code <= 13)) {
+            start++;
+            continue;
+        }
+
+        let end = start + 1;
+        while (end < len) {
+            code = str.charCodeAt(end);
+            if (code === 32 || (code >= 9 && code <= 13)) {
+                break;
+            }
+            end++;
+        }
+
+        const word = str.substring(start, end);
+        if (!safeTokens.has(word)) {
+            return false;
+        }
+        start = end + 1;
+    }
+    return true;
 };
 
 const isTitleMatch = (linkText, cleanedTargetTitle) => {

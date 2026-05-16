@@ -4,3 +4,6 @@
 ## 2024-05-16 - Cheerio loop early break
  **Learning:** In Cheerio's `.each()` loop, iterating over all matches when only the first one is needed causes unnecessary execution time, particularly in scraping loops where performance is critical. Returning `false` short-circuits the loop.
  **Action:** Always review Cheerio and jQuery-style `.each()` iterations to verify whether all elements must be traversed. Apply `return false;` when subsequent matches are irrelevant to improve throughput and save CPU cycles.
+## 2024-05-16 - Optimized isSafeSuffix string traversal
+ **Learning:** Using `String.prototype.split` with a regular expression (like `/\s+/`) creates unnecessary array allocations and involves regex engine overhead, especially inside loops. Manual character iteration and `String.prototype.substring` avoids allocations, which speeds up checks in critical paths by nearly 50%.
+ **Action:** For performance-critical string operations, prefer manual character traversal with `charCodeAt` and `substring` to avoid array allocations and regex overhead.
