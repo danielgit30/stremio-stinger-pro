@@ -75,6 +75,7 @@ const CACHE_TTL_ERROR = 60 * 1000;
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
+let wikiFetchPromise = null;
 const WIKI_TTL = 24 * 60 * 60 * 1000;
 
 // ==========================================
@@ -224,35 +225,43 @@ const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|foo
 
 async function buildWikiIndex(reqConfig = config) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
-    try {
-        console.log(`[Wiki] Building index...`);
-        const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', reqConfig);
-        const $ = cheerio.load(res.data);
-        const newCache = new Map();
+    if (wikiFetchPromise) return wikiFetchPromise;
 
-        $("table.wikitable tr").each((i, el) => {
-            let titleText = $(el).find("i").first().text();
-            if (!titleText) titleText = $(el).find("td").eq(1).text();
-            if (!titleText) return;
+    wikiFetchPromise = (async () => {
+        try {
+            console.log(`[Wiki] Building index...`);
+            const res = await axios.get('https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes', reqConfig);
+            const $ = cheerio.load(res.data);
+            const newCache = new Map();
 
-            const cleanTitle = wikiNormalize(titleText);
-            const rowText = $(el).text().toLowerCase();
+            $("table.wikitable tr").each((i, el) => {
+                let titleText = $(el).find("i").first().text();
+                if (!titleText) titleText = $(el).find("td").eq(1).text();
+                if (!titleText) return;
 
-            let hasMid = rowText.includes('mid-') || rowText.includes('during');
-            let hasPost = rowText.includes('post-') || rowText.includes('after');
-            let hasBloopers = BLOOPER_REGEX.test(rowText);
+                const cleanTitle = wikiNormalize(titleText);
+                const rowText = $(el).text().toLowerCase();
 
-            newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
-        });
+                let hasMid = rowText.includes('mid-') || rowText.includes('during');
+                let hasPost = rowText.includes('post-') || rowText.includes('after');
+                let hasBloopers = BLOOPER_REGEX.test(rowText);
 
-        wikiCache = newCache;
-        wikiLastFetched = Date.now();
-        console.log(`[Wiki] Built ${wikiCache.size} entries.`);
-    } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Wiki Error] ${e.message}`);
+                newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
+            });
+
+            wikiCache = newCache;
+            wikiLastFetched = Date.now();
+            console.log(`[Wiki] Built ${wikiCache.size} entries.`);
+        } catch (e) {
+            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                console.error(`[Wiki Error] ${e.message}`);
+            }
+        } finally {
+            wikiFetchPromise = null;
         }
-    }
+    })();
+
+    return wikiFetchPromise;
 }
 
 async function checkWikipedia(title, reqConfig) {
