@@ -215,7 +215,6 @@ const formatMessage = (styleConfig, data) => {
 // 3. CORE SCRAPERS
 // ==========================================
 
-const RE_MS_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 const RE_MS_MID_YES = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
 const RE_MS_MID_NO = /during (the )?credits\W{1,15}no\b/;
 const RE_MS_POST_YES = /after (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
@@ -225,8 +224,6 @@ const RE_MS_LEGACY_POST_NO = /(no|zero) (extra|scene|stinger|extras).{0,40}after
 const RE_MS_MID_FALLBACK = /(extra scene|stinger|animation|extra shot|shot).{0,60}during the credits/;
 const RE_MS_POST_FALLBACK = /(extra scene|stinger|extra shot|shot).{0,60}after the credits/;
 const RE_MS_SEO_NO = /\b(no|zero)\b/;
-const RE_AC_BLOOPERS = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
-const RE_AC_NEGATIVE = /(no extra|no stinger|nothing|are no|no scene)/;
 const RE_MS_AUDIO_1 = /\b(audio|voice|hear|heard|message|tribute|dedication|honored)\b/;
 const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/;
 
