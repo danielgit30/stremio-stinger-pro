@@ -39,6 +39,15 @@ app.use(cors({
 // 1. CONFIGURATION & STATE
 // ==========================================
 
+// 🛡️ Sentinel: Sanitize error messages to prevent log injection and credential leaks
+function sanitizeError(msg) {
+    if (!msg) return '';
+    let sanitized = String(msg).replace(/[\r\n]/g, ' ');
+    return sanitized.replace(/api_key=[^&\s]+/gi, 'api_key=***');
+}
+
+// ==========================================
+
 // ⚡ Bolt: Use Keep-Alive agents to reuse TCP connections across requests,
 // significantly reducing latency when making multiple API calls concurrently.
 const config = {
@@ -110,7 +119,6 @@ const RE_NON_WORD = /[^\w\s]/g;
 const RE_MULTI_SPACE = /\s+/g;
 const RE_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_ARTICLE_END = /\s+(the|a|an)$/i;
-const RE_SAFE_SUFFIXES = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
 
 const cleanTitle = (str) => {
     let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
@@ -379,7 +387,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive, sequel);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[AfterCredits Error] ${e.message}`);
+            console.error(`[AfterCredits Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -453,6 +461,7 @@ async function searchMediaStinger(title, reqConfig) {
                 url: $(el).attr('href'),
                 rawText: rawLinkText
             });
+            return false;
         }
     });
 
@@ -514,7 +523,7 @@ async function checkMediaStinger(title, year, reqConfig) {
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers, isDefinitive);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[MediaStinger Error] ${e.message}`);
+            console.error(`[MediaStinger Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -561,7 +570,7 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, isDefinitive);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[TMDB Error] ${e.message}`);
+            console.error(`[TMDB Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -709,7 +718,7 @@ const streamHandler = async (req, res) => {
         }
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] Main Handler Failed: ${e.message}`);
+            console.error(`[Stream Error] Main Handler Failed: ${sanitizeError(e.message)}`);
         }
     } finally {
         clearTimeout(timeoutId);
