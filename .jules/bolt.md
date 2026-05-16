@@ -1,7 +1,3 @@
-## 2024-05-14 - Skip Redundant TMDB Find API Call
-**Learning:** The Cinemeta API response for movies often includes `moviedb_id` inside its `meta` object.
-**Action:** By passing this ID directly to the `checkTmdb` function, we can skip the `/3/find/tt...` API call to TMDB entirely, removing a network round-trip from the critical path and saving around ~100ms of latency per uncached stream request, while preserving functionality by keeping the old behavior as a fallback.
-
-## 2026-05-14 - Consolidate Multiple Array Iterations
-**Learning:** Sequential calls to `Array.prototype.some()` or `find()` on the same array result in multiple traversals.
-**Action:** Consolidate multiple boolean checks into a single `for...of` loop with early exit to reduce CPU time and improve performance on large arrays or high-frequency code paths.
+## 2024-05-16 - Cheerio loop early break
+ **Learning:** In Cheerio's `.each()` loop, iterating over all matches when only the first one is needed causes unnecessary execution time, particularly in scraping loops where performance is critical. Returning `false` short-circuits the loop.
+ **Action:** Always review Cheerio and jQuery-style `.each()` iterations to verify whether all elements must be traversed. Apply `return false;` when subsequent matches are irrelevant to improve throughput and save CPU cycles.

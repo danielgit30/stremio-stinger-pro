@@ -444,6 +444,7 @@ async function searchMediaStinger(title, reqConfig) {
                 url: $(el).attr('href'),
                 rawText: rawLinkText
             });
+            return false;
         }
     });
 
