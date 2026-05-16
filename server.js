@@ -39,6 +39,15 @@ app.use(cors({
 // 1. CONFIGURATION & STATE
 // ==========================================
 
+// 🛡️ Sentinel: Sanitize error messages to prevent log injection and credential leaks
+function sanitizeError(msg) {
+    if (!msg) return '';
+    let sanitized = String(msg).replace(/[\r\n]/g, ' ');
+    return sanitized.replace(/api_key=[^&\s]+/gi, 'api_key=***');
+}
+
+// ==========================================
+
 // ⚡ Bolt: Use Keep-Alive agents to reuse TCP connections across requests,
 // significantly reducing latency when making multiple API calls concurrently.
 const config = {
@@ -249,7 +258,7 @@ async function buildWikiIndex(reqConfig = config) {
         console.log(`[Wiki] Built ${wikiCache.size} entries.`);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Wiki Error] ${e.message}`);
+            console.error(`[Wiki Error] ${sanitizeError(e.message)}`);
         }
     }
 }
@@ -369,7 +378,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         return getResultObj(hasMid, hasPost, isNegative, bestMatch.url, 'AfterCredits', bloopers, isDefinitive, sequel);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[AfterCredits Error] ${e.message}`);
+            console.error(`[AfterCredits Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -505,7 +514,7 @@ async function checkMediaStinger(title, year, reqConfig) {
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers, isDefinitive);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[MediaStinger Error] ${e.message}`);
+            console.error(`[MediaStinger Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -552,7 +561,7 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, isDefinitive);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[TMDB Error] ${e.message}`);
+            console.error(`[TMDB Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
@@ -700,7 +709,7 @@ const streamHandler = async (req, res) => {
         }
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] Main Handler Failed: ${e.message}`);
+            console.error(`[Stream Error] Main Handler Failed: ${sanitizeError(e.message)}`);
         }
     } finally {
         clearTimeout(timeoutId);
