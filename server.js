@@ -109,7 +109,6 @@ const RE_NON_WORD = /[^\w\s]/g;
 const RE_MULTI_SPACE = /\s+/g;
 const RE_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_ARTICLE_END = /\s+(the|a|an)$/i;
-const RE_SAFE_SUFFIXES = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
 
 const cleanTitle = (str) => {
     let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
