@@ -10,3 +10,6 @@
 ## 2026-05-16 - O(1) Lookups in Cheerio parsing
 **Learning:** Using inline arrays with `.includes()` inside loops (like `Cheerio.each` or `Array.some()`) inside a request-handler path causes redundant memory allocations per-element and `O(N)` lookup times. Extracting those static arrays to globally instantiated `Set` objects prevents garbage-collection pressure and improves matching speeds to `O(1)`.
 **Action:** Extract static arrays used for inclusion-checks within frequently-called loops to global Sets.
+## 2024-05-18 - Map-Based Cache Iteration Order
+**Learning:** In JavaScript, the `Map` object remembers the original insertion order of the keys. When implementing a bounded cache using `Map` (like `streamCache` in `server.js`), deleting the first key (e.g., `this._cache.keys().next().value`) effectively creates a FIFO (First-In-First-Out) cache, NOT an LRU (Least Recently Used) cache, because reading a value with `get()` doesn't update its position in the iteration order.
+**Action:** When implementing basic caches using `Map`, ensure that accesses (`get()`) actually delete and re-insert the key to push it to the end of the iteration order, converting it to a true LRU cache and improving the cache hit rate for frequently accessed items.
