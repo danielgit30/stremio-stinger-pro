@@ -46,6 +46,16 @@ app.use(cors({
     optionsSuccessStatus: 200
 }));
 
+// 🛡️ Sentinel: Add security headers middleware to protect the application from common web vulnerabilities
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https://github.com data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'");
+    next();
+});
+
 // ==========================================
 
 // ⚡ Bolt: Use Keep-Alive agents to reuse TCP connections across requests,
