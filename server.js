@@ -63,6 +63,8 @@ const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
 const STINGER_EXCEPTION_REGEX = /(extra shot|audio|voice|laugh|but|however)/;
 const SAFE_SUFFIXES_REGEX = /^(blooper|bloopers|outtake|outtakes|extra|extras|and|or|with|scene|scenes|credit|credits|stinger|stingers|review|reviews|post|mid|after|end|during|the|is|a|an|there|are|movie|film|\s)+$/;
+// ⚡ Bolt: Extracted array to global Set to prevent redundant allocations on every page parse and improve lookup from O(N) to O(1)
+const AC_BLOOPER_TAGS = new Set(['outtake', 'musical', 'blooper', 'humorous credit']);
 
 const MAX_CACHE_SIZE = 5000;
 const streamCache = {
@@ -361,7 +363,8 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         if (categoryTags.includes('both during & after credits')) { hasMid = true; hasPost = true; }
         if (categoryTags.includes('during credits')) { hasMid = true; }
         if (categoryTags.includes('after credits')) { hasPost = true; }
-        if (categoryTags.some(t => ['outtake', 'musical', 'blooper', 'humorous credit'].includes(t))) { bloopers = true; }
+        // ⚡ Bolt: O(1) Set lookup used here to avoid allocating a new array per loop iteration
+        if (categoryTags.some(t => AC_BLOOPER_TAGS.has(t))) { bloopers = true; }
         if (categoryTags.includes('sequel setup')) { sequel = true; }
     }
 

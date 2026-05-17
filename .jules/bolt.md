@@ -7,3 +7,6 @@
 ## 2024-05-16 - Optimized isSafeSuffix string traversal
  **Learning:** Using `String.prototype.split` with a regular expression (like `/\s+/`) creates unnecessary array allocations and involves regex engine overhead, especially inside loops. Manual character iteration and `String.prototype.substring` avoids allocations, which speeds up checks in critical paths by nearly 50%.
  **Action:** For performance-critical string operations, prefer manual character traversal with `charCodeAt` and `substring` to avoid array allocations and regex overhead.
+## 2026-05-16 - O(1) Lookups in Cheerio parsing
+**Learning:** Using inline arrays with `.includes()` inside loops (like `Cheerio.each` or `Array.some()`) inside a request-handler path causes redundant memory allocations per-element and `O(N)` lookup times. Extracting those static arrays to globally instantiated `Set` objects prevents garbage-collection pressure and improves matching speeds to `O(1)`.
+**Action:** Extract static arrays used for inclusion-checks within frequently-called loops to global Sets.
