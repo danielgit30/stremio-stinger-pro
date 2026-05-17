@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - Dynamic Tooltips for Disabled States and Toggles
+**Learning:** Contextual `title` attributes are a powerful, zero-dependency way to improve UX for complex form states (like conditionally disabled checkboxes) and dynamic UI elements (like show/hide password toggles), significantly aiding user comprehension. Using standard ARIA attributes in tandem with tooltips creates an inclusive experience for both mouse and screen reader users.
+**Action:** Always consider why an element is disabled and attempt to surface that reasoning via dynamic tooltips. Ensure dynamic toggle buttons update their labels/tooltips to reflect the *action* they will perform when clicked, not just their current state.
