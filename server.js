@@ -8,6 +8,17 @@ const https = require('https');
 
 const app = express();
 
+// ==========================================
+// 1. CONFIGURATION & STATE
+// ==========================================
+
+// 🛡️ Sentinel: Sanitize error messages to prevent log injection and credential leaks
+function sanitizeError(msg) {
+    if (!msg) return '';
+    let sanitized = String(msg).replace(/[\r\n]/g, ' ');
+    return sanitized.replace(/api_key=[^&\s]+/gi, 'api_key=***');
+}
+
 // 🛡️ Sentinel: Restrict CORS to known Stremio origins to prevent unauthorized cross-origin requests
 const allowedOrigins = [
     'https://web.stremio.com',
@@ -28,23 +39,12 @@ app.use(cors({
         if (isAllowed) {
             callback(null, true);
         } else {
-            console.warn(`[Security] Blocked CORS request from origin: ${origin}`);
+            console.warn(`[Security] Blocked CORS request from origin: ${sanitizeError(origin)}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
     optionsSuccessStatus: 200
 }));
-
-// ==========================================
-// 1. CONFIGURATION & STATE
-// ==========================================
-
-// 🛡️ Sentinel: Sanitize error messages to prevent log injection and credential leaks
-function sanitizeError(msg) {
-    if (!msg) return '';
-    let sanitized = String(msg).replace(/[\r\n]/g, ' ');
-    return sanitized.replace(/api_key=[^&\s]+/gi, 'api_key=***');
-}
 
 // ==========================================
 
@@ -104,12 +104,12 @@ function validateUrl(targetUrl, baseUrl, expectedHostname) {
     try {
         const parsedUrl = new URL(targetUrl, baseUrl);
         if (parsedUrl.hostname !== expectedHostname && parsedUrl.hostname !== `www.${expectedHostname}`) {
-            console.warn(`[Security] Blocked untrusted URL: ${targetUrl}`);
+            console.warn(`[Security] Blocked untrusted URL: ${sanitizeError(targetUrl)}`);
             return null;
         }
         return parsedUrl.href;
     } catch (e) {
-        console.warn(`[Security] Invalid URL format: ${targetUrl}`);
+        console.warn(`[Security] Invalid URL format: ${sanitizeError(targetUrl)}`);
         return null;
     }
 }
@@ -286,7 +286,7 @@ async function buildWikiIndex(reqConfig = config) {
             console.log(`[Wiki] Built ${wikiCache.size} entries.`);
         } catch (e) {
             if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-                console.error(`[Wiki Error] ${e.message}`);
+                console.error(`[Wiki Error] ${sanitizeError(e.message)}`);
             }
         } finally {
             wikiFetchPromise = null;
@@ -647,7 +647,7 @@ const streamHandler = async (req, res) => {
     const { type, id } = req.params;
     if (type !== 'movie') return res.json({ streams: [] });
     if (!id || !/^tt\d+$/.test(id)) {
-        console.warn(`[Stream] Invalid ID format: ${id}`);
+        console.warn(`[Stream] Invalid ID format: ${sanitizeError(id)}`);
         return res.json({ streams: [] });
     }
 
