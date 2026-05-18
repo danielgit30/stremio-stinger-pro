@@ -5,3 +5,6 @@
 ## 2026-05-17 - Native Form Wrapping for Keyboard Submission
 **Learning:** Relying purely on JavaScript click handlers (`<button onclick="...">`) or global keydown listeners to submit data creates significant accessibility friction, as it prevents the native "Enter-to-submit" behavior keyboard users expect when focused inside inputs. A simple `<form>` wrapper with `onsubmit="event.preventDefault(); submitFunction();"` provides standard keyboard submit behavior natively, saving lines of code and immediately improving accessibility.
 **Action:** Always wrap actionable configuration blocks or inputs inside a `<form>` element, and ensure the primary submission button is set to `type="submit"`, even if the submission is handled entirely via client-side JavaScript.
+## 2024-05-18 - Avoid title tooltips for critical field conditions
+**Learning:** `title` attributes on `<label>` elements are invisible to mobile/touch users and difficult for keyboard users to discover. In `index.html`, a crucial condition ("Only displays when the source is AfterCredits") was hidden in a `title` attribute, severely hindering usability.
+**Action:** Always prefer explicit, inline subtext (e.g., a `.optional-text` span within or next to the label) over `title` tooltips for important conditions or instructions, ensuring they are visible and accessible to all users.
