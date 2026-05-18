@@ -399,17 +399,23 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
 
     $$(".spoiler-wrap").each((i, el) => {
         const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
-        const blockText = $$(el).text().toLowerCase();
 
-        const isBlooper = BLOOPER_REGEX.test(blockText);
-        const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
+        // ⚡ Bolt: Defer expensive DOM extraction and regex checks until relevance is confirmed
+        const isMid = headText.includes("during") || headText.includes("mid");
+        const isPost = headText.includes("after") || headText.includes("post");
 
-        if (headText.includes("during") || headText.includes("mid")) {
-            hasMid = updateStingerState(isBlooper, isNegative, hasMid, 'MID');
-        }
+        if (isMid || isPost) {
+            const blockText = $$(el).text().toLowerCase();
+            const isBlooper = BLOOPER_REGEX.test(blockText);
+            const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 
-        if (headText.includes("after") || headText.includes("post")) {
-            hasPost = updateStingerState(isBlooper, isNegative, hasPost, 'POST');
+            if (isMid) {
+                hasMid = updateStingerState(isBlooper, isNegative, hasMid, 'MID');
+            }
+
+            if (isPost) {
+                hasPost = updateStingerState(isBlooper, isNegative, hasPost, 'POST');
+            }
         }
     });
 
