@@ -6,3 +6,7 @@
  **Vulnerability:** console.error was directly logging e.message from external HTTP requests, which is vulnerable to log injection and sensitive API credential leakage (especially for TMDB api_key).
  **Learning:** When passing exception messages directly to a logger, we can easily expose api credentials or allow attackers to craft malicious multi-line log entries.
  **Prevention:** Implement a sanitizeError helper that strips newlines, carriage returns, and api credentials from the error messages, before sending them to the console.
+## 2026-05-17 - Missing Security Headers
+ **Vulnerability:** The application was missing essential security headers (e.g., Content-Security-Policy, X-Frame-Options), leaving the frontend configuration portal vulnerable to common web attacks like clickjacking and XSS.
+ **Learning:** Even simple configuration portals need defense-in-depth mechanisms. Security headers provide a crucial layer of protection without requiring architectural changes.
+ **Prevention:** Implement security headers globally using native Express middleware or libraries like Helmet. Configure CSP to explicitly allow only trusted sources for scripts, styles, and images.
