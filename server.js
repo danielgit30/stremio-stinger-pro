@@ -70,7 +70,15 @@ const MAX_CACHE_SIZE = 5000;
 const streamCache = {
     _cache: new Map(),
     has(key) { return this._cache.has(key); },
-    get(key) { return this._cache.get(key); },
+    get(key) {
+        const value = this._cache.get(key);
+        if (value) {
+            // ⚡ Bolt: Delete and re-insert to update insertion order, converting FIFO to LRU
+            this._cache.delete(key);
+            this._cache.set(key, value);
+        }
+        return value;
+    },
     delete(key) { return this._cache.delete(key); },
     set(key, value) {
         if (this._cache.size >= MAX_CACHE_SIZE) {
@@ -672,8 +680,9 @@ const streamHandler = async (req, res) => {
     };
 
     const cacheKey = `${id}_${rawStyle}`;
-    if (streamCache.has(cacheKey)) {
-        const cached = streamCache.get(cacheKey);
+    // ⚡ Bolt: Use direct get() without has() to save redundant Map lookup
+    const cached = streamCache.get(cacheKey);
+    if (cached) {
         if (Date.now() < cached.expiresAt) {
             console.log(`[Stream] Cache HIT. Resolving from memory.`);
             return res.json({ streams: [cached.stream] });
