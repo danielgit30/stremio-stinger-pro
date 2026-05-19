@@ -285,12 +285,14 @@ async function buildWikiIndex(reqConfig = config) {
             const newCache = new Map();
 
             $("table.wikitable tr").each((i, el) => {
-                let titleText = $(el).find("i").first().text();
-                if (!titleText) titleText = $(el).find("td").eq(1).text();
+                // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
+                const $el = $(el);
+                let titleText = $el.find("i").first().text();
+                if (!titleText) titleText = $el.find("td").eq(1).text();
                 if (!titleText) return;
 
                 const cleanTitle = wikiNormalize(titleText);
-                const rowText = $(el).text().toLowerCase();
+                const rowText = $el.text().toLowerCase();
 
                 let hasMid = rowText.includes('mid-') || rowText.includes('during');
                 let hasPost = rowText.includes('post-') || rowText.includes('after');
@@ -336,12 +338,14 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     let potentialMatches = [];
 
     $("h2 a, h3 a, .entry-title a, .title a, .post-title a").each((i, el) => {
-        const rawLinkText = $(el).text().toLowerCase().trim();
+        // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
+        const $el = $(el);
+        const rawLinkText = $el.text().toLowerCase().trim();
         if (!rawLinkText) return;
 
         if (isTitleMatch(rawLinkText, cleanedTitle)) {
             potentialMatches.push({
-                url: $(el).attr('href'),
+                url: $el.attr('href'),
                 isReview: rawLinkText.includes('review'),
                 rawText: rawLinkText
             });
@@ -368,7 +372,9 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
 
     let categoryTags = [];
     $$('ul.td-category li.entry-category a').each((i, el) => {
-        categoryTags.push($$(el).text().trim().toLowerCase());
+        // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
+        const $el = $$(el);
+        categoryTags.push($el.text().trim().toLowerCase());
     });
     console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
@@ -398,14 +404,16 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     };
 
     $$(".spoiler-wrap").each((i, el) => {
-        const headText = $$(el).find(".spoiler-head").text().trim().toLowerCase();
+        // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
+        const $el = $$(el);
+        const headText = $el.find(".spoiler-head").text().trim().toLowerCase();
 
         // ⚡ Bolt: Defer expensive DOM extraction and regex checks until relevance is confirmed
         const isMid = headText.includes("during") || headText.includes("mid");
         const isPost = headText.includes("after") || headText.includes("post");
 
         if (isMid || isPost) {
-            const blockText = $$(el).text().toLowerCase();
+            const blockText = $el.text().toLowerCase();
             const isBlooper = BLOOPER_REGEX.test(blockText);
             const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 
@@ -514,12 +522,14 @@ async function searchMediaStinger(title, reqConfig) {
     let potentialMatches = [];
 
     $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
-        const rawLinkText = $(el).text().toLowerCase().trim();
+        // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
+        const $el = $(el);
+        const rawLinkText = $el.text().toLowerCase().trim();
         if (!rawLinkText) return;
 
         if (isTitleMatch(rawLinkText, cleanedTitle)) {
             potentialMatches.push({
-                url: $(el).attr('href'),
+                url: $el.attr('href'),
                 rawText: rawLinkText
             });
             return false;
