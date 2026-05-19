@@ -645,13 +645,19 @@ const serveConfig = (req, res) => res.sendFile(path.join(__dirname, 'index.html'
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
 
+// Serve static assets locally
+app.get('/bg.png', (req, res) => res.sendFile(path.join(__dirname, 'bg.png')));
+app.get('/icon.png', (req, res) => res.sendFile(path.join(__dirname, 'icon.png')));
+
 const manifestHandler = (req, res) => {
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     res.json({
         id: 'org.stinger.pro',
         version: '2.0.2',
         name: 'Stremio Stinger Pro',
         description: 'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
-        logo: 'https://github.com/schultz911/stremio-stinger-pro/blob/main/icon.png?raw=true',
+        logo: `${protocol}://${host}/icon.png`,
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
