@@ -13,3 +13,6 @@
 ## 2024-05-18 - Map-Based Cache Iteration Order
 **Learning:** In JavaScript, the `Map` object remembers the original insertion order of the keys. When implementing a bounded cache using `Map` (like `streamCache` in `server.js`), deleting the first key (e.g., `this._cache.keys().next().value`) effectively creates a FIFO (First-In-First-Out) cache, NOT an LRU (Least Recently Used) cache, because reading a value with `get()` doesn't update its position in the iteration order.
 **Action:** When implementing basic caches using `Map`, ensure that accesses (`get()`) actually delete and re-insert the key to push it to the end of the iteration order, converting it to a true LRU cache and improving the cache hit rate for frequently accessed items.
+## 2024-05-18 - Defer expensive DOM extraction in Cheerio loops
+ **Learning:** In Cheerio's `.each()` loop, performing expensive DOM operations like `$$(el).text()` and subsequent regex evaluations on *every* element unconditionally is a common performance bottleneck, especially if the loop iterations only care about a subset of elements.
+ **Action:** Always defer heavy DOM text extractions and string parsing/regex matching by first querying or checking cheaper, structural indicators (e.g., classes, IDs, or short header texts) and conditionally branching inside the loop to skip irrelevant containers.
