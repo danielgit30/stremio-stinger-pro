@@ -311,7 +311,7 @@
 </head>
 
 <body>
-  <div class="card">
+  <main class="card">
     <h1>Stremio Stinger Pro</h1>
     <p class="description">
       Find out if a movie has mid and post-credits scenes before you watch it
@@ -333,17 +333,20 @@
         <input type="checkbox" id="showBloopers" onchange="updatePreview()" />
         <label for="showBloopers">Include Outtakes (Bloopers and BTS)</label>
       </div>
-      <div class="checkbox-group">
-        <input type="checkbox" id="showSequel" onchange="updatePreview()" />
-        <label for="showSequel" title="Only displays when the source is AfterCredits">Show Sequel Setup</label>
+      <div class="checkbox-group" style="align-items: flex-start;">
+        <input type="checkbox" id="showSequel" onchange="updatePreview()" style="margin-top: 3px;" />
+        <label for="showSequel" style="flex-direction: column; align-items: flex-start;">
+          Show Sequel Setup
+          <span class="optional-text" style="margin-top: 2px;">(Only displays when the source is AfterCredits)</span>
+        </label>
       </div>
 
       <div class="preview-container">
         <div class="preview-header">
-          <span class="preview-label">LIVE PREVIEW</span>
+          <span class="preview-label" id="preview-heading">LIVE PREVIEW</span>
         </div>
 
-        <div class="test-controls">
+        <div class="test-controls" role="group" aria-labelledby="preview-heading">
           <label id="lblTestMid"><input type="checkbox" id="testMid" checked onchange="updatePreview()" />
             Mid</label>
           <label id="lblTestPost"><input type="checkbox" id="testPost" checked onchange="updatePreview()" />
@@ -398,10 +401,10 @@
     </div>
 
     <div class="footer">
-      <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank">Release v2.0.2</a> | Developed by
+      <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank" rel="noopener noreferrer">Release v2.0.2</a> | Developed by
       schultz911
     </div>
-  </div>
+  </main>
 
   <script>
     let currentHttpsUrl = "";
