@@ -16,3 +16,6 @@
 ## 2024-05-18 - Defer expensive DOM extraction in Cheerio loops
  **Learning:** In Cheerio's `.each()` loop, performing expensive DOM operations like `$$(el).text()` and subsequent regex evaluations on *every* element unconditionally is a common performance bottleneck, especially if the loop iterations only care about a subset of elements.
  **Action:** Always defer heavy DOM text extractions and string parsing/regex matching by first querying or checking cheaper, structural indicators (e.g., classes, IDs, or short header texts) and conditionally branching inside the loop to skip irrelevant containers.
+## 2024-05-19 - Cache Cheerio Wrappers in Loops
+ **Learning:** In Cheerio's `.each()` loops, calling `$(el)` multiple times within the same loop iteration creates redundant objects and adds parsing overhead, unnecessarily slowing down tight scraping loops.
+ **Action:** Always assign the wrapper to a constant at the start of the loop (e.g., `const $el = $(el);`) to minimize object instantiation and garbage collection when the wrapper is needed multiple times.
