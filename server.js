@@ -19,32 +19,8 @@ function sanitizeError(msg) {
     return sanitized.replace(/api_key=[^&\s]+/gi, 'api_key=***');
 }
 
-// 🛡️ Sentinel: Restrict CORS to known Stremio origins to prevent unauthorized cross-origin requests
-const allowedOrigins = [
-    'https://web.stremio.com',
-    'https://app.stremio.com',
-    'https://stremio-addons.net',
-    'https://strem.io'
-];
-
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, desktop app, or curl)
-        if (!origin) return callback(null, true);
-
-        // Enforce HTTPS and restrict to trusted Stremio domains
-        const isAllowed = allowedOrigins.includes(origin) ||
-            (origin.startsWith('https://') && origin.endsWith('.strem.io'));
-
-        if (isAllowed) {
-            callback(null, true);
-        } else {
-            console.warn(`[Security] Blocked CORS request from origin: ${sanitizeError(origin)}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    optionsSuccessStatus: 200
-}));
+// 🛡️ Sentinel: Allow all origins (standard for Stremio addons to support various web clients/origins)
+app.use(cors());
 
 // 🛡️ Sentinel: Add security headers middleware to protect the application from common web vulnerabilities
 app.use((req, res, next) => {

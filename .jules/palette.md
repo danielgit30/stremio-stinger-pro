@@ -1,10 +1,4 @@
-## $(date +%Y-%m-%d) - Dynamic Tooltips for Disabled States and Toggles
-**Learning:** Contextual `title` attributes are a powerful, zero-dependency way to improve UX for complex form states (like conditionally disabled checkboxes) and dynamic UI elements (like show/hide password toggles), significantly aiding user comprehension. Using standard ARIA attributes in tandem with tooltips creates an inclusive experience for both mouse and screen reader users.
-**Action:** Always consider why an element is disabled and attempt to surface that reasoning via dynamic tooltips. Ensure dynamic toggle buttons update their labels/tooltips to reflect the *action* they will perform when clicked, not just their current state.
 
-## 2026-05-17 - Native Form Wrapping for Keyboard Submission
-**Learning:** Relying purely on JavaScript click handlers (`<button onclick="...">`) or global keydown listeners to submit data creates significant accessibility friction, as it prevents the native "Enter-to-submit" behavior keyboard users expect when focused inside inputs. A simple `<form>` wrapper with `onsubmit="event.preventDefault(); submitFunction();"` provides standard keyboard submit behavior natively, saving lines of code and immediately improving accessibility.
-**Action:** Always wrap actionable configuration blocks or inputs inside a `<form>` element, and ensure the primary submission button is set to `type="submit"`, even if the submission is handled entirely via client-side JavaScript.
-## 2024-05-18 - Avoid title tooltips for critical field conditions
-**Learning:** `title` attributes on `<label>` elements are invisible to mobile/touch users and difficult for keyboard users to discover. In `index.html`, a crucial condition ("Only displays when the source is AfterCredits") was hidden in a `title` attribute, severely hindering usability.
-**Action:** Always prefer explicit, inline subtext (e.g., a `.optional-text` span within or next to the label) over `title` tooltips for important conditions or instructions, ensuring they are visible and accessible to all users.
+## 2024-05-19 - Replace tooltips with inline text for touch accessibility
+**Learning:** `title` attributes on DOM elements fail to provide reliable accessibility on mobile and touch devices because there is no way to simulate a 'hover' to trigger them. This means critical field dependency warnings (e.g. "Not applicable when Wiki is selected") become invisible to touch users.
+**Action:** When communicating critical field states or form validation rules, always use explicitly visible inline subtext elements (e.g. `<span class="optional-text">`) combined with dynamic display logic rather than relying on `title` tooltips.
