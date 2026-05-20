@@ -350,25 +350,25 @@ async function checkWikipedia(title, reqConfig) {
 
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
-    const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`;
+    const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
+    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}`;
     const searchRes = await axios.get(searchUrl, reqConfig);
-    const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
 
-    $("h2 a, h3 a, .entry-title a, .title a, .post-title a").each((i, el) => {
-        // ⚡ Bolt: Cache wrapper to avoid redundant instantiation in loops
-        const $el = $(el);
-        const rawLinkText = $el.text().toLowerCase().trim();
-        if (!rawLinkText) return;
+    if (Array.isArray(searchRes.data)) {
+        for (const post of searchRes.data) {
+            const rawLinkText = cheerio.load(post.title.rendered).text().toLowerCase().trim();
+            if (!rawLinkText) continue;
 
-        if (isTitleMatch(rawLinkText, cleanedTitle)) {
-            potentialMatches.push({
-                url: $el.attr('href'),
-                isReview: rawLinkText.includes('review'),
-                rawText: rawLinkText
-            });
+            if (isTitleMatch(rawLinkText, cleanedTitle)) {
+                potentialMatches.push({
+                    url: post.link,
+                    isReview: rawLinkText.includes('review'),
+                    rawText: rawLinkText
+                });
+            }
         }
-    });
+    }
 
     if (potentialMatches.length === 0) {
         console.log(`[AfterCredits] Aborting: No match found.`);
