@@ -359,6 +359,7 @@
           <label><input type="checkbox" id="testWiki" onchange="updatePreview()" />
             Wiki (Unknown)</label>
         </div>
+        <span id="wikiDisabledHelper" class="optional-text" style="display: none; margin-top: -8px; margin-bottom: 12px;">Not applicable when Wiki is selected</span>
 
         <div class="stream-box" aria-live="polite" aria-atomic="true">
           <div class="stream-title">After-Credits Scenes</div>
@@ -480,15 +481,18 @@
 
       const isWiki = testWikiBox.checked;
 
+      const wikiHelper = document.getElementById("wikiDisabledHelper");
+      if (wikiHelper) {
+        wikiHelper.style.display = isWiki ? "block" : "none";
+      }
+
       const dependentBoxes = [testMidBox, testPostBox, testBloopersBox, testSequelBox];
       dependentBoxes.forEach((box) => {
         box.disabled = isWiki;
         if (isWiki) {
           box.parentElement.classList.add("disabled-label");
-          box.parentElement.setAttribute("title", "Not applicable when Wiki is selected");
         } else {
           box.parentElement.classList.remove("disabled-label");
-          box.parentElement.removeAttribute("title");
         }
       });
 
