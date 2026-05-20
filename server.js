@@ -348,35 +348,10 @@ async function checkWikipedia(title, reqConfig) {
     return null;
 }
 
-async function axiosGetWithFallback(url, reqConfig) {
-    const headers = {
-        ...reqConfig.headers,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9'
-    };
-    const directConfig = { ...reqConfig, headers };
-
-    try {
-        return await axios.get(url, directConfig);
-    } catch (e) {
-        if (e.name === 'CanceledError' || e.message === 'canceled') {
-            throw e;
-        }
-        console.warn(`[AfterCredits] Direct fetch to ${url} failed: ${sanitizeError(e.message)}. Retrying via proxy...`);
-        try {
-            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-            return await axios.get(proxyUrl, reqConfig);
-        } catch (proxyError) {
-            console.error(`[AfterCredits Proxy Error] Failed to fetch via proxy: ${sanitizeError(proxyError.message)}`);
-            throw e;
-        }
-    }
-}
-
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchUrl = `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`;
-    const searchRes = await axiosGetWithFallback(searchUrl, reqConfig);
+    const searchRes = await axios.get(searchUrl, reqConfig);
     const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
 
@@ -409,7 +384,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 }
 
 async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
-    const movieRes = await axiosGetWithFallback(bestMatchUrl, reqConfig);
+    const movieRes = await axios.get(bestMatchUrl, reqConfig);
     const $$ = cheerio.load(movieRes.data);
     let hasMid = false, hasPost = false, bloopers = false, sequel = false;
 
