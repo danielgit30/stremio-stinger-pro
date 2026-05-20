@@ -56,6 +56,48 @@ app.use((req, res, next) => {
     next();
 });
 
+// 🛡️ Sentinel: Enable trusting reverse proxy to accurately get client IPs for rate limiting
+app.set('trust proxy', 1);
+
+// 🛡️ Sentinel: Simple IP-based rate limiting to prevent DoS and SSRF amplification
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute
+
+// Cleanup interval prevents memory leaks without giving attackers a way to reset the cache
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of rateLimitMap.entries()) {
+        if (now - data.startTime > RATE_LIMIT_WINDOW_MS) {
+            rateLimitMap.delete(ip);
+        }
+    }
+}, RATE_LIMIT_WINDOW_MS);
+
+app.use((req, res, next) => {
+    const ip = req.ip;
+    if (!ip) return next();
+
+    const now = Date.now();
+    const clientData = rateLimitMap.get(ip) || { count: 0, startTime: now };
+
+    if (now - clientData.startTime > RATE_LIMIT_WINDOW_MS) {
+        clientData.count = 1;
+        clientData.startTime = now;
+    } else {
+        clientData.count++;
+    }
+
+    rateLimitMap.set(ip, clientData);
+
+    if (clientData.count > RATE_LIMIT_MAX_REQUESTS) {
+        console.warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
+        return res.status(429).json({ error: 'Too many requests, please try again later.' });
+    }
+
+    next();
+});
+
 // ==========================================
 
 // ⚡ Bolt: Use Keep-Alive agents to reuse TCP connections across requests,
