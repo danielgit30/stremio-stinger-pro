@@ -674,12 +674,13 @@ app.get('/', serveConfig);
 app.get('/configure', serveConfig);
 
 // Serve static assets locally
-app.get('/bg.png', (req, res) => res.sendFile(path.join(__dirname, 'bg.png')));
+
 app.get('/icon.png', (req, res) => res.sendFile(path.join(__dirname, 'icon.png')));
 
 const manifestHandler = (req, res) => {
     const host = req.get('host');
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  res.setHeader('Cache-Control', 'public, max-age=86400');
     res.json({
         id: 'org.stinger.pro',
         version: '2.0.2',
@@ -699,7 +700,7 @@ app.get('/:p1/manifest.json', manifestHandler);
 app.get('/:style/:apiKey/manifest.json', manifestHandler);
 
 const streamHandler = async (req, res) => {
-    res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
 
 
     const { type, id } = req.params;
