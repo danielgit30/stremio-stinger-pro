@@ -1,4 +1,13 @@
 // Pre-compiled regexes
+const RE_HTML_TAGS = /<[^>]*>?/gm;
+const RE_DECIMAL_ENT = /&#(\d+);/g;
+const RE_HEX_ENT = /&#x([0-9a-f]+);/gi;
+const RE_AMP = /&amp;/g;
+const RE_QUOT = /&quot;/g;
+const RE_LT = /&lt;/g;
+const RE_GT = /&gt;/g;
+const RE_NBSP = /&nbsp;/g;
+
 const RE_YEAR = /\(\d{4}\)/g;
 const RE_NON_WORD = /[^\w\s]/g;
 const RE_MULTI_SPACE = /\s+/g;
@@ -83,7 +92,22 @@ const wikiNormalize = (title) => {
         .trim();
 };
 
+
+const decodeHtmlString = (html) => {
+    if (!html) return '';
+    let text = html.replace(RE_HTML_TAGS, '');
+    return text
+        .replace(RE_DECIMAL_ENT, (match, dec) => String.fromCharCode(dec))
+        .replace(RE_AMP, '&')
+        .replace(RE_QUOT, '"')
+        .replace(RE_LT, '<')
+        .replace(RE_GT, '>')
+        .replace(RE_NBSP, ' ')
+        .replace(RE_HEX_ENT, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+};
+
 module.exports = {
+    decodeHtmlString,
     cleanTitle,
     isTitleMatch,
     wikiNormalize,

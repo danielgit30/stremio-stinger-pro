@@ -1,6 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { cleanTitle, isTitleMatch, isSafeSuffix, BLOOPER_REGEX, NEGATIVE_REGEX, STINGER_EXCEPTION_REGEX, AC_BLOOPER_TAGS } = require('../utils/strings');
+const { cleanTitle, isTitleMatch, decodeHtmlString, isSafeSuffix, BLOOPER_REGEX, NEGATIVE_REGEX, STINGER_EXCEPTION_REGEX, AC_BLOOPER_TAGS } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
 
@@ -13,7 +13,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 
     if (Array.isArray(searchRes.data)) {
         for (const post of searchRes.data) {
-            const rawLinkText = cheerio.load(post.title.rendered).text().toLowerCase().trim();
+            const rawLinkText = decodeHtmlString(post.title.rendered).toLowerCase().trim();
             if (!rawLinkText) continue;
 
             if (isTitleMatch(rawLinkText, cleanedTitle)) {

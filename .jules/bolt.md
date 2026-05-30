@@ -1,3 +1,6 @@
 ## 2023-10-27 - Bounding Telemetry Map
  **Learning:** In Node.js, `Map` objects maintain insertion order. This allows for an extremely efficient, native O(1) LRU (Least Recently Used) cache implementation. By calling `Map.delete(key)` and then `Map.set(key, value)` on access, the item is moved to the back (most recently used). When the map exceeds its size limit, `Map.delete(Map.keys().next().value)` safely evicts the oldest item at the front.
  **Action:** Always enforce size bounds on in-memory Maps that track telemetry, rate limits, or caches keyed by unbounded external inputs (like request IDs or IPs) to prevent memory exhaustion DoS vulnerabilities. Implement the delete-and-reinsert pattern for native LRU caching instead of complex third-party libraries when appropriate.
+## 2023-10-27 - Optimized HTML Entity Decoding in Loops
+ **Learning:** Using `cheerio.load()` inside tight processing loops to parse simple HTML strings and decode entities introduces severe synchronous parsing overhead.
+ **Action:** Instead of `cheerio.load().text()`, implement a lightweight string-replacement function leveraging pre-compiled regular expressions to strip HTML tags and decode basic entities (like `&#8211;`, `&amp;`, `&quot;`). This avoids redundant DOM instantiation and delivers order-of-magnitude performance gains for simple string extraction tasks.
