@@ -32,7 +32,10 @@ const streamHandler = async (req, res) => {
     console.log(`[Stream] Request Type: ${type} | ID: ${id}`);
 
     // Telemetry tracking
-    telemetry.requestedIds.set(id, (telemetry.requestedIds.get(id) || 0) + 1);
+    const count = telemetry.requestedIds.get(id) || 0;
+    if (count > 0) telemetry.requestedIds.delete(id);
+    telemetry.requestedIds.set(id, count + 1);
+    if (telemetry.requestedIds.size > 1000) telemetry.requestedIds.delete(telemetry.requestedIds.keys().next().value);
 
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey = req.params.apiKey || (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') ? req.params.p1 : null);
