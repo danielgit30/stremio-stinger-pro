@@ -39,6 +39,11 @@ Write-Host "Running validation tests..." -ForegroundColor Yellow
 npm test -- --forceExit
 Write-Host "[OK] Validation tests completed successfully." -ForegroundColor Green
 
+# 5. Clean up node_modules/.package-lock.json modification to keep the working tree clean
+Write-Host "Cleaning up package-lock changes..." -ForegroundColor Yellow
+git checkout HEAD -- node_modules/.package-lock.json 2>$null
+Write-Host "[OK] Working tree package-lock changes reverted." -ForegroundColor Green
+
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Setup completed successfully! Ready." -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
