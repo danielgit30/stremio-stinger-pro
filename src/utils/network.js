@@ -10,6 +10,10 @@ function sanitizeError(msg) {
 function validateUrl(targetUrl, baseUrl, expectedHostname) {
     try {
         const parsedUrl = new URL(targetUrl, baseUrl);
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            console.warn(`[Security] Blocked untrusted protocol: ${sanitizeError(parsedUrl.protocol)}`);
+            return null;
+        }
         if (parsedUrl.hostname !== expectedHostname && parsedUrl.hostname !== `www.${expectedHostname}`) {
             console.warn(`[Security] Blocked untrusted URL: ${sanitizeError(targetUrl)}`);
             return null;

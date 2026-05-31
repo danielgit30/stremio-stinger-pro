@@ -1,5 +1,12 @@
 const axios = require('axios');
-const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT, ENABLE_LOGGING } = require('../config');
+const {
+    CACHE_TTL_SUCCESS,
+    CACHE_TTL_ERROR,
+    axiosConfig,
+    CINEMETA_TIMEOUT,
+    SCRAPER_TIMEOUT,
+    ENABLE_LOGGING,
+} = require('../config');
 const { streamCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');

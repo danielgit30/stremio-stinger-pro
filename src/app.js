@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
 const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config');
@@ -9,7 +10,10 @@ const { serveConfig, telemetryHandler } = require('./routes/ui');
 
 const app = express();
 
+app.use(compression());
 app.use(cors());
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Security Headers Middleware
 app.use((req, res, next) => {
@@ -55,6 +59,14 @@ app.use((req, res, next) => {
         clientData.count++;
     }
 
+    // Prevent memory exhaustion DoS
+    if (rateLimitMap.size > 5000 && !rateLimitMap.has(ip)) {
+        const firstKey = rateLimitMap.keys().next().value;
+        rateLimitMap.delete(firstKey);
+    }
+
+    // Refresh to front of map for LRU iteration
+    rateLimitMap.delete(ip);
     rateLimitMap.set(ip, clientData);
 
     const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientData.count);

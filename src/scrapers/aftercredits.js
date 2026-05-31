@@ -22,7 +22,7 @@ const log = (...args) => {
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
-    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}`;
+    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=title,link&per_page=5`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     let potentialMatches = [];
 

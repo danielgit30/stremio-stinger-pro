@@ -50,9 +50,7 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         }
 
         let isDefinitive = true;
-        log(
-            `[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`
-        );
+        log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
         return getResultObj(
             hasMid,
             hasPost,
