@@ -143,38 +143,30 @@ const streamHandler = async (req, res) => {
                 }
             };
 
-            log(`[Stream] Firing AfterCredits first for priority...`);
-            const pAc = await scrapers.checkAfterCredits(title, year, scraperConfig);
-            
-            if (pAc && pAc.definitive) {
-                finalResult = pAc;
-                log(`[Stream] Definitive state found by AfterCredits.`);
-            } else {
-                updateFallback(pAc);
-                log(`[Stream] AfterCredits non-definitive. Firing other scrapers concurrently...`);
-                
-                const pMs = scrapers.checkMediaStinger(title, year, scraperConfig);
-                const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
-                const pWiki = scrapers.checkWikipedia(title, scraperConfig);
+            log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+            const pAc = scrapers.checkAfterCredits(title, year, scraperConfig);
+            const pMs = scrapers.checkMediaStinger(title, year, scraperConfig);
+            const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
+            const pWiki = scrapers.checkWikipedia(title, scraperConfig);
 
-                const scraperTasks = [
-                    { name: 'MediaStinger', promise: pMs },
-                    { name: 'TMDB', promise: pTmdb },
-                    { name: 'Wikipedia', promise: pWiki },
-                ];
+            const scraperTasks = [
+                { name: 'AfterCredits', promise: pAc },
+                { name: 'MediaStinger', promise: pMs },
+                { name: 'TMDB', promise: pTmdb },
+                { name: 'Wikipedia', promise: pWiki },
+            ];
 
-                for (const scraper of scraperTasks) {
-                    const result = await scraper.promise;
-                    if (result && result.definitive) {
-                        finalResult = result;
-                        log(
-                            `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
-                        );
-                        if (scraper.name !== 'Wikipedia') scraperController.abort();
-                        break;
-                    } else {
-                        updateFallback(result);
-                    }
+            for (const scraper of scraperTasks) {
+                const result = await scraper.promise;
+                if (result && result.definitive) {
+                    finalResult = result;
+                    log(
+                        `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
+                    );
+                    if (scraper.name !== 'Wikipedia') scraperController.abort();
+                    break;
+                } else {
+                    updateFallback(result);
                 }
             }
 

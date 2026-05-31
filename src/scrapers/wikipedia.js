@@ -33,9 +33,10 @@ async function buildWikiIndex(reqConfig) {
                 }
             }
 
+            const { axiosConfig } = require('../config');
             const res = await axios.get(
                 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes',
-                reqConfig
+                axiosConfig
             );
             const $ = cheerio.load(res.data);
             const newCache = new Map();
