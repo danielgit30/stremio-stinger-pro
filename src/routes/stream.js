@@ -24,6 +24,8 @@ const telemetry = {
     }),
 };
 
+const activeRequests = new Map();
+
 const streamHandler = async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
 
@@ -85,121 +87,141 @@ const streamHandler = async (req, res) => {
 
     telemetry.cacheMisses++;
 
-    const cinemetaController = new AbortController();
-    const cinemetaTimeoutId = setTimeout(() => cinemetaController.abort(), CINEMETA_TIMEOUT);
-    const cinemetaConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: cinemetaController.signal };
-
-    let title, year, moviedbId;
-
-    try {
-        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
-        title = metaRes.data?.meta?.name;
-        year = metaRes.data?.meta?.year;
-        moviedbId = metaRes.data?.meta?.moviedb_id;
-    } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
+    if (activeRequests.has(cacheKey)) {
+        log(`[Stream] Cache MISS. Concurrent request detected for key: ${cacheKey}. Coalescing...`);
+        try {
+            const stream = await activeRequests.get(cacheKey);
+            return res.json({ streams: stream ? [stream] : [] });
+        } catch {
+            return res.json({ streams: [] });
         }
-    } finally {
-        clearTimeout(cinemetaTimeoutId);
-        cinemetaController.abort();
     }
 
-    if (!title) {
-        log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
-        log(`=================================\n`);
-        return res.json({ streams: [] });
-    }
+    const scrapePromise = (async () => {
+        const cinemetaController = new AbortController();
+        const cinemetaTimeoutId = setTimeout(() => cinemetaController.abort(), CINEMETA_TIMEOUT);
+        const cinemetaConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: cinemetaController.signal };
 
-    log(`[Stream] Target: "${title}" (${year})`);
+        let title, year, moviedbId;
 
-    const scraperController = new AbortController();
-    const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
-    const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
-
-    try {
-        let finalResult = null;
-        let bestFallback = null;
-
-        const updateFallback = (resObj) => {
-            if (!resObj) return;
-            if (resObj.no && (!bestFallback || !bestFallback.no)) {
-                bestFallback = resObj;
-            } else if (!bestFallback) {
-                bestFallback = resObj;
+        try {
+            const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
+            title = metaRes.data?.meta?.name;
+            year = metaRes.data?.meta?.year;
+            moviedbId = metaRes.data?.meta?.moviedb_id;
+        } catch (e) {
+            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
             }
-        };
-
-        log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
-        const pAc = scrapers.checkAfterCredits(title, year, scraperConfig);
-        const pMs = scrapers.checkMediaStinger(title, year, scraperConfig);
-        const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
-        const pWiki = scrapers.checkWikipedia(title, scraperConfig);
-
-        const scraperTasks = [
-            { name: 'AfterCredits', promise: pAc },
-            { name: 'MediaStinger', promise: pMs },
-            { name: 'TMDB', promise: pTmdb },
-            { name: 'Wikipedia', promise: pWiki },
-        ];
-
-        for (const scraper of scraperTasks) {
-            const result = await scraper.promise;
-            if (result && result.definitive) {
-                finalResult = result;
-                log(
-                    `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
-                );
-                if (scraper.name !== 'Wikipedia') scraperController.abort();
-                break;
-            } else {
-                updateFallback(result);
-            }
+        } finally {
+            clearTimeout(cinemetaTimeoutId);
+            cinemetaController.abort();
         }
 
-        const isAggregatedError = !finalResult && !bestFallback;
-        const resolvedResult = finalResult ||
-            bestFallback || {
-                mid: false,
-                post: false,
-                no: false,
-                bloopers: false,
-                sequel: false,
-                url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
-                source: 'Aggregated',
+        if (!title) {
+            log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
+            log(`=================================\n`);
+            return null;
+        }
+
+        log(`[Stream] Target: "${title}" (${year})`);
+
+        const scraperController = new AbortController();
+        const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
+        const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+
+        try {
+            let finalResult = null;
+            let bestFallback = null;
+
+            const updateFallback = (resObj) => {
+                if (!resObj) return;
+                if (resObj.no && (!bestFallback || !bestFallback.no)) {
+                    bestFallback = resObj;
+                } else if (!bestFallback) {
+                    bestFallback = resObj;
+                }
             };
 
-        log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
+            log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+            const pAc = scrapers.checkAfterCredits(title, year, scraperConfig);
+            const pMs = scrapers.checkMediaStinger(title, year, scraperConfig);
+            const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
+            const pWiki = scrapers.checkWikipedia(title, scraperConfig);
 
-        const stream = {
-            name: 'After-Credits Scenes',
-            title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `\nSource: ${resolvedResult.source}` : ''}`,
-            url:
-                resolvedResult.url ||
-                `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
-        };
+            const scraperTasks = [
+                { name: 'AfterCredits', promise: pAc },
+                { name: 'MediaStinger', promise: pMs },
+                { name: 'TMDB', promise: pTmdb },
+                { name: 'Wikipedia', promise: pWiki },
+            ];
 
-        const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
-        streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
-        if (redisCache.isRedisEnabled() && !isAggregatedError) {
-            await redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
+            for (const scraper of scraperTasks) {
+                const result = await scraper.promise;
+                if (result && result.definitive) {
+                    finalResult = result;
+                    log(
+                        `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
+                    );
+                    if (scraper.name !== 'Wikipedia') scraperController.abort();
+                    break;
+                } else {
+                    updateFallback(result);
+                }
+            }
+
+            const isAggregatedError = !finalResult && !bestFallback;
+            const resolvedResult = finalResult ||
+                bestFallback || {
+                    mid: false,
+                    post: false,
+                    no: false,
+                    bloopers: false,
+                    sequel: false,
+                    url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+                    source: 'Aggregated',
+                };
+
+            log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
+
+            const stream = {
+                name: 'After-Credits Scenes',
+                title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `\nSource: ${resolvedResult.source}` : ''}`,
+                url:
+                    resolvedResult.url ||
+                    `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+            };
+
+            const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
+            streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
+            if (redisCache.isRedisEnabled() && !isAggregatedError) {
+                await redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
+            }
+
+            log(`[Stream] Payload generated and cached. Sequence complete.`);
+            log(`=================================\n`);
+            return stream;
+        } catch (e) {
+            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+            }
+            return null;
+        } finally {
+            clearTimeout(scraperTimeoutId);
+            scraperController.abort();
         }
+    })();
 
-        log(`[Stream] Payload generated and cached. Sequence complete.`);
-        log(`=================================\n`);
-        return res.json({ streams: [stream] });
-    } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
-        }
+    activeRequests.set(cacheKey, scrapePromise);
+
+    try {
+        const stream = await scrapePromise;
+        return res.json({ streams: stream ? [stream] : [] });
+    } catch {
+        return res.json({ streams: [] });
     } finally {
-        clearTimeout(scraperTimeoutId);
-        scraperController.abort();
+        activeRequests.delete(cacheKey);
     }
-
-    log(`[Stream] Sequence completed with no response. Returning empty streams.`);
-    log(`=================================\n`);
-    res.json({ streams: [] });
 };
 
 module.exports = { streamHandler, telemetry };

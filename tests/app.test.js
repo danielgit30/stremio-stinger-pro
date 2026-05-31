@@ -34,4 +34,17 @@ describe('Stremio Stinger Pro E2E', () => {
             expect(res.body.streams[0]).toHaveProperty('title');
         }
     }, 30000);
+
+    it('should handle concurrent requests for the same movie (request coalescing / singleflight)', async () => {
+        const [res1, res2] = await Promise.all([
+            request(app).get('/stream/movie/tt0120737.json'), // Lord of the Rings: Fellowship of the Ring
+            request(app).get('/stream/movie/tt0120737.json'),
+        ]);
+
+        expect(res1.statusCode).toEqual(200);
+        expect(res2.statusCode).toEqual(200);
+        expect(res1.body).toHaveProperty('streams');
+        expect(res2.body).toHaveProperty('streams');
+        expect(res1.body.streams).toEqual(res2.body.streams);
+    }, 30000);
 });
