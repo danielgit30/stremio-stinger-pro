@@ -49,15 +49,15 @@ function updatePreview() {
     document.getElementById('testSequelContainer').style.display = configShowSequel ? 'flex' : 'none';
 
     const isWiki = document.getElementById('testWiki').checked;
-    const isMid = !isWiki && document.getElementById('testMid').checked;
-    const isPost = !isWiki && document.getElementById('testPost').checked;
-    const isBloopers = !isWiki && document.getElementById('testBloopers').checked;
-    const isSequel = !isWiki && document.getElementById('testSequel').checked;
+    const isMid = document.getElementById('testMid').checked;
+    const isPost = document.getElementById('testPost').checked;
+    const isBloopers = document.getElementById('testBloopers').checked;
+    const isSequel = document.getElementById('testSequel').checked;
 
     const previewText = document.getElementById('streamPreviewText');
     let lines = [];
 
-    if (isWiki) {
+    if (isWiki && !isMid && !isPost) {
         lines.push(style === 'simple' ? 'Unclassified Scene' : '❓ Unclassified Scene');
     } else {
         if (isMid && isPost)
