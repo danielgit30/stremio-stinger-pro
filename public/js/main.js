@@ -61,7 +61,7 @@ function updatePreview() {
         lines.push(style === 'simple' ? 'Unclassified Scene' : '❓ Unclassified Scene');
     } else {
         if (isMid && isPost)
-            lines.push(style === 'simple' ? 'Mid-Credits Scene\nPost-Credits Scene' : '🍿 Mid & Post-Credits Scenes');
+            lines.push(style === 'simple' ? 'Mid-Credits Scene<br>Post-Credits Scene' : '🍿 Mid & Post-Credits Scenes');
         else if (isMid) lines.push(style === 'simple' ? 'Mid-Credits Scene' : '⏳ Mid-Credits Scene');
         else if (isPost) lines.push(style === 'simple' ? 'Post-Credits Scene' : '🎬 Post-Credits Scene');
         else if (!isBloopers || !configShowBloopers)
