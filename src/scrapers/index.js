@@ -7,5 +7,5 @@ module.exports = {
     checkAfterCredits,
     checkMediaStinger,
     checkTmdb,
-    checkWikipedia
+    checkWikipedia,
 };

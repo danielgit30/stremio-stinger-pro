@@ -10,12 +10,18 @@ const CACHE_TTL_SUCCESS = 30 * 60 * 1000;
 const CACHE_TTL_ERROR = 60 * 1000;
 const MAX_CACHE_SIZE = 5000;
 
+const CINEMETA_TIMEOUT = 3000; // 3 seconds
+const SCRAPER_TIMEOUT = 4000; // 4 seconds
+
 // Centralized Axios config with Keep-Alive for low latency
 const axiosConfig = {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    },
     timeout: 8000,
     httpAgent: new http.Agent({ keepAlive: true }),
-    httpsAgent: new https.Agent({ keepAlive: true })
+    httpsAgent: new https.Agent({ keepAlive: true }),
 };
 
 module.exports = {
@@ -26,5 +32,7 @@ module.exports = {
     CACHE_TTL_SUCCESS,
     CACHE_TTL_ERROR,
     MAX_CACHE_SIZE,
-    axiosConfig
+    axiosConfig,
+    CINEMETA_TIMEOUT,
+    SCRAPER_TIMEOUT,
 };

@@ -10,7 +10,10 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         let tmdbId = tmdbIdRaw;
 
         if (!tmdbId) {
-            const findRes = await axios.get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`, reqConfig);
+            const findRes = await axios.get(
+                `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
+                reqConfig
+            );
             const movieMatch = findRes.data.movie_results?.[0];
             if (!movieMatch) {
                 console.log(`[TMDB] No match found.`);
@@ -18,10 +21,15 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
             }
             tmdbId = Number(movieMatch.id);
         }
-        const kwRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`, reqConfig);
+        const kwRes = await axios.get(
+            `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`,
+            reqConfig
+        );
         const keywords = kwRes.data.keywords || [];
 
-        let hasMid = false, hasPost = false, bloopers = false;
+        let hasMid = false,
+            hasPost = false,
+            bloopers = false;
         for (const k of keywords) {
             const name = k.name;
             if (!hasMid && name.includes('duringcreditsstinger')) hasMid = true;
@@ -36,8 +44,18 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         }
 
         let isDefinitive = true;
-        console.log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
-        return getResultObj(hasMid, hasPost, false, `https://www.themoviedb.org/movie/${tmdbId}`, 'TMDB', bloopers, isDefinitive);
+        console.log(
+            `[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`
+        );
+        return getResultObj(
+            hasMid,
+            hasPost,
+            false,
+            `https://www.themoviedb.org/movie/${tmdbId}`,
+            'TMDB',
+            bloopers,
+            isDefinitive
+        );
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
             console.error(`[TMDB Error] ${sanitizeError(e.message)}`);
@@ -47,5 +65,5 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
 }
 
 module.exports = {
-    checkTmdb
+    checkTmdb,
 };

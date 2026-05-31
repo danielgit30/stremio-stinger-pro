@@ -17,13 +17,22 @@ const RE_MS_AUDIO_1 = /\b(audio|voice|hear|heard|message|tribute|dedication|hono
 const RE_MS_AUDIO_2 = /\b(scene|scenes|shot|shots|animation|animations|video|footage|shows|we see|visual)\b/;
 
 function parseMediaStingerSeoText(seoText) {
-    let seoMid = false, seoPost = false, seoBloopers = false, seoNo = false, noStinger = false;
+    let seoMid = false,
+        seoPost = false,
+        seoBloopers = false,
+        seoNo = false,
+        noStinger = false;
     if (seoText) {
         if (RE_MS_SEO_NO.test(seoText)) {
             seoNo = true;
             if (seoText.includes('during') || seoText.includes('mid')) seoMid = 'false';
             if (seoText.includes('after') || seoText.includes('post')) seoPost = 'false';
-            if (!seoText.includes('during') && !seoText.includes('mid') && !seoText.includes('after') && !seoText.includes('post')) {
+            if (
+                !seoText.includes('during') &&
+                !seoText.includes('mid') &&
+                !seoText.includes('after') &&
+                !seoText.includes('post')
+            ) {
                 noStinger = true;
             }
         } else {
@@ -36,7 +45,9 @@ function parseMediaStingerSeoText(seoText) {
 }
 
 function parseMediaStingerBodyText(fullText) {
-    let bodyMid = false, bodyPost = false, bodyBloopers = false;
+    let bodyMid = false,
+        bodyPost = false,
+        bodyBloopers = false;
 
     if (BLOOPER_REGEX.test(fullText)) bodyBloopers = true;
 
@@ -69,13 +80,16 @@ function parseMediaStingerBodyText(fullText) {
 
 async function searchMediaStinger(title, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
-    const cleanSearchTitle = title.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+    const cleanSearchTitle = title
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
 
-    $("h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a").each((i, el) => {
+    $('h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a').each((i, el) => {
         const $el = $(el);
         const rawLinkText = $el.text().toLowerCase().trim();
         if (!rawLinkText) return;
@@ -83,7 +97,7 @@ async function searchMediaStinger(title, reqConfig) {
         if (isTitleMatch(rawLinkText, cleanedTitle)) {
             potentialMatches.push({
                 url: $el.attr('href'),
-                rawText: rawLinkText
+                rawText: rawLinkText,
             });
             return false;
         }
@@ -104,7 +118,10 @@ async function checkMediaStinger(title, year, reqConfig) {
 
         console.log(`[MediaStinger] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
 
-        let hasMid = false, hasPost = false, noStinger = false, bloopers = false;
+        let hasMid = false,
+            hasPost = false,
+            noStinger = false,
+            bloopers = false;
 
         if (bestMatch.url) {
             const safeUrl = validateUrl(bestMatch.url, 'http://www.mediastinger.com', 'mediastinger.com');
@@ -122,16 +139,40 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             const contentNode = $$('.post_secwrapper').first();
             const rawHtml = contentNode.html() || '';
-            const fullText = rawHtml.replace(/<[^>]*>/g, ' ').toLowerCase().replace(/\s+/g, ' ');
+            const fullText = rawHtml
+                .replace(/<[^>]*>/g, ' ')
+                .toLowerCase()
+                .replace(/\s+/g, ' ');
             const body = parseMediaStingerBodyText(fullText);
 
-            if ((seo.seoMid === true || body.bodyMid) && !body.midNo && !body.legacyMidNo && !body.midIsAudio && seo.seoMid !== 'false') hasMid = true;
-            if ((seo.seoPost === true || body.bodyPost) && !body.postNo && !body.legacyPostNo && !body.postIsAudio && seo.seoPost !== 'false') hasPost = true;
+            if (
+                (seo.seoMid === true || body.bodyMid) &&
+                !body.midNo &&
+                !body.legacyMidNo &&
+                !body.midIsAudio &&
+                seo.seoMid !== 'false'
+            )
+                hasMid = true;
+            if (
+                (seo.seoPost === true || body.bodyPost) &&
+                !body.postNo &&
+                !body.legacyPostNo &&
+                !body.postIsAudio &&
+                seo.seoPost !== 'false'
+            )
+                hasPost = true;
             if (seo.seoBloopers || body.bodyBloopers) bloopers = true;
 
             if (body.midNo && body.postNo) noStinger = true;
             if (body.legacyMidNo && body.legacyPostNo) noStinger = true;
-            if (!hasMid && !hasPost && (fullText.includes('no extra scenes') || fullText.includes('are no extras') || fullText.includes('nothing extra'))) noStinger = true;
+            if (
+                !hasMid &&
+                !hasPost &&
+                (fullText.includes('no extra scenes') ||
+                    fullText.includes('are no extras') ||
+                    fullText.includes('nothing extra'))
+            )
+                noStinger = true;
             if (seo.seoNo && !hasMid && !hasPost && !bloopers) noStinger = true;
 
             if (hasMid || hasPost || bloopers) noStinger = false;
@@ -143,7 +184,9 @@ async function checkMediaStinger(title, year, reqConfig) {
             isDefinitive = true;
         }
 
-        console.log(`[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
+        console.log(
+            `[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`
+        );
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers, isDefinitive);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
@@ -154,5 +197,5 @@ async function checkMediaStinger(title, year, reqConfig) {
 }
 
 module.exports = {
-    checkMediaStinger
+    checkMediaStinger,
 };

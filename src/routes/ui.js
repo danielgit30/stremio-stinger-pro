@@ -10,5 +10,5 @@ const telemetryHandler = (req, res) => {
 
 module.exports = {
     serveConfig,
-    telemetryHandler
+    telemetryHandler,
 };

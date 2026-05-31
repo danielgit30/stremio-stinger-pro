@@ -35,5 +35,5 @@ class MemoryCache {
 const streamCache = new MemoryCache();
 
 module.exports = {
-    streamCache
+    streamCache,
 };

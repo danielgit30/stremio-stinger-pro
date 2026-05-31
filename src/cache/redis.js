@@ -7,8 +7,9 @@ let useRedis = false;
 if (process.env.REDIS_URL) {
     redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on('error', (err) => console.error('Redis Client Error', err));
-    
-    redisClient.connect()
+
+    redisClient
+        .connect()
         .then(() => {
             console.log('[System] Redis distributed cache connected.');
             useRedis = true;
@@ -40,9 +41,8 @@ const setCache = async (key, value, ttlSeconds) => {
     }
 };
 
-
 module.exports = {
     getCache,
     setCache,
-    isRedisEnabled: () => useRedis
+    isRedisEnabled: () => useRedis,
 };

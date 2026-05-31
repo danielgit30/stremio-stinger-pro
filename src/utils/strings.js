@@ -13,7 +13,6 @@ const RE_NON_WORD = /[^\w\s]/g;
 const RE_MULTI_SPACE = /\s+/g;
 const RE_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_ARTICLE_END = /\s+(the|a|an)$/i;
-const RE_WIKI_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
 const RE_WIKI_PARENS = /\s*\(.*?\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
@@ -24,9 +23,36 @@ const STINGER_EXCEPTION_REGEX = /(extra shot|audio|voice|laugh|but|however)/;
 const AC_BLOOPER_TAGS = new Set(['outtake', 'musical', 'blooper', 'humorous credit']);
 
 const safeTokens = new Set([
-    'blooper', 'bloopers', 'outtake', 'outtakes', 'extra', 'extras', 'and', 'or', 'with',
-    'scene', 'scenes', 'credit', 'credits', 'stinger', 'stingers', 'review', 'reviews',
-    'post', 'mid', 'after', 'end', 'during', 'the', 'is', 'a', 'an', 'there', 'are', 'movie', 'film'
+    'blooper',
+    'bloopers',
+    'outtake',
+    'outtakes',
+    'extra',
+    'extras',
+    'and',
+    'or',
+    'with',
+    'scene',
+    'scenes',
+    'credit',
+    'credits',
+    'stinger',
+    'stingers',
+    'review',
+    'reviews',
+    'post',
+    'mid',
+    'after',
+    'end',
+    'during',
+    'the',
+    'is',
+    'a',
+    'an',
+    'there',
+    'are',
+    'movie',
+    'film',
 ]);
 
 const cleanTitle = (str) => {
@@ -84,14 +110,14 @@ const isTitleMatch = (linkText, cleanedTargetTitle) => {
 };
 
 const wikiNormalize = (title) => {
-    return title.toLowerCase()
-        .replace(RE_WIKI_ARTICLE_START, '')
+    return title
+        .toLowerCase()
+        .replace(RE_ARTICLE_START, '')
         .replace(RE_WIKI_ARTICLE_END, '')
         .replace(RE_WIKI_PARENS, '')
         .replace(RE_WIKI_NON_ALNUM, '')
         .trim();
 };
-
 
 const decodeHtmlString = (html) => {
     if (!html) return '';
@@ -114,5 +140,5 @@ module.exports = {
     BLOOPER_REGEX,
     NEGATIVE_REGEX,
     STINGER_EXCEPTION_REGEX,
-    AC_BLOOPER_TAGS
+    AC_BLOOPER_TAGS,
 };

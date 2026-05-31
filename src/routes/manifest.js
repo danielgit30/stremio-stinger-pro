@@ -6,13 +6,14 @@ const manifestHandler = (req, res) => {
         id: 'org.stinger.pro',
         version: '2.0.2',
         name: 'Stremio Stinger Pro',
-        description: 'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
+        description:
+            'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
         logo: `${protocol}://${host}/icon.png`,
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
         idPrefixes: ['tt'],
-        behaviorHints: { configurable: true, configurationRequired: false }
+        behaviorHints: { configurable: true, configurationRequired: false },
     });
 };
 

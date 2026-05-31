@@ -1,6 +1,14 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { cleanTitle, isTitleMatch, decodeHtmlString, isSafeSuffix, BLOOPER_REGEX, NEGATIVE_REGEX, STINGER_EXCEPTION_REGEX, AC_BLOOPER_TAGS } = require('../utils/strings');
+const {
+    cleanTitle,
+    isTitleMatch,
+    decodeHtmlString,
+    BLOOPER_REGEX,
+    NEGATIVE_REGEX,
+    STINGER_EXCEPTION_REGEX,
+    AC_BLOOPER_TAGS,
+} = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
 
@@ -20,7 +28,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
                 potentialMatches.push({
                     url: post.link,
                     isReview: rawLinkText.includes('review'),
-                    rawText: rawLinkText
+                    rawText: rawLinkText,
                 });
             }
         }
@@ -42,7 +50,10 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     const movieRes = await axios.get(bestMatchUrl, reqConfig);
     const $$ = cheerio.load(movieRes.data);
-    let hasMid = false, hasPost = false, bloopers = false, sequel = false;
+    let hasMid = false,
+        hasPost = false,
+        bloopers = false,
+        sequel = false;
 
     let categoryTags = [];
     $$('ul.td-category li.entry-category a').each((i, el) => {
@@ -57,11 +68,22 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     }
 
     if (categoryTags.length > 0) {
-        if (categoryTags.includes('both during & after credits')) { hasMid = true; hasPost = true; }
-        if (categoryTags.includes('during credits')) { hasMid = true; }
-        if (categoryTags.includes('after credits')) { hasPost = true; }
-        if (categoryTags.some(t => AC_BLOOPER_TAGS.has(t))) { bloopers = true; }
-        if (categoryTags.includes('sequel setup')) { sequel = true; }
+        if (categoryTags.includes('both during & after credits')) {
+            hasMid = true;
+            hasPost = true;
+        }
+        if (categoryTags.includes('during credits')) {
+            hasMid = true;
+        }
+        if (categoryTags.includes('after credits')) {
+            hasPost = true;
+        }
+        if (categoryTags.some((t) => AC_BLOOPER_TAGS.has(t))) {
+            bloopers = true;
+        }
+        if (categoryTags.includes('sequel setup')) {
+            sequel = true;
+        }
     }
 
     console.log(`[AfterCredits] Parsing body containers...`);
@@ -75,12 +97,12 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         return !isNegative;
     };
 
-    $$(".spoiler-wrap").each((i, el) => {
+    $$('.spoiler-wrap').each((i, el) => {
         const $el = $$(el);
-        const headText = $el.find(".spoiler-head").text().trim().toLowerCase();
+        const headText = $el.find('.spoiler-head').text().trim().toLowerCase();
 
-        const isMid = headText.includes("during") || headText.includes("mid");
-        const isPost = headText.includes("after") || headText.includes("post");
+        const isMid = headText.includes('during') || headText.includes('mid');
+        const isPost = headText.includes('after') || headText.includes('post');
 
         if (isMid || isPost) {
             const blockText = $el.text().toLowerCase();
@@ -102,9 +124,11 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         isDefinitive = true;
     }
 
-    const isNegative = (!hasMid && !hasPost && !bloopers);
+    const isNegative = !hasMid && !hasPost && !bloopers;
 
-    console.log(`[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`);
+    console.log(
+        `[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`
+    );
     return getResultObj(hasMid, hasPost, isNegative, bestMatchUrl, 'AfterCredits', bloopers, isDefinitive, sequel);
 }
 
@@ -132,5 +156,5 @@ async function checkAfterCredits(title, year, reqConfig) {
 }
 
 module.exports = {
-    checkAfterCredits
+    checkAfterCredits,
 };

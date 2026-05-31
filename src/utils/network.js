@@ -15,7 +15,7 @@ function validateUrl(targetUrl, baseUrl, expectedHostname) {
             return null;
         }
         return parsedUrl.href;
-    } catch (e) {
+    } catch {
         console.warn(`[Security] Invalid URL format: ${sanitizeError(targetUrl)}`);
         return null;
     }
@@ -23,5 +23,5 @@ function validateUrl(targetUrl, baseUrl, expectedHostname) {
 
 module.exports = {
     sanitizeError,
-    validateUrl
+    validateUrl,
 };

@@ -17,7 +17,10 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https://github.com data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'");
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; img-src 'self' https://github.com data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    );
     next();
 });
 
@@ -25,7 +28,7 @@ app.set('trust proxy', 1);
 
 // Rate Limiting
 const rateLimitMap = new Map();
-setInterval(() => {
+const rateLimitInterval = setInterval(() => {
     const now = Date.now();
     for (const [ip, data] of rateLimitMap.entries()) {
         if (now - data.startTime > RATE_LIMIT_WINDOW_MS) {
@@ -33,6 +36,10 @@ setInterval(() => {
         }
     }
 }, RATE_LIMIT_WINDOW_MS);
+
+if (rateLimitInterval.unref) {
+    rateLimitInterval.unref();
+}
 
 app.use((req, res, next) => {
     const ip = req.ip;
@@ -50,8 +57,17 @@ app.use((req, res, next) => {
 
     rateLimitMap.set(ip, clientData);
 
+    const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientData.count);
+    const resetTime = Math.ceil((clientData.startTime + RATE_LIMIT_WINDOW_MS) / 1000);
+
+    res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+    res.setHeader('X-RateLimit-Remaining', remaining);
+    res.setHeader('X-RateLimit-Reset', resetTime);
+
     if (clientData.count > RATE_LIMIT_MAX_REQUESTS) {
         console.warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
+        const retryAfter = Math.ceil((clientData.startTime + RATE_LIMIT_WINDOW_MS - now) / 1000);
+        res.setHeader('Retry-After', retryAfter);
         return res.status(429).json({ error: 'Too many requests, please try again later.' });
     }
 

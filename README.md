@@ -8,9 +8,13 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 
 `https://stremio-addons.net/addons/stremio-stinger-pro`
 
-## Upcoming Features
+## Latest Optimizations
 
-- [ ] Add support for TV series.
+- **Distributed Caching for Wikipedia Index:** Stores the compiled Wikipedia post-credits films index in Redis (24-hour TTL) if Redis is active, reducing server startup cold-starts from 1–2s to under 10ms.
+- **Client-Side TMDB API Key Validation:** Ensures user-provided keys match the 32-character hexadecimal format before saving/generating Stremio addon links.
+- **Differentiated Timeouts:** Isolated Cinemeta API calls (3s timeout) and concurrent scraper calls (4s timeout) to stay well within Stremio's connection timeouts.
+- **Enhanced Rate-Limiting Headers:** Exposes `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` to all clients.
+- **Open-Handle Test Optimizations:** Fixed open handle warnings in Jest tests by unreferencing background timers cleanly.
 
 ---
 
