@@ -39,6 +39,10 @@ echo "Running validation tests..."
 npm test -- --forceExit
 echo "[OK] Validation tests completed successfully."
 
+# 5. Clean up package-lock changes to keep the working tree clean
+echo "Cleaning up package-lock changes..."
+git reset --hard HEAD
+echo "[OK] Working tree package-lock changes reverted."
 
 echo "========================================="
 echo "Setup completed successfully! Ready."
