@@ -126,7 +126,11 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         }
     });
 
-    const isDefinitive = true;
+    let isDefinitive = false;
+    if (hasMid || hasPost || bloopers || sequel) {
+        isDefinitive = true;
+    }
+
     const isNegative = !hasMid && !hasPost && !bloopers;
 
     log(
