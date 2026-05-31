@@ -3,6 +3,13 @@ const cheerio = require('cheerio');
 const { cleanTitle, isTitleMatch, BLOOPER_REGEX } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
+const { ENABLE_LOGGING } = require('../config');
+
+const log = (...args) => {
+    if (ENABLE_LOGGING) {
+        console.log(...args);
+    }
+};
 
 const RE_MS_MID_YES = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
 const RE_MS_MID_NO = /during (the )?credits\W{1,15}no\b/;
@@ -108,15 +115,15 @@ async function searchMediaStinger(title, reqConfig) {
 }
 
 async function checkMediaStinger(title, year, reqConfig) {
-    console.log(`\n--- [MediaStinger] Execution Start: "${title}" ---`);
+    log(`\n--- [MediaStinger] Execution Start: "${title}" ---`);
     try {
         const bestMatch = await searchMediaStinger(title, reqConfig);
         if (!bestMatch) {
-            console.log(`[MediaStinger] Aborting: No match found.`);
+            log(`[MediaStinger] Aborting: No match found.`);
             return null;
         }
 
-        console.log(`[MediaStinger] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
+        log(`[MediaStinger] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
 
         let hasMid = false,
             hasPost = false,
@@ -133,7 +140,7 @@ async function checkMediaStinger(title, year, reqConfig) {
 
             const seoText = $$('.groupingforseo').text().toLowerCase();
             if (seoText) {
-                console.log(`[MediaStinger] SEO Header Found: "${seoText}"`);
+                log(`[MediaStinger] SEO Header Found: "${seoText}"`);
             }
             const seo = parseMediaStingerSeoText(seoText);
 
@@ -184,7 +191,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             isDefinitive = true;
         }
 
-        console.log(
+        log(
             `[MediaStinger] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${noStinger}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`
         );
         return getResultObj(hasMid, hasPost, noStinger, bestMatch.url, 'MediaStinger', bloopers, isDefinitive);

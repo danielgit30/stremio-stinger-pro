@@ -1,10 +1,16 @@
 const axios = require('axios');
-const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT } = require('../config');
+const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT, ENABLE_LOGGING } = require('../config');
 const { streamCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
 const { formatMessage } = require('../utils/formatter');
+
+const log = (...args) => {
+    if (ENABLE_LOGGING) {
+        console.log(...args);
+    }
+};
 
 // Lightweight Telemetry
 const telemetry = {
@@ -28,8 +34,8 @@ const streamHandler = async (req, res) => {
         return res.json({ streams: [] });
     }
 
-    console.log(`\n========== NEW REQUEST ==========`);
-    console.log(`[Stream] Request Type: ${type} | ID: ${id}`);
+    log(`\n========== NEW REQUEST ==========`);
+    log(`[Stream] Request Type: ${type} | ID: ${id}`);
 
     // Telemetry tracking
     const count = telemetry.requestedIds.get(id) || 0;
@@ -59,7 +65,7 @@ const streamHandler = async (req, res) => {
     // Check Memory Cache
     const memCached = streamCache.get(cacheKey);
     if (memCached && Date.now() < memCached.expiresAt) {
-        console.log(`[Stream] Cache HIT (Memory). Resolving from memory.`);
+        log(`[Stream] Cache HIT (Memory). Resolving from memory.`);
         telemetry.cacheHits++;
         return res.json({ streams: [memCached.stream] });
     } else if (memCached) {
@@ -70,7 +76,7 @@ const streamHandler = async (req, res) => {
     if (redisCache.isRedisEnabled()) {
         const redisData = await redisCache.getCache(cacheKey);
         if (redisData) {
-            console.log(`[Stream] Cache HIT (Redis). Resolving from Redis.`);
+            log(`[Stream] Cache HIT (Redis). Resolving from Redis.`);
             telemetry.cacheHits++;
             streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_SUCCESS, stream: redisData }); // Warm memory cache
             return res.json({ streams: [redisData] });
@@ -100,12 +106,12 @@ const streamHandler = async (req, res) => {
     }
 
     if (!title) {
-        console.log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
-        console.log(`=================================\n`);
+        log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
+        log(`=================================\n`);
         return res.json({ streams: [] });
     }
 
-    console.log(`[Stream] Target: "${title}" (${year})`);
+    log(`[Stream] Target: "${title}" (${year})`);
 
     const scraperController = new AbortController();
     const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
@@ -124,7 +130,7 @@ const streamHandler = async (req, res) => {
             }
         };
 
-        console.log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+        log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
         const pAc = scrapers.checkAfterCredits(title, year, scraperConfig);
         const pMs = scrapers.checkMediaStinger(title, year, scraperConfig);
         const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
@@ -141,7 +147,7 @@ const streamHandler = async (req, res) => {
             const result = await scraper.promise;
             if (result && result.definitive) {
                 finalResult = result;
-                console.log(
+                log(
                     `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
                 );
                 if (scraper.name !== 'Wikipedia') scraperController.abort();
@@ -163,7 +169,7 @@ const streamHandler = async (req, res) => {
                 source: 'Aggregated',
             };
 
-        console.log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
+        log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
 
         const stream = {
             name: 'After-Credits Scenes',
@@ -179,8 +185,8 @@ const streamHandler = async (req, res) => {
             await redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
         }
 
-        console.log(`[Stream] Payload generated and cached. Sequence complete.`);
-        console.log(`=================================\n`);
+        log(`[Stream] Payload generated and cached. Sequence complete.`);
+        log(`=================================\n`);
         return res.json({ streams: [stream] });
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
@@ -191,8 +197,8 @@ const streamHandler = async (req, res) => {
         scraperController.abort();
     }
 
-    console.log(`[Stream] Sequence completed with no response. Returning empty streams.`);
-    console.log(`=================================\n`);
+    log(`[Stream] Sequence completed with no response. Returning empty streams.`);
+    log(`=================================\n`);
     res.json({ streams: [] });
 };
 

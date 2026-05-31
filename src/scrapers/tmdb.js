@@ -1,10 +1,16 @@
 const axios = require('axios');
-const { DEFAULT_TMDB_KEY } = require('../config');
+const { DEFAULT_TMDB_KEY, ENABLE_LOGGING } = require('../config');
 const { getResultObj } = require('../utils/formatter');
 const { sanitizeError } = require('../utils/network');
 
+const log = (...args) => {
+    if (ENABLE_LOGGING) {
+        console.log(...args);
+    }
+};
+
 async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
-    console.log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);
+    log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);
     const key = apiKey || DEFAULT_TMDB_KEY;
     try {
         let tmdbId = tmdbIdRaw;
@@ -16,7 +22,7 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
             );
             const movieMatch = findRes.data.movie_results?.[0];
             if (!movieMatch) {
-                console.log(`[TMDB] No match found.`);
+                log(`[TMDB] No match found.`);
                 return null;
             }
             tmdbId = Number(movieMatch.id);
@@ -39,12 +45,12 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         }
 
         if (!hasMid && !hasPost && !bloopers) {
-            console.log(`[TMDB] No stinger keywords found.`);
+            log(`[TMDB] No stinger keywords found.`);
             return null;
         }
 
         let isDefinitive = true;
-        console.log(
+        log(
             `[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`
         );
         return getResultObj(

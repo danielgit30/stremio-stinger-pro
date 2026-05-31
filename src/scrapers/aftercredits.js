@@ -11,6 +11,13 @@ const {
 } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
+const { ENABLE_LOGGING } = require('../config');
+
+const log = (...args) => {
+    if (ENABLE_LOGGING) {
+        console.log(...args);
+    }
+};
 
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
@@ -35,7 +42,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     }
 
     if (potentialMatches.length === 0) {
-        console.log(`[AfterCredits] Aborting: No match found.`);
+        log(`[AfterCredits] Aborting: No match found.`);
         return null;
     }
 
@@ -60,10 +67,10 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         const $el = $$(el);
         categoryTags.push($el.text().trim().toLowerCase());
     });
-    console.log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
+    log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
     if (categoryTags.includes('non-stingers')) {
-        console.log(`[AfterCredits] 'non-stingers' category detected. Forcing definitive negative state.`);
+        log(`[AfterCredits] 'non-stingers' category detected. Forcing definitive negative state.`);
         return getResultObj(false, false, true, bestMatchUrl, 'AfterCredits', false, true);
     }
 
@@ -86,12 +93,12 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         }
     }
 
-    console.log(`[AfterCredits] Parsing body containers...`);
+    log(`[AfterCredits] Parsing body containers...`);
 
     const updateStingerState = (isBlooper, isNegative, currentState, type) => {
         if (isBlooper) {
             bloopers = true;
-            console.log(`[AfterCredits] Blooper found in ${type} container.`);
+            log(`[AfterCredits] Blooper found in ${type} container.`);
             return currentState;
         }
         return !isNegative;
@@ -119,21 +126,17 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         }
     });
 
-    let isDefinitive = false;
-    if (hasMid || hasPost || bloopers || sequel) {
-        isDefinitive = true;
-    }
-
+    const isDefinitive = true;
     const isNegative = !hasMid && !hasPost && !bloopers;
 
-    console.log(
+    log(
         `[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`
     );
     return getResultObj(hasMid, hasPost, isNegative, bestMatchUrl, 'AfterCredits', bloopers, isDefinitive, sequel);
 }
 
 async function checkAfterCredits(title, year, reqConfig) {
-    console.log(`\n--- [AfterCredits] Execution Start: "${title}" ---`);
+    log(`\n--- [AfterCredits] Execution Start: "${title}" ---`);
     try {
         const bestMatch = await searchAfterCreditsMatch(title, year, reqConfig);
 
@@ -141,7 +144,7 @@ async function checkAfterCredits(title, year, reqConfig) {
             return null;
         }
 
-        console.log(`[AfterCredits] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
+        log(`[AfterCredits] Fetching -> ${bestMatch.url} (Text: "${bestMatch.rawText}")`);
 
         const safeUrl = validateUrl(bestMatch.url, 'https://aftercredits.com', 'aftercredits.com');
         if (!safeUrl) return null;

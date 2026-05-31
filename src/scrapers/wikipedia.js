@@ -1,9 +1,15 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { WIKI_TTL } = require('../config');
+const { WIKI_TTL, ENABLE_LOGGING } = require('../config');
 const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
 const { sanitizeError } = require('../utils/network');
 const redisCache = require('../cache/redis');
+
+const log = (...args) => {
+    if (ENABLE_LOGGING) {
+        console.log(...args);
+    }
+};
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
@@ -15,14 +21,14 @@ async function buildWikiIndex(reqConfig) {
 
     wikiFetchPromise = (async () => {
         try {
-            console.log(`[Wiki] Building index...`);
+            log(`[Wiki] Building index...`);
 
             if (redisCache.isRedisEnabled()) {
                 const cachedData = await redisCache.getCache('wiki_index_cache');
                 if (cachedData && typeof cachedData === 'object') {
                     wikiCache = new Map(Object.entries(cachedData));
                     wikiLastFetched = Date.now();
-                    console.log(`[Wiki] Loaded ${wikiCache.size} entries from Redis cache.`);
+                    log(`[Wiki] Loaded ${wikiCache.size} entries from Redis cache.`);
                     return;
                 }
             }
@@ -52,12 +58,12 @@ async function buildWikiIndex(reqConfig) {
 
             wikiCache = newCache;
             wikiLastFetched = Date.now();
-            console.log(`[Wiki] Built ${wikiCache.size} entries from Wikipedia.`);
+            log(`[Wiki] Built ${wikiCache.size} entries from Wikipedia.`);
 
             if (redisCache.isRedisEnabled() && wikiCache.size > 0) {
                 const flatData = Object.fromEntries(wikiCache.entries());
                 await redisCache.setCache('wiki_index_cache', flatData, Math.floor(WIKI_TTL / 1000));
-                console.log(`[Wiki] Saved pre-compiled index to Redis cache.`);
+                log(`[Wiki] Saved pre-compiled index to Redis cache.`);
             }
         } catch (e) {
             if (e.name !== 'CanceledError' && e.message !== 'canceled') {
@@ -72,13 +78,13 @@ async function buildWikiIndex(reqConfig) {
 }
 
 async function checkWikipedia(title, reqConfig) {
-    console.log(`\n--- [Wikipedia] Execution Start: "${title}" ---`);
+    log(`\n--- [Wikipedia] Execution Start: "${title}" ---`);
     await buildWikiIndex(reqConfig);
     const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
         let isDefinitive = true;
-        console.log(
+        log(
             `[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}, Definitive: ${isDefinitive}`
         );
         const { getResultObj } = require('../utils/formatter'); // Delayed require to avoid circular deps if any
@@ -92,7 +98,7 @@ async function checkWikipedia(title, reqConfig) {
             isDefinitive
         );
     }
-    console.log(`[Wikipedia] No match found.`);
+    log(`[Wikipedia] No match found.`);
     return null;
 }
 
