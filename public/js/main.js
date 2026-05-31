@@ -150,4 +150,47 @@ function copyLink() {
     });
 }
 
-window.onload = updatePreview;
+function initCustomSelect() {
+    const container = document.querySelector('.custom-select-container');
+    const trigger = document.getElementById('customSelectTrigger');
+    const options = document.querySelectorAll('.custom-option');
+    const hiddenSelect = document.getElementById('displayStyle');
+    const selectValueSpan = document.getElementById('customSelectValue');
+
+    if (!container || !trigger || !hiddenSelect) return;
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = container.classList.contains('open');
+        container.classList.toggle('open');
+        trigger.setAttribute('aria-expanded', !isOpen);
+    });
+
+    options.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.getAttribute('data-value');
+            const text = option.textContent;
+
+            options.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+
+            selectValueSpan.textContent = text;
+            hiddenSelect.value = value;
+            updatePreview();
+
+            container.classList.remove('open');
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    });
+
+    document.addEventListener('click', () => {
+        container.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+    });
+}
+
+window.onload = () => {
+    initCustomSelect();
+    updatePreview();
+};

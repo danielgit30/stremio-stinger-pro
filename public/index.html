@@ -13,7 +13,7 @@
     </head>
     <body>
         <main class="card">
-            <h1>Stremio Stinger Pro</h1>
+            <h1 class="brand-title">Stremio Stinger <span class="pro-tag">PRO</span></h1>
             <p class="description">
                 Find out if a movie has mid and post-credits scenes before you watch it -
                 <em>right from your stream list!</em>
@@ -25,8 +25,20 @@
                 "
             >
                 <div class="input-group">
-                    <label for="displayStyle">Choose your style:</label>
-                    <select id="displayStyle" onchange="updatePreview()">
+                    <label for="customSelectTrigger">Choose your style:</label>
+                    <div class="custom-select-container">
+                        <button type="button" class="custom-select-trigger" id="customSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="customSelectValue">Colorful</span>
+                            <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="custom-select-options" id="customSelectOptions" role="listbox">
+                            <div class="custom-option selected" data-value="colorful" role="option">Colorful</div>
+                            <div class="custom-option" data-value="simple" role="option">Simple</div>
+                        </div>
+                    </div>
+                    <select id="displayStyle" style="display: none;">
                         <option value="colorful">Colorful</option>
                         <option value="simple">Simple</option>
                     </select>
@@ -147,7 +159,7 @@
                     href="https://github.com/schultz911/stremio-stinger-pro"
                     target="_blank"
                     style="color: var(--primary-accent); text-decoration: none"
-                    >Release v2.0.2</a
+                    >Release v2.0.5</a
                 >
                 | Developed by schultz911
             </div>
