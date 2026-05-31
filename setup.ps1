@@ -32,11 +32,19 @@ if (-not (Test-Path .env)) {
 # 3. Install project dependencies
 Write-Host "Installing dependencies..." -ForegroundColor Yellow
 npm install --include=dev
+if ($LastExitCode -ne 0) {
+    Write-Error "Error: npm install failed."
+    Exit $LastExitCode
+}
 Write-Host "[OK] Dependencies installed successfully." -ForegroundColor Green
 
 # 4. Verify the setup by running test suite
 Write-Host "Running validation tests..." -ForegroundColor Yellow
 npm test -- --forceExit
+if ($LastExitCode -ne 0) {
+    Write-Error "Error: Validation tests failed."
+    Exit $LastExitCode
+}
 Write-Host "[OK] Validation tests completed successfully." -ForegroundColor Green
 
 # 5. Clean up node_modules/.package-lock.json modification to keep the working tree clean
@@ -47,3 +55,4 @@ Write-Host "[OK] Working tree package-lock changes reverted." -ForegroundColor G
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Setup completed successfully! Ready." -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
+

@@ -16,6 +16,7 @@ Welcome to Stremio Stinger Pro! This file provides the context, structure, and s
 - [package.json](file:///c:/stremio-stinger-pro/package.json): Lists all dependencies, npm scripts, and package information.
 - [server.js](file:///c:/stremio-stinger-pro/server.js): Entry point of the server; initializes the Wikipedia index and starts listening on the configured port.
 - [setup.sh](file:///c:/stremio-stinger-pro/setup.sh): Initialization script to set up environment configurations, install dependencies, and run validation tests.
+- [setup.ps1](file:///c:/stremio-stinger-pro/setup.ps1): PowerShell initialization script for Windows environments.
 - [src/app.js](file:///c:/stremio-stinger-pro/src/app.js): Configures the Express application, middleware (CORS, rate limiting), and registers endpoints.
 - [src/config.js](file:///c:/stremio-stinger-pro/src/config.js): Centralized configuration file specifying timeouts, cache TTLs, rate limits, and network request defaults.
 
@@ -53,7 +54,7 @@ Ensure the following variables are set to enable optional features:
 
 ## 🧪 Development Workflow
 
-- **Setup Environment:** Run `./setup.sh` to install dependencies and run initial verification.
+- **Setup Environment:** Run `./setup.sh` (or `.\setup.ps1` in PowerShell on Windows) to install dependencies and run initial verification.
 - **Install Dependencies manually:** `npm install`
 - **Start Development Server:** `npm start`
 - **Run Verification Tests:** `npm test` or `npm test -- --forceExit`
