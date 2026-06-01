@@ -151,10 +151,12 @@ const streamHandler = async (req, res) => {
             };
 
             log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
-            const pAc = scrapers.checkAfterCredits(title, year, scraperConfig);
-            const pMs = scrapers.checkMediaStinger(year && !title.includes(year) ? `${title} ${year}` : title, year, scraperConfig);
-            const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig);
-            const pWiki = scrapers.checkWikipedia(title, scraperConfig);
+            const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
+            const pMs = scrapers
+                .checkMediaStinger(year && !title.includes(year) ? `${title} ${year}` : title, year, scraperConfig)
+                .catch(() => null);
+            const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
+            const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
             const scraperTasks = [
                 { name: 'AfterCredits', promise: pAc },
