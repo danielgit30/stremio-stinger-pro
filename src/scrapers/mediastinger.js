@@ -86,11 +86,15 @@ function parseMediaStingerBodyText(fullText) {
 }
 
 async function searchMediaStinger(title, reqConfig) {
-    const cleanedTitle = cleanTitle(title.toLowerCase().trim());
-    const cleanSearchTitle = title
+    let cleanSearchTitle = title
         .replace(/[^\w\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
+    const matchYear = cleanSearchTitle.match(/\b\d{4}\b$/);
+    if (matchYear) {
+        cleanSearchTitle = cleanSearchTitle.replace(/\b\d{4}\b$/, '').trim();
+    }
+    const cleanedTitle = cleanTitle(cleanSearchTitle.toLowerCase().trim());
     const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     const $ = cheerio.load(searchRes.data);
@@ -106,7 +110,6 @@ async function searchMediaStinger(title, reqConfig) {
                 url: $el.attr('href'),
                 rawText: rawLinkText,
             });
-            return false;
         }
     });
 
