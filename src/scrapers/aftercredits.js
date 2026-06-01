@@ -76,7 +76,7 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
 
     if (categoryTags.includes('unknown')) {
         log(`[AfterCredits] 'unknown' category detected. Forcing non-definitive negative state.`);
-        return getResultObj(false, false, true, bestMatchUrl, 'AfterCredits', false, false);
+        return null;
     }
 
     if (categoryTags.length > 0) {
