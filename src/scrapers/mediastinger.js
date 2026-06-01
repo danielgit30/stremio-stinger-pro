@@ -90,9 +90,13 @@ async function searchMediaStinger(title, reqConfig) {
         .replace(/[^\w\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
-    const matchYear = cleanSearchTitle.match(/\b\d{4}\b$/);
-    if (matchYear) {
-        cleanSearchTitle = cleanSearchTitle.replace(/\b\d{4}\b$/, '').trim();
+    while (true) {
+        const matchYear = cleanSearchTitle.match(/\b\d{4}\b$/);
+        if (matchYear) {
+            cleanSearchTitle = cleanSearchTitle.replace(/\b\d{4}\b$/, '').trim();
+        } else {
+            break;
+        }
     }
     const cleanedTitle = cleanTitle(cleanSearchTitle.toLowerCase().trim());
     const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
