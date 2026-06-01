@@ -166,13 +166,13 @@ function initCustomSelect() {
         trigger.setAttribute('aria-expanded', !isOpen);
     });
 
-    options.forEach(option => {
+    options.forEach((option) => {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
             const value = option.getAttribute('data-value');
             const text = option.textContent;
 
-            options.forEach(opt => opt.classList.remove('selected'));
+            options.forEach((opt) => opt.classList.remove('selected'));
             option.classList.add('selected');
 
             selectValueSpan.textContent = text;
