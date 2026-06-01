@@ -74,6 +74,11 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
         return getResultObj(false, false, true, bestMatchUrl, 'AfterCredits', false, true);
     }
 
+    if (categoryTags.includes('unknown')) {
+        log(`[AfterCredits] 'unknown' category detected. Forcing non-definitive negative state.`);
+        return getResultObj(false, false, true, bestMatchUrl, 'AfterCredits', false, false);
+    }
+
     if (categoryTags.length > 0) {
         if (categoryTags.includes('both during & after credits')) {
             hasMid = true;

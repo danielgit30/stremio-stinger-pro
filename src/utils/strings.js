@@ -82,7 +82,7 @@ const isSafeSuffix = (str) => {
         }
 
         const word = str.substring(start, end);
-        if (!safeTokens.has(word)) {
+        if (!safeTokens.has(word) && !/^\d{4}$/.test(word)) {
             return false;
         }
         start = end + 1;
