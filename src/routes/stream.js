@@ -159,10 +159,10 @@ const streamHandler = async (req, res) => {
             const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
             const scraperTasks = [
-                { name: 'AfterCredits', promise: pAc },
-                { name: 'MediaStinger', promise: pMs },
-                { name: 'TMDB', promise: pTmdb },
-                { name: 'Wikipedia', promise: pWiki },
+                { name: 'AfterCredits', promise: pAc, tier: 0 },
+                { name: 'MediaStinger', promise: pMs, tier: 1 },
+                { name: 'TMDB', promise: pTmdb, tier: 1 },
+                { name: 'Wikipedia', promise: pWiki, tier: 1 },
             ];
 
             const evalPromises = scraperTasks.map((t, i) =>
@@ -180,15 +180,40 @@ const streamHandler = async (req, res) => {
 
                 // Check if we have a definitive result that we can use now
                 let canResolve = false;
-                for (let j = 0; j < scraperTasks.length; j++) {
-                    if (results[j] === undefined) break; // Waiting for higher priority
-                    if (results[j] !== null && results[j].definitive) {
-                        finalResult = results[j];
+                const tiers = [0, 1];
+
+                for (const currentTier of tiers) {
+                    const tasksInTier = scraperTasks
+                        .map((t, idx) => ({ ...t, index: idx }))
+                        .filter((t) => t.tier === currentTier);
+
+                    let hasDefinitive = false;
+                    let definitiveResult = null;
+                    let definitiveName = '';
+
+                    for (const t of tasksInTier) {
+                        const r = results[t.index];
+                        if (r !== undefined && r !== null && r.definitive) {
+                            hasDefinitive = true;
+                            definitiveResult = r;
+                            definitiveName = t.name;
+                            break;
+                        }
+                    }
+
+                    if (hasDefinitive) {
+                        finalResult = definitiveResult;
                         log(
-                            `[Stream] Definitive state found by ${scraperTasks[j].name}.${scraperTasks[j].name !== 'Wikipedia' ? ' Aborting others...' : ''}`
+                            `[Stream] Definitive state found by ${definitiveName}.${definitiveName !== 'Wikipedia' ? ' Aborting others...' : ''}`
                         );
-                        if (scraperTasks[j].name !== 'Wikipedia') scraperController.abort();
+                        if (definitiveName !== 'Wikipedia') scraperController.abort();
                         canResolve = true;
+                        break;
+                    }
+
+                    const isWaiting = tasksInTier.some((t) => results[t.index] === undefined);
+                    if (isWaiting) {
+                        // Wait for this tier to finish before accepting lower tiers
                         break;
                     }
                 }
