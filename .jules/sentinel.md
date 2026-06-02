@@ -14,3 +14,4 @@
  **Vulnerability:** The application lacks rate limiting on its endpoints. Because the service aggregates data from multiple external APIs concurrently (e.g., AfterCredits, TMDB, MediaStinger, Wikipedia), a single incoming request can trigger 4+ outbound network requests, allowing for Denial of Service and Server-Side Request Forgery amplification attacks.
  **Learning:** Aggregator services can multiply the impact of requests, meaning a lack of rate-limiting is disproportionately dangerous compared to a standard REST API.
  **Prevention:** Implement IP-based rate limiting on all public-facing endpoints (using tools like `express-rate-limit` or an in-memory Map) to restrict the number of requests a single client can make within a specific time window.
+- Fixed plaintext HTTP request vulnerability in `src/scrapers/mediastinger.js` by replacing `http://` with `https://` to prevent MITM attacks and protect data in transit. Ensure URLs explicitly use HTTPS.
