@@ -16,6 +16,7 @@ const RE_ARTICLE_END = /\s+(the|a|an)$/i;
 const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
 const RE_WIKI_PARENS = /\s*\(.*?\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
+const RE_FOUR_DIGITS = /^\d{4}$/;
 
 const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
 const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
@@ -62,30 +63,15 @@ const cleanTitle = (str) => {
 
 const isSafeSuffix = (str) => {
     if (!str) return false;
-    let start = 0;
-    const len = str.length;
 
-    while (start < len) {
-        let code = str.charCodeAt(start);
-        if (code === 32 || (code >= 9 && code <= 13)) {
-            start++;
-            continue;
-        }
+    const trimmed = str.trim();
+    if (!trimmed) return true;
 
-        let end = start + 1;
-        while (end < len) {
-            code = str.charCodeAt(end);
-            if (code === 32 || (code >= 9 && code <= 13)) {
-                break;
-            }
-            end++;
-        }
-
-        const word = str.substring(start, end);
-        if (!safeTokens.has(word) && !/^\d{4}$/.test(word)) {
+    const words = trimmed.split(/\s+/);
+    for (const word of words) {
+        if (!safeTokens.has(word) && !RE_FOUR_DIGITS.test(word)) {
             return false;
         }
-        start = end + 1;
     }
     return true;
 };
