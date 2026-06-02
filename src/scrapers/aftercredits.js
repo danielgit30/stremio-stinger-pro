@@ -40,10 +40,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
         return null;
     }
 
-    potentialMatches.sort((a, b) => {
-        if (a.isReview !== b.isReview) return a.isReview ? 1 : -1;
-        return 0;
-    });
+    potentialMatches.sort((a, b) => a.isReview - b.isReview);
 
     return potentialMatches[0];
 }
