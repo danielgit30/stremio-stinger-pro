@@ -11,7 +11,7 @@ const CACHE_TTL_ERROR = 60 * 1000;
 const MAX_CACHE_SIZE = 5000;
 
 const CINEMETA_TIMEOUT = 5000; // 5 seconds
-const SCRAPER_TIMEOUT = 20000; // 20 seconds
+const SCRAPER_TIMEOUT = 35000; // 35 seconds
 const ENABLE_LOGGING = process.env.ENABLE_LOGGING !== 'false';
 
 // Centralized Axios config with Keep-Alive for low latency
@@ -20,7 +20,7 @@ const axiosConfig = {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     },
-    timeout: 25000, // 25 seconds
+    timeout: 40000, // 40 seconds
     httpAgent: new http.Agent({ keepAlive: true }),
     httpsAgent: new https.Agent({ keepAlive: true }),
 };

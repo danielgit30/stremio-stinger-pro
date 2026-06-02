@@ -87,7 +87,10 @@ const isTitleMatch = (linkText, cleanedTargetTitle) => {
         if (isSafeSuffix(remainder)) return true;
 
         let originalStripped = rawNoYear.replace(RE_ARTICLE_START, '').trim();
-        if (originalStripped.startsWith(cleanedTargetTitle + ':') || originalStripped.startsWith(cleanedTargetTitle + ' :')) {
+        if (
+            originalStripped.startsWith(cleanedTargetTitle + ':') ||
+            originalStripped.startsWith(cleanedTargetTitle + ' :')
+        ) {
             return true;
         }
     }
