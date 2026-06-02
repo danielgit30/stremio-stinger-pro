@@ -1,0 +1,24 @@
+const { isTitleMatch } = require('../src/utils/strings');
+
+describe('isTitleMatch and isSafeSuffix', () => {
+    it('should match exact titles', () => {
+        expect(isTitleMatch('The Matrix', 'matrix')).toBe(true);
+    });
+
+    it('should match titles with safe suffixes', () => {
+        expect(isTitleMatch('The Matrix bloopers', 'matrix')).toBe(true);
+        expect(isTitleMatch('The Matrix outtakes', 'matrix')).toBe(true);
+        expect(isTitleMatch('The Matrix 1999', 'matrix')).toBe(true);
+    });
+
+    it('should match titles with safe suffixes handling spaces', () => {
+        expect(isTitleMatch('The Matrix   bloopers  ', 'matrix')).toBe(true);
+        expect(isTitleMatch('  The Matrix blooper ', 'matrix')).toBe(true);
+    });
+
+    it('should return false for titles with invalid suffixes', () => {
+        expect(isTitleMatch('The Matrix Reloaded', 'matrix')).toBe(false);
+        expect(isTitleMatch('The Matrix invalid', 'matrix')).toBe(false);
+        expect(isTitleMatch('The Matrix 1999a', 'matrix')).toBe(false);
+    });
+});
