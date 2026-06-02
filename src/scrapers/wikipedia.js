@@ -5,6 +5,7 @@ const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
 const { sanitizeError } = require('../utils/network');
 const redisCache = require('../cache/redis');
 const { log } = require('../utils/logger');
+const { getResultObj } = require('../utils/formatter');
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
@@ -84,7 +85,6 @@ async function checkWikipedia(title, reqConfig) {
         log(
             `[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}, Definitive: ${isDefinitive}`
         );
-        const { getResultObj } = require('../utils/formatter'); // Delayed require to avoid circular deps if any
         return getResultObj(
             data.mid,
             data.post,
