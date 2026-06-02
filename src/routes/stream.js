@@ -171,66 +171,40 @@ const streamHandler = async (req, res) => {
             const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
             const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
-            const scraperTasks = [
-                { name: 'AfterCredits', promise: pAc, tier: 0 },
-                { name: 'MediaStinger', promise: pMs, tier: 1 },
-                { name: 'TMDB', promise: pTmdb, tier: 1 },
-                { name: 'Wikipedia', promise: pWiki, tier: 1 },
-            ];
-
-            const evalPromises = scraperTasks.map((t, i) =>
-                t.promise.then((res) => ({ res, i, name: t.name })).catch(() => ({ res: null, i, name: t.name }))
-            );
-            const results = new Array(scraperTasks.length).fill(undefined);
-            let resolvedCount = 0;
-
-            while (resolvedCount < scraperTasks.length) {
-                const { res, i } = await Promise.race(evalPromises.filter((_, idx) => results[idx] === undefined));
-
-                results[i] = res || null;
-                resolvedCount++;
-                updateFallback(res);
-
-                // Check if we have a definitive result that we can use now
-                let canResolve = false;
-                const tiers = [0, 1];
-
-                for (const currentTier of tiers) {
-                    const tasksInTier = scraperTasks
-                        .map((t, idx) => ({ ...t, index: idx }))
-                        .filter((t) => t.tier === currentTier);
-
-                    let hasDefinitive = false;
-                    let definitiveResult = null;
-                    let definitiveName = '';
-
-                    for (const t of tasksInTier) {
-                        const r = results[t.index];
-                        if (r !== undefined && r !== null && r.definitive) {
-                            hasDefinitive = true;
-                            definitiveResult = r;
-                            definitiveName = t.name;
-                            break;
-                        }
+            const checkDefinitive = (promise, name) =>
+                promise.then((res) => {
+                    updateFallback(res);
+                    if (res && res.definitive) {
+                        res._sourceName = name; // attach source name for logging
+                        return res;
                     }
+                    throw new Error('Not definitive');
+                });
 
-                    if (hasDefinitive) {
-                        finalResult = definitiveResult;
-                        log(
-                            `[Stream] Definitive state found by ${definitiveName}.${definitiveName !== 'Wikipedia' ? ' Aborting others...' : ''}`
-                        );
-                        if (definitiveName !== 'Wikipedia') scraperController.abort();
-                        canResolve = true;
-                        break;
-                    }
-
-                    const isWaiting = tasksInTier.some((t) => results[t.index] === undefined);
-                    if (isWaiting) {
-                        // Wait for this tier to finish before accepting lower tiers
-                        break;
-                    }
+            try {
+                // Tier 0
+                finalResult = await checkDefinitive(pAc, 'AfterCredits');
+            } catch {
+                // Tier 1 - wait for the first definitive result
+                try {
+                    finalResult = await Promise.any([
+                        checkDefinitive(pMs, 'MediaStinger'),
+                        checkDefinitive(pTmdb, 'TMDB'),
+                        checkDefinitive(pWiki, 'Wikipedia'),
+                    ]);
+                } catch {
+                    // AggregateError: All promises were rejected (meaning no definitive result)
+                    finalResult = null;
                 }
-                if (canResolve) break;
+            }
+
+            if (finalResult) {
+                const definitiveName = finalResult._sourceName || 'Unknown';
+                delete finalResult._sourceName;
+                log(
+                    `[Stream] Definitive state found by ${definitiveName}.${definitiveName !== 'Wikipedia' ? ' Aborting others...' : ''}`
+                );
+                if (definitiveName !== 'Wikipedia') scraperController.abort();
             }
 
             const isAggregatedError = !finalResult && !bestFallback;
