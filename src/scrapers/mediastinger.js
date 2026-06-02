@@ -9,7 +9,8 @@ const RE_MS_MID_YES = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots
 const RE_MS_MID_NO = /during (the )?credits\W{1,15}no\b/;
 const RE_MS_POST_YES = /after (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
 const RE_MS_POST_NO = /after (the )?credits\W{1,15}no\b/;
-const RE_MS_LEGACY_MID_NO = /(no|zero) (extra|scene|stinger|animation|extras)(?:(?!after|during).){0,40}during the credits/;
+const RE_MS_LEGACY_MID_NO =
+    /(no|zero) (extra|scene|stinger|animation|extras)(?:(?!after|during).){0,40}during the credits/;
 const RE_MS_LEGACY_POST_NO = /(no|zero) (extra|scene|stinger|extras)(?:(?!after|during).){0,40}after the credits/;
 const RE_MS_MID_FALLBACK = /(extra scene|stinger|animation|extra shot|shot).{0,60}during the credits/;
 const RE_MS_POST_FALLBACK = /(extra scene|stinger|extra shot|shot).{0,60}after the credits/;
@@ -100,7 +101,7 @@ async function searchMediaStinger(title, reqConfig) {
     const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
 
-    $('h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a').each((i, el) => {
+    $('a:has(h2), a:has(h3), h2 a, h3 a, .entry-title a, .title a, .post-title a, ul.highlights li a').each((i, el) => {
         const $el = $(el);
         const rawLinkText = $el.text().toLowerCase().trim();
         if (!rawLinkText) return;
