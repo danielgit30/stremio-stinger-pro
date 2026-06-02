@@ -99,7 +99,7 @@ async function searchMediaStinger(title, reqConfig) {
         }
     }
     const cleanedTitle = cleanTitle(cleanSearchTitle.toLowerCase().trim());
-    const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
+    const searchUrl = `https://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
@@ -138,7 +138,7 @@ async function checkMediaStinger(title, year, reqConfig) {
             bloopers = false;
 
         if (bestMatch.url) {
-            const safeUrl = validateUrl(bestMatch.url, 'http://www.mediastinger.com', 'mediastinger.com');
+            const safeUrl = validateUrl(bestMatch.url, 'https://www.mediastinger.com', 'mediastinger.com');
             if (!safeUrl) return null;
             bestMatch.url = safeUrl;
 
