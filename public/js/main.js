@@ -194,3 +194,10 @@ window.onload = () => {
     initCustomSelect();
     updatePreview();
 };
+
+// Expose functions to the global window object for HTML inline event handlers
+window.toggleApiKeyVisibility = toggleApiKeyVisibility;
+window.updatePreview = updatePreview;
+window.validateApiKey = validateApiKey;
+window.installAddon = installAddon;
+window.copyLink = copyLink;
