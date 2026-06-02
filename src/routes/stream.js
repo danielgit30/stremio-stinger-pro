@@ -165,18 +165,34 @@ const streamHandler = async (req, res) => {
                 { name: 'Wikipedia', promise: pWiki },
             ];
 
-            for (const scraper of scraperTasks) {
-                const result = await scraper.promise;
-                if (result && result.definitive) {
-                    finalResult = result;
-                    log(
-                        `[Stream] Definitive state found by ${scraper.name}.${scraper.name !== 'Wikipedia' ? ' Aborting others...' : ''}`
-                    );
-                    if (scraper.name !== 'Wikipedia') scraperController.abort();
-                    break;
-                } else {
-                    updateFallback(result);
+            const evalPromises = scraperTasks.map((t, i) => t.promise.then((res) => ({ res, i, name: t.name })).catch(() => ({ res: null, i, name: t.name })));
+            const results = new Array(scraperTasks.length).fill(undefined);
+            let resolvedCount = 0;
+
+            while (resolvedCount < scraperTasks.length) {
+                const { res, i } = await Promise.race(
+                    evalPromises.filter((_, idx) => results[idx] === undefined)
+                );
+
+                results[i] = res || null;
+                resolvedCount++;
+                updateFallback(res);
+
+                // Check if we have a definitive result that we can use now
+                let canResolve = false;
+                for (let j = 0; j < scraperTasks.length; j++) {
+                    if (results[j] === undefined) break; // Waiting for higher priority
+                    if (results[j] !== null && results[j].definitive) {
+                        finalResult = results[j];
+                        log(
+                            `[Stream] Definitive state found by ${scraperTasks[j].name}.${scraperTasks[j].name !== 'Wikipedia' ? ' Aborting others...' : ''}`
+                        );
+                        if (scraperTasks[j].name !== 'Wikipedia') scraperController.abort();
+                        canResolve = true;
+                        break;
+                    }
                 }
+                if (canResolve) break;
             }
 
             const isAggregatedError = !finalResult && !bestFallback;
