@@ -77,14 +77,19 @@ const isSafeSuffix = (str) => {
 };
 
 const isTitleMatch = (linkText, cleanedTargetTitle) => {
-    let tLink = linkText.toLowerCase().replace(RE_YEAR, '').trim();
-    tLink = cleanTitle(tLink);
+    let rawNoYear = linkText.toLowerCase().replace(RE_YEAR, '').trim();
+    let tLink = cleanTitle(rawNoYear);
 
     if (tLink === cleanedTargetTitle) return true;
 
     if (cleanedTargetTitle.length > 0 && tLink.startsWith(cleanedTargetTitle)) {
         const remainder = tLink.substring(cleanedTargetTitle.length).trim();
         if (isSafeSuffix(remainder)) return true;
+
+        let originalStripped = rawNoYear.replace(RE_ARTICLE_START, '').trim();
+        if (originalStripped.startsWith(cleanedTargetTitle + ':') || originalStripped.startsWith(cleanedTargetTitle + ' :')) {
+            return true;
+        }
     }
 
     if (tLink.length > 0 && cleanedTargetTitle.startsWith(tLink)) {
