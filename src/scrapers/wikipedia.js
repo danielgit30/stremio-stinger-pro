@@ -11,6 +11,29 @@ let wikiCache = new Map();
 let wikiLastFetched = 0;
 let wikiFetchPromise = null;
 
+const extractText = (node) => {
+    if (!node) return '';
+    if (node.type === 'text') return node.data;
+    let text = '';
+    if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+            text += extractText(node.children[j]);
+        }
+    }
+    return text;
+};
+
+const findFirstTag = (node, tagName) => {
+    if (node.type === 'tag' && node.name === tagName) return node;
+    if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+            const found = findFirstTag(node.children[j], tagName);
+            if (found) return found;
+        }
+    }
+    return null;
+};
+
 async function buildWikiIndex(reqConfig) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
     if (wikiFetchPromise) return wikiFetchPromise;
@@ -39,13 +62,31 @@ async function buildWikiIndex(reqConfig) {
             const newCache = new Map();
 
             $('table.wikitable tr').each((i, el) => {
-                const $el = $(el);
-                let titleText = $el.find('i').first().text();
-                if (!titleText) titleText = $el.find('td').eq(1).text();
+                let titleText = '';
+
+                const iNode = findFirstTag(el, 'i');
+                if (iNode) {
+                    titleText = extractText(iNode);
+                } else {
+                    let tdCount = 0;
+                    if (el.children) {
+                        for (let j = 0; j < el.children.length; j++) {
+                            const child = el.children[j];
+                            if (child.type === 'tag' && child.name === 'td') {
+                                if (tdCount === 1) {
+                                    titleText = extractText(child);
+                                    break;
+                                }
+                                tdCount++;
+                            }
+                        }
+                    }
+                }
+
                 if (!titleText) return;
 
                 const cleanTitle = wikiNormalize(titleText);
-                const rowText = $el.text().toLowerCase();
+                const rowText = extractText(el).toLowerCase();
 
                 let hasMid = rowText.includes('mid-') || rowText.includes('during');
                 let hasPost = rowText.includes('post-') || rowText.includes('after');
