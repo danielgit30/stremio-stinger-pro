@@ -11,13 +11,7 @@ const {
 } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
-const { ENABLE_LOGGING } = require('../config');
-
-const log = (...args) => {
-    if (ENABLE_LOGGING) {
-        console.log(...args);
-    }
-};
+const { log } = require('../utils/logger');
 
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());

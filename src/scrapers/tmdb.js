@@ -1,13 +1,8 @@
 const axios = require('axios');
-const { DEFAULT_TMDB_KEY, ENABLE_LOGGING } = require('../config');
+const { DEFAULT_TMDB_KEY } = require('../config');
 const { getResultObj } = require('../utils/formatter');
 const { sanitizeError } = require('../utils/network');
-
-const log = (...args) => {
-    if (ENABLE_LOGGING) {
-        console.log(...args);
-    }
-};
+const { log } = require('../utils/logger');
 
 async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
     log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);

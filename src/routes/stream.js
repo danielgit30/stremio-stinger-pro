@@ -1,23 +1,11 @@
 const axios = require('axios');
-const {
-    CACHE_TTL_SUCCESS,
-    CACHE_TTL_ERROR,
-    axiosConfig,
-    CINEMETA_TIMEOUT,
-    SCRAPER_TIMEOUT,
-    ENABLE_LOGGING,
-} = require('../config');
+const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT } = require('../config');
 const { streamCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
 const { formatMessage } = require('../utils/formatter');
-
-const log = (...args) => {
-    if (ENABLE_LOGGING) {
-        console.log(...args);
-    }
-};
+const { log } = require('../utils/logger');
 
 // Lightweight Telemetry
 const telemetry = {

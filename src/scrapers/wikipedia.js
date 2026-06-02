@@ -1,15 +1,10 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { WIKI_TTL, ENABLE_LOGGING } = require('../config');
+const { WIKI_TTL } = require('../config');
 const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
 const { sanitizeError } = require('../utils/network');
 const redisCache = require('../cache/redis');
-
-const log = (...args) => {
-    if (ENABLE_LOGGING) {
-        console.log(...args);
-    }
-};
+const { log } = require('../utils/logger');
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
@@ -34,9 +29,10 @@ async function buildWikiIndex(reqConfig) {
             }
 
             const { axiosConfig } = require('../config');
+            const mergedConfig = reqConfig ? { ...axiosConfig, ...reqConfig } : axiosConfig;
             const res = await axios.get(
                 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes',
-                axiosConfig
+                mergedConfig
             );
             const $ = cheerio.load(res.data);
             const newCache = new Map();
