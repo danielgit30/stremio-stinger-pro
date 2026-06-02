@@ -33,7 +33,9 @@ class MemoryCache {
 }
 
 const streamCache = new MemoryCache();
+const cinemetaCache = new MemoryCache();
 
 module.exports = {
     streamCache,
+    cinemetaCache,
 };

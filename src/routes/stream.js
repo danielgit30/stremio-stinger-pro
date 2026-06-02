@@ -1,6 +1,13 @@
 const axios = require('axios');
-const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT } = require('../config');
-const { streamCache } = require('../cache/memory');
+const {
+    CACHE_TTL_SUCCESS,
+    CACHE_TTL_ERROR,
+    axiosConfig,
+    CINEMETA_TIMEOUT,
+    SCRAPER_TIMEOUT,
+    WIKI_TTL,
+} = require('../config');
+const { streamCache, cinemetaCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
@@ -99,19 +106,37 @@ const streamHandler = async (req, res) => {
 
         let title, year, moviedbId;
 
-        try {
-            const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
-            title = metaRes.data?.meta?.name;
-            year = metaRes.data?.meta?.year;
-            moviedbId = metaRes.data?.meta?.moviedb_id;
-        } catch (e) {
-            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-                console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
+        const cachedCinemeta = cinemetaCache.get(id);
+        if (cachedCinemeta && Date.now() < cachedCinemeta.expiresAt) {
+            title = cachedCinemeta.title;
+            year = cachedCinemeta.year;
+            moviedbId = cachedCinemeta.moviedbId;
+            log(`[Stream] Cinemeta Cache HIT (Memory) for ID: ${id}`);
+        } else {
+            if (cachedCinemeta) cinemetaCache.delete(id);
+            try {
+                const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
+                title = metaRes.data?.meta?.name;
+                year = metaRes.data?.meta?.year;
+                moviedbId = metaRes.data?.meta?.moviedb_id;
+                if (title) {
+                    cinemetaCache.set(id, {
+                        title,
+                        year,
+                        moviedbId,
+                        expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                    });
+                }
+            } catch (e) {
+                if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                    console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
+                }
             }
-        } finally {
-            clearTimeout(cinemetaTimeoutId);
-            cinemetaController.abort();
         }
+
+        // Cleanup timeouts to avoid memory leak if aborted or completed
+        clearTimeout(cinemetaTimeoutId);
+        cinemetaController.abort();
 
         if (!title) {
             log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
