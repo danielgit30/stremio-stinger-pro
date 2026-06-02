@@ -45,36 +45,38 @@ function parseMediaStingerSeoText(seoText) {
     return { seoMid, seoPost, seoBloopers, seoNo, noStinger };
 }
 
-function parseMediaStingerBodyText(fullText) {
-    let bodyMid = false,
-        bodyPost = false,
-        bodyBloopers = false;
-
-    if (BLOOPER_REGEX.test(fullText)) bodyBloopers = true;
-
+function checkMidCredits(fullText) {
     const midYes = RE_MS_MID_YES.test(fullText);
     const midNo = RE_MS_MID_NO.test(fullText);
+    const legacyMidNo = RE_MS_LEGACY_MID_NO.test(fullText);
+    const bodyMid = midYes || (RE_MS_MID_FALLBACK.test(fullText) && !legacyMidNo) || false;
+    return { bodyMid: !!bodyMid, midNo, legacyMidNo };
+}
+
+function checkPostCredits(fullText) {
     const postYes = RE_MS_POST_YES.test(fullText);
     const postNo = RE_MS_POST_NO.test(fullText);
-
-    if (midYes) bodyMid = true;
-    if (postYes) bodyPost = true;
-
-    const legacyMidNo = RE_MS_LEGACY_MID_NO.test(fullText);
     const legacyPostNo = RE_MS_LEGACY_POST_NO.test(fullText);
+    const bodyPost = postYes || (RE_MS_POST_FALLBACK.test(fullText) && !legacyPostNo) || false;
+    return { bodyPost: !!bodyPost, postNo, legacyPostNo };
+}
 
-    if (RE_MS_MID_FALLBACK.test(fullText) && !legacyMidNo) bodyMid = true;
-    if (RE_MS_POST_FALLBACK.test(fullText) && !legacyPostNo) bodyPost = true;
-
-    const validateContext = (keyword) => {
+function isAudioContext(fullText, keywords) {
+    return keywords.some((keyword) => {
         const idx = fullText.indexOf(keyword);
         if (idx === -1) return false;
         const context = fullText.substring(Math.max(0, idx - 80), Math.min(fullText.length, idx + 120));
         return RE_MS_AUDIO_1.test(context) && !RE_MS_AUDIO_2.test(context);
-    };
+    });
+}
 
-    const midIsAudio = validateContext('during the credits') || validateContext('during credits');
-    const postIsAudio = validateContext('after the credits') || validateContext('after credits');
+function parseMediaStingerBodyText(fullText) {
+    const bodyBloopers = BLOOPER_REGEX.test(fullText);
+    const { bodyMid, midNo, legacyMidNo } = checkMidCredits(fullText);
+    const { bodyPost, postNo, legacyPostNo } = checkPostCredits(fullText);
+
+    const midIsAudio = isAudioContext(fullText, ['during the credits', 'during credits']);
+    const postIsAudio = isAudioContext(fullText, ['after the credits', 'after credits']);
 
     return { bodyMid, bodyPost, bodyBloopers, midNo, postNo, legacyMidNo, legacyPostNo, midIsAudio, postIsAudio };
 }
