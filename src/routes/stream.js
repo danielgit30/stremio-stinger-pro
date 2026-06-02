@@ -165,14 +165,14 @@ const streamHandler = async (req, res) => {
                 { name: 'Wikipedia', promise: pWiki },
             ];
 
-            const evalPromises = scraperTasks.map((t, i) => t.promise.then((res) => ({ res, i, name: t.name })).catch(() => ({ res: null, i, name: t.name })));
+            const evalPromises = scraperTasks.map((t, i) =>
+                t.promise.then((res) => ({ res, i, name: t.name })).catch(() => ({ res: null, i, name: t.name }))
+            );
             const results = new Array(scraperTasks.length).fill(undefined);
             let resolvedCount = 0;
 
             while (resolvedCount < scraperTasks.length) {
-                const { res, i } = await Promise.race(
-                    evalPromises.filter((_, idx) => results[idx] === undefined)
-                );
+                const { res, i } = await Promise.race(evalPromises.filter((_, idx) => results[idx] === undefined));
 
                 results[i] = res || null;
                 resolvedCount++;
@@ -220,7 +220,7 @@ const streamHandler = async (req, res) => {
             const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
             streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
             if (redisCache.isRedisEnabled() && !isAggregatedError) {
-                await redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
+                redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
             }
 
             log(`[Stream] Payload generated and cached. Sequence complete.`);

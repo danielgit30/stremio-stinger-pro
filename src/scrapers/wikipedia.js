@@ -63,7 +63,7 @@ async function buildWikiIndex(reqConfig) {
 
             if (redisCache.isRedisEnabled() && wikiCache.size > 0) {
                 const flatData = Object.fromEntries(wikiCache.entries());
-                await redisCache.setCache('wiki_index_cache', flatData, Math.floor(WIKI_TTL / 1000));
+                redisCache.setCache('wiki_index_cache', flatData, Math.floor(WIKI_TTL / 1000));
                 log(`[Wiki] Saved pre-compiled index to Redis cache.`);
             }
         } catch (e) {
