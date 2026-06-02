@@ -99,7 +99,7 @@ async function searchMediaStinger(title, reqConfig) {
         }
     }
     const cleanedTitle = cleanTitle(cleanSearchTitle.toLowerCase().trim());
-    const searchUrl = `https://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
+    const searchUrl = `http://www.mediastinger.com/?s=${encodeURIComponent(cleanSearchTitle).replace(/%20/g, '+')}`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     const $ = cheerio.load(searchRes.data);
     let potentialMatches = [];
