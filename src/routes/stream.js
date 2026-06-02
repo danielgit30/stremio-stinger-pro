@@ -1,4 +1,3 @@
-
 const axios = require('axios');
 const {
     CACHE_TTL_SUCCESS,
@@ -127,10 +126,14 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
     };
 
     log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+
     const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
-    const pMs = scrapers
-        .checkMediaStinger(year && !title.includes(year) ? `${title} ${year}` : title, year, scraperConfig)
-        .catch(() => null);
+
+    // For MediaStinger, remove subtitles (anything after a colon) and avoid appending the year
+    // as it frequently causes zero-result searches on their end.
+    let msTitle = title.split(':')[0].trim();
+    const pMs = scrapers.checkMediaStinger(msTitle, year, scraperConfig).catch(() => null);
+
     const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
     const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
@@ -198,7 +201,15 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
 
     try {
-        const { finalResult, bestFallback } = await runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
+        const { finalResult, bestFallback } = await runScrapers(
+            title,
+            year,
+            id,
+            moviedbId,
+            apiKey,
+            scraperConfig,
+            scraperController
+        );
 
         const isAggregatedError = !finalResult && !bestFallback;
         const resolvedResult = finalResult ||
@@ -216,8 +227,12 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
         const stream = {
             name: 'After-Credits Scenes',
-            title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `
-Source: ${resolvedResult.source}` : ''}`,
+            title: `${formatMessage(styleConfig, resolvedResult)}${
+                styleConfig.showSource
+                    ? `
+Source: ${resolvedResult.source}`
+                    : ''
+            }`,
             url:
                 resolvedResult.url ||
                 `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
