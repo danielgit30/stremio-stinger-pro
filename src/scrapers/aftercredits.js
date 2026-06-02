@@ -45,6 +45,29 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     return potentialMatches[0];
 }
 
+const extractText = (node) => {
+    if (!node) return '';
+    if (node.type === 'text') return node.data;
+    let text = '';
+    if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+            text += extractText(node.children[j]);
+        }
+    }
+    return text;
+};
+
+const findFirstClass = (node, className) => {
+    if (node.type === 'tag' && node.attribs && node.attribs.class && node.attribs.class.includes(className)) return node;
+    if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+            const found = findFirstClass(node.children[j], className);
+            if (found) return found;
+        }
+    }
+    return null;
+};
+
 async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     const movieRes = await axios.get(bestMatchUrl, reqConfig);
     const $$ = cheerio.load(movieRes.data);
@@ -101,14 +124,14 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     };
 
     $$('.spoiler-wrap').each((i, el) => {
-        const $el = $$(el);
-        const headText = $el.find('.spoiler-head').text().trim().toLowerCase();
+        const headNode = findFirstClass(el, 'spoiler-head');
+        const headText = extractText(headNode).trim().toLowerCase();
 
         const isMid = headText.includes('during') || headText.includes('mid');
         const isPost = headText.includes('after') || headText.includes('post');
 
         if (isMid || isPost) {
-            const blockText = $el.text().toLowerCase();
+            const blockText = extractText(el).toLowerCase();
             const isBlooper = BLOOPER_REGEX.test(blockText);
             const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 

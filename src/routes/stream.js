@@ -30,9 +30,14 @@ const activeRequests = new Map();
 
 const trackTelemetry = (id) => {
     const count = telemetry.requestedIds.get(id) || 0;
-    if (count > 0) telemetry.requestedIds.delete(id);
+
+    // Bounded LRU logic
+    const hasId = telemetry.requestedIds.delete(id);
+    if (telemetry.requestedIds.size >= 1000 && !hasId) {
+        telemetry.requestedIds.delete(telemetry.requestedIds.keys().next().value);
+    }
+
     telemetry.requestedIds.set(id, count + 1);
-    if (telemetry.requestedIds.size > 1000) telemetry.requestedIds.delete(telemetry.requestedIds.keys().next().value);
 };
 
 const parseRequestConfig = (req) => {
@@ -88,7 +93,6 @@ const fetchCinemeta = async (id, cinemetaConfig) => {
         return { title: cachedCinemeta.title, year: cachedCinemeta.year, moviedbId: cachedCinemeta.moviedbId };
     }
 
-    if (cachedCinemeta) cinemetaCache.delete(id);
     try {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
         const title = metaRes.data?.meta?.name;

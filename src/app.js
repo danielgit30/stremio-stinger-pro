@@ -59,14 +59,15 @@ app.use((req, res, next) => {
         clientData.count++;
     }
 
+    // Refresh to front of map for LRU iteration
+    const hasIp = rateLimitMap.delete(ip);
+
     // Prevent memory exhaustion DoS
-    if (rateLimitMap.size > 5000 && !rateLimitMap.has(ip)) {
+    if (rateLimitMap.size >= 5000 && !hasIp) {
         const firstKey = rateLimitMap.keys().next().value;
         rateLimitMap.delete(firstKey);
     }
 
-    // Refresh to front of map for LRU iteration
-    rateLimitMap.delete(ip);
     rateLimitMap.set(ip, clientData);
 
     const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientData.count);
