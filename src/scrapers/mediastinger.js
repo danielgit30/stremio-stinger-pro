@@ -3,13 +3,7 @@ const cheerio = require('cheerio');
 const { cleanTitle, isTitleMatch, BLOOPER_REGEX } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
-const { ENABLE_LOGGING } = require('../config');
-
-const log = (...args) => {
-    if (ENABLE_LOGGING) {
-        console.log(...args);
-    }
-};
+const { log } = require('../utils/logger');
 
 const RE_MS_MID_YES = /during (the )?credits\W{1,15}(yes|\d+|extra|scene|\bshots?\b)/;
 const RE_MS_MID_NO = /during (the )?credits\W{1,15}no\b/;
