@@ -96,6 +96,7 @@ function validateApiKey() {
     if (key === '') {
         errorSpan.style.display = 'none';
         apiKeyInput.style.borderColor = '';
+        apiKeyInput.setAttribute('aria-invalid', 'false');
         return true;
     }
 
@@ -103,10 +104,12 @@ function validateApiKey() {
     if (isValid) {
         errorSpan.style.display = 'none';
         apiKeyInput.style.borderColor = 'var(--success-color)';
+        apiKeyInput.setAttribute('aria-invalid', 'false');
         return true;
     } else {
         errorSpan.style.display = 'block';
         apiKeyInput.style.borderColor = 'var(--danger-color)';
+        apiKeyInput.setAttribute('aria-invalid', 'true');
         return false;
     }
 }
