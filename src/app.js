@@ -75,6 +75,11 @@ const rateLimiter = (req, res, next) => {
     next();
 };
 
+// Redirect icon.png to GitHub CDN to eliminate egress (~95KB per request → ~200 bytes redirect)
+app.get('/icon.png', (req, res) => {
+    res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+});
+
 // Static files
 app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: true, lastModified: true }));
 
