@@ -5,6 +5,15 @@ class MemoryCache {
         this._cache = new Map();
     }
 
+    prune() {
+        const now = Date.now();
+        for (const [key, value] of this._cache.entries()) {
+            if (value && value.expiresAt && now > value.expiresAt) {
+                this._cache.delete(key);
+            }
+        }
+    }
+
     has(key) {
         return this._cache.has(key);
     }
@@ -35,6 +44,12 @@ class MemoryCache {
 
 const streamCache = new MemoryCache();
 const cinemetaCache = new MemoryCache();
+
+const gcInterval = setInterval(() => {
+    streamCache.prune();
+    cinemetaCache.prune();
+}, 10 * 60 * 1000); // 10 minutes
+gcInterval.unref();
 
 module.exports = {
     streamCache,

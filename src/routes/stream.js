@@ -122,12 +122,9 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         }
     };
 
-    log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
+    log(`[Stream] Firing Tier 0 scraper (AfterCredits)...`);
 
     const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
-
-    const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
-    const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
     const checkDefinitive = (promise, name) =>
         promise.then((res) => {
@@ -144,6 +141,10 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         finalResult = await checkDefinitive(pAc, 'AfterCredits');
     } catch {
         // Tier 1 - wait for the first definitive result
+        log(`[Stream] Tier 0 missed. Firing Tier 1 scrapers (TMDB, Wikipedia)...`);
+        const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
+        const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
+
         try {
             finalResult = await Promise.any([
                 checkDefinitive(pTmdb, 'TMDB'),
@@ -229,9 +230,9 @@ Source: ${resolvedResult.source}`
                 `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
         };
 
-        const cacheDuration = isAggregatedError ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
+        const cacheDuration = CACHE_TTL_SUCCESS;
         streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
-        if (redisCache.isRedisEnabled() && !isAggregatedError) {
+        if (redisCache.isRedisEnabled()) {
             redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
         }
 

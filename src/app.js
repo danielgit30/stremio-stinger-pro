@@ -33,7 +33,7 @@ app.set('trust proxy', 1);
 // Rate Limiting
 const rateLimitMap = new Map();
 
-app.use((req, res, next) => {
+const rateLimiter = (req, res, next) => {
     const ip = req.ip;
     if (!ip) return next();
 
@@ -73,7 +73,7 @@ app.use((req, res, next) => {
     }
 
     next();
-});
+};
 
 // Static files
 app.use(express.static(path.join(__dirname, '../public')));
@@ -82,15 +82,15 @@ app.get('/icon.png', (req, res) => res.sendFile(path.join(__dirname, '../public/
 // Routes
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
-app.get('/telemetry', telemetryHandler);
+app.get('/telemetry', rateLimiter, telemetryHandler);
 
 app.get('/manifest.json', manifestHandler);
 app.get('/:p1/manifest.json', manifestHandler);
 app.get('/:style/:apiKey/manifest.json', manifestHandler);
 
-app.get('/stream/:type/:id.json', streamHandler);
-app.get('/:p1/stream/:type/:id.json', streamHandler);
-app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
+app.get('/stream/:type/:id.json', rateLimiter, streamHandler);
+app.get('/:p1/stream/:type/:id.json', rateLimiter, streamHandler);
+app.get('/:style/:apiKey/stream/:type/:id.json', rateLimiter, streamHandler);
 
 // Global Error Boundary
 // eslint-disable-next-line no-unused-vars
