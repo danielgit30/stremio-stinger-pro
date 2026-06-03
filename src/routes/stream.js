@@ -7,31 +7,11 @@ const scrapers = require('../scrapers');
 const { formatMessage } = require('../utils/formatter');
 const { log } = require('../utils/logger');
 
-// Lightweight Telemetry
-const telemetry = {
-    cacheHits: 0,
-    cacheMisses: 0,
-    requestedIds: new Map(),
-    getStats: () => ({
-        cacheHits: telemetry.cacheHits,
-        cacheMisses: telemetry.cacheMisses,
-        topIds: [...telemetry.requestedIds.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
-    }),
-};
+
 
 const activeRequests = new Map();
 
-const trackTelemetry = (id) => {
-    const count = telemetry.requestedIds.get(id) || 0;
 
-    // Bounded LRU logic
-    const hasId = telemetry.requestedIds.delete(id);
-    if (telemetry.requestedIds.size >= 1000 && !hasId) {
-        telemetry.requestedIds.delete(telemetry.requestedIds.keys().next().value);
-    }
-
-    telemetry.requestedIds.set(id, count + 1);
-};
 
 const parseRequestConfig = (req) => {
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
@@ -59,8 +39,7 @@ const getCachedStream = async (cacheKey) => {
     const memCached = streamCache.get(cacheKey);
     if (memCached && Date.now() < memCached.expiresAt) {
         log(`[Stream] Cache HIT (Memory). Resolving from memory.`);
-        telemetry.cacheHits++;
-        return memCached.stream;
+        return { hit: true, stream: memCached.stream };
     } else if (memCached) {
         streamCache.delete(cacheKey);
     }
@@ -68,15 +47,22 @@ const getCachedStream = async (cacheKey) => {
     // Check Redis Cache
     if (redisCache.isRedisEnabled()) {
         const redisData = await redisCache.getCache(cacheKey);
-        if (redisData) {
+        if (redisData !== null) {
             log(`[Stream] Cache HIT (Redis). Resolving from Redis.`);
-            telemetry.cacheHits++;
-            streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_SUCCESS, stream: redisData }); // Warm memory cache
-            return redisData;
+            
+            let stream = redisData;
+            if (redisData.isCachedWrapper) {
+                stream = redisData.stream;
+            }
+            
+            const ttl = stream === null ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
+            streamCache.set(cacheKey, { expiresAt: Date.now() + ttl, stream }); 
+            
+            return { hit: true, stream };
         }
     }
 
-    return null;
+    return { hit: false };
 };
 
 const fetchCinemeta = async (id, cinemetaConfig) => {
@@ -143,7 +129,7 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         // Tier 1 - wait for the first definitive result
         log(`[Stream] Tier 0 missed. Firing Tier 1 scrapers (TMDB, Wikipedia)...`);
         const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
-        const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
+        const pWiki = scrapers.checkWikipedia(title).catch(() => null);
 
         try {
             finalResult = await Promise.any([
@@ -192,11 +178,14 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         const moviedbId = cinemetaData.moviedbId;
 
         clearTimeout(cinemetaTimeoutId);
-        cinemetaController.abort();
 
         if (!title) {
             log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
             log(`=================================\n`);
+            streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
+            if (redisCache.isRedisEnabled()) {
+                redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
+            }
             return null;
         }
 
@@ -221,6 +210,10 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         } catch (e) {
             if (e.name !== 'CanceledError' && e.message !== 'canceled') {
                 console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+            }
+            streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
+            if (redisCache.isRedisEnabled()) {
+                redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
             }
             return null;
         } finally {
@@ -250,7 +243,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     const cacheDuration = CACHE_TTL_SUCCESS;
     streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
     if (redisCache.isRedisEnabled()) {
-        redisCache.setCache(cacheKey, stream, Math.floor(CACHE_TTL_SUCCESS / 1000));
+        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream }, Math.floor(CACHE_TTL_SUCCESS / 1000));
     }
 
     log(`[Stream] Payload generated and cached. Sequence complete.`);
@@ -272,17 +265,13 @@ const streamHandler = async (req, res) => {
 ========== NEW REQUEST ==========`);
     log(`[Stream] Request Type: ${type} | ID: ${id}`);
 
-    trackTelemetry(id);
-
     const { rawStyle, apiKey, styleConfig } = parseRequestConfig(req);
     const cacheKey = `${id}_${rawStyle}`;
 
-    const cachedStream = await getCachedStream(cacheKey);
-    if (cachedStream) {
-        return res.json({ streams: [cachedStream] });
+    const cachedResult = await getCachedStream(cacheKey);
+    if (cachedResult.hit) {
+        return res.json({ streams: cachedResult.stream ? [cachedResult.stream] : [] });
     }
-
-    telemetry.cacheMisses++;
 
     if (activeRequests.has(cacheKey)) {
         log(`[Stream] Cache MISS. Concurrent request detected for key: ${cacheKey}. Coalescing...`);
@@ -317,4 +306,4 @@ const streamHandler = async (req, res) => {
     }
 };
 
-module.exports = { streamHandler, telemetry };
+module.exports = { streamHandler };

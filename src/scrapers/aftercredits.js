@@ -51,11 +51,11 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 async function parseAfterCreditsPage(bestMatch, reqConfig) {
     const { id, url } = bestMatch;
 
-    // Fetch only the post content and categories via REST API to avoid full HTML payload
-    const postRes = await axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig);
+    const [postRes, catRes] = await Promise.all([
+        axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
+        axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
+    ]);
     const content = postRes.data?.content?.rendered || '';
-
-    const catRes = await axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig);
     const categoryTags = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
 
     const $$ = cheerio.load(content);

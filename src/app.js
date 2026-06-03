@@ -6,7 +6,7 @@ const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config');
 const { sanitizeError } = require('./utils/network');
 const { manifestHandler } = require('./routes/manifest');
 const { streamHandler } = require('./routes/stream');
-const { serveConfig, telemetryHandler } = require('./routes/ui');
+const { serveConfig } = require('./routes/ui');
 
 const app = express();
 
@@ -75,8 +75,9 @@ const rateLimiter = (req, res, next) => {
     next();
 };
 
-// Redirect icon.png to GitHub CDN to eliminate egress (~95KB per request → ~200 bytes redirect)
-app.get('/icon.png', (req, res) => {
+// Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress
+app.get(['/icon.png', '/favicon.ico'], (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
 });
 
@@ -86,7 +87,7 @@ app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: 
 // Routes
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
-app.get('/telemetry', rateLimiter, telemetryHandler);
+
 
 app.get('/manifest.json', manifestHandler);
 app.get('/:p1/manifest.json', manifestHandler);

@@ -97,7 +97,7 @@ async function buildWikiIndex() {
     return wikiFetchPromise;
 }
 
-async function checkWikipedia(title, reqConfig) {
+async function checkWikipedia(title) {
     log(`\n--- [Wikipedia] Execution Start: "${title}" ---`);
     await buildWikiIndex();
     const cleanQuery = wikiNormalize(title);
