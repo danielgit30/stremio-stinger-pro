@@ -28,7 +28,6 @@ Welcome to Stremio Stinger Pro! This file provides the context, structure, and s
 ### Scrapers
 - [src/scrapers/index.js](file:///c:/stremio-stinger-pro/src/scrapers/index.js): Exposes the interface to run all scrapers concurrently.
 - [src/scrapers/aftercredits.js](file:///c:/stremio-stinger-pro/src/scrapers/aftercredits.js): Web scraper for AfterCredits.com.
-- [src/scrapers/mediastinger.js](file:///c:/stremio-stinger-pro/src/scrapers/mediastinger.js): Web scraper for MediaStinger.com.
 - [src/scrapers/tmdb.js](file:///c:/stremio-stinger-pro/src/scrapers/tmdb.js): Looks up movie titles, years, and checks tags/details using TMDB API.
 - [src/scrapers/wikipedia.js](file:///c:/stremio-stinger-pro/src/scrapers/wikipedia.js): Fetches lists of films with after-credits scenes and verifies against Wikipedia page content.
 

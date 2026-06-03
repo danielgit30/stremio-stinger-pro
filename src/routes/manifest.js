@@ -4,10 +4,10 @@ const manifestHandler = (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.json({
         id: 'org.stinger.pro',
-        version: '2.0.5',
+        version: '2.1.0',
         name: 'Stremio Stinger Pro',
         description:
-            'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, MediaStinger, TMDB, and Wikipedia.',
+            'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, TMDB, and Wikipedia.',
         logo: `${protocol}://${host}/icon.png`,
         types: ['movie'],
         catalogs: [],

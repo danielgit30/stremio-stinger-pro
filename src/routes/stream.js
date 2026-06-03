@@ -126,11 +126,6 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
 
     const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
 
-    // For MediaStinger, remove subtitles (anything after a colon) and avoid appending the year
-    // as it frequently causes zero-result searches on their end.
-    let msTitle = title.split(':')[0].trim();
-    const pMs = scrapers.checkMediaStinger(msTitle, year, scraperConfig).catch(() => null);
-
     const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
     const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
@@ -151,7 +146,6 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         // Tier 1 - wait for the first definitive result
         try {
             finalResult = await Promise.any([
-                checkDefinitive(pMs, 'MediaStinger'),
                 checkDefinitive(pTmdb, 'TMDB'),
                 checkDefinitive(pWiki, 'Wikipedia'),
             ]);

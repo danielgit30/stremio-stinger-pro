@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 2.0.5
+## Version 2.1.0
 
 ![logo](/icon.png)
 
@@ -26,7 +26,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v2.0.5](#release-v205)
+[Latest Release: v2.1.0](#release-v210)
 > [!WARNING]
 > The latest version implements changes to the configuration and you are advised to reinstall the addon for an updated experience.
 
@@ -47,9 +47,8 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 The addon queries the following databases simultaneously and posts the best result based on the below priority.
 
 1. **AfterCredits.com**
-2. **MediaStinger.com**
-3. **The Movie Database (TMDB)**
-4. **Wikipedia**
+2. **The Movie Database (TMDB)**
+3. **Wikipedia**
 
 > [!NOTE]
 >
@@ -69,16 +68,8 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
                 controller.abort();
             } else {
                 updateFallback(acResult);
-                
-                let msResult = await pMs;
-                if (msResult && msResult.definitive) {
-                    finalResult = msResult;
-                    console.log(`[Stream] Definitive state found by MediaStinger. Aborting others...`);
-                    controller.abort();
-                } else {
-                    updateFallback(msResult);
 
-                    let tmdbResult = await pTmdb;
+                let tmdbResult = await pTmdb;
                     if (tmdbResult && tmdbResult.definitive) {
                         finalResult = tmdbResult;
                         console.log(`[Stream] Definitive state found by TMDB. Aborting others...`);
@@ -124,6 +115,11 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 
 ---
 
+## Release: v2.1.0
+
+- **Feature:** Removed MediaStinger scraper completely as the source website has shut down.
+- **Performance:** Tightened global scraper timeout from 35s to 10s and network request timeout to 15s to drastically improve worst-case latency.
+
 ## Release: v2.0.5
 
 - **Feature:** Optimized TMDB scraper by utilizing `moviedb_id` from Cinemeta.
@@ -163,7 +159,6 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 - **Feature:** The internal streamCache now generates composite keys based on the user's specific URL suffix (e.g., tt0120812_colorful-bloopers). This prevents users with different settings from polluting each other's cache.
 - **Feature:** Added strict Cache-Control HTTP headers (max-age=0, no-cache) to the /stream/ endpoints. This forces the Stremio client to pull fresh data immediately when users update their configuration URL, bypassing Stremio's aggressive local caching.
 - **Fix:** Decoupled bloopers from mid-credit scenes. If a blooper reel or outtake is detected by any scraper, the "Mid-Credits" flag is forcefully stripped to prevent outtakes from masquerading as narrative stingers.
-- **Fix:** Upgraded the MediaStinger scraper to navigate to the actual movie payload page (Tier 2) rather than relying on the search page. This stops MediaStinger from blindly flagging blooper reels as "During Credits" scenes.
 - **Fix:** Fixed lexical matching bugs that caused false negatives for movies with leading/trailing articles or punctuation (e.g., The Cannonball Run vs Cannonball Run, The).
 - **Fix:** Fixed a logical fallacy where the addon assumed a lack of TMDB keywords meant a movie definitely had no stinger. TMDB is now correctly treated as a positive-tag-only database.
 
