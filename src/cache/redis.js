@@ -1,4 +1,5 @@
 const { createClient } = require('redis');
+const { sanitizeError } = require('../utils/network');
 
 let redisClient;
 let useRedis = false;
@@ -6,7 +7,7 @@ let useRedis = false;
 // Initialize Redis if URL is provided
 if (process.env.REDIS_URL) {
     redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    redisClient.on('error', (err) => console.error('Redis Client Error', sanitizeError(err.message || err)));
 
     redisClient
         .connect()
@@ -14,7 +15,7 @@ if (process.env.REDIS_URL) {
             console.log('[System] Redis distributed cache connected.');
             useRedis = true;
         })
-        .catch((err) => console.error('Failed to connect to Redis', err));
+        .catch((err) => console.error('Failed to connect to Redis', sanitizeError(err.message || err)));
 }
 
 const getCache = async (key) => {
@@ -23,7 +24,7 @@ const getCache = async (key) => {
             const data = await redisClient.get(key);
             return data ? JSON.parse(data) : null;
         } catch (e) {
-            console.error('Redis get error', e);
+            console.error('Redis get error', sanitizeError(e.message || e));
             return null;
         }
     }
@@ -36,7 +37,7 @@ const setCache = async (key, value, ttlSeconds) => {
         try {
             await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
         } catch (e) {
-            console.error('Redis set error', e);
+            console.error('Redis set error', sanitizeError(e.message || e));
         }
     }
 };

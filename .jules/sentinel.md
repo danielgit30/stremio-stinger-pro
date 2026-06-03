@@ -15,3 +15,7 @@
  **Learning:** Aggregator services can multiply the impact of requests, meaning a lack of rate-limiting is disproportionately dangerous compared to a standard REST API.
  **Prevention:** Implement IP-based rate limiting on all public-facing endpoints (using tools like `express-rate-limit` or an in-memory Map) to restrict the number of requests a single client can make within a specific time window.
 - Fixed plaintext HTTP request vulnerability in `src/scrapers/mediastinger.js` by replacing `http://` with `https://` to prevent MITM attacks and protect data in transit. Ensure URLs explicitly use HTTPS.
+## 2024-05-24 - Missing Server Errors Logging Sanitzation in Redis Cache
+**Vulnerability:** console.error was directly logging e.message and err in src/cache/redis.js, which is vulnerable to log injection and sensitive information leakage if connection strings containing credentials are included in the error.
+**Learning:** Redis connection failures and operational errors can contain sensitive information like the REDIS_URL credentials or internal infrastructure IPs.
+**Prevention:** Implement a sanitizeError helper that strips newlines, carriage returns, and sensitive connection credentials from the error messages, before sending them to the console.
