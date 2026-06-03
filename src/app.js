@@ -75,9 +75,12 @@ const rateLimiter = (req, res, next) => {
     next();
 };
 
-// Static files
-app.use(express.static(path.join(__dirname, '../public')));
-app.get('/icon.png', (req, res) => res.sendFile(path.join(__dirname, '../public/icon.png')));
+// Static files — aggressive caching to prevent repeated icon.png egress
+app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: true, lastModified: true }));
+app.get('/icon.png', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.sendFile(path.join(__dirname, '../public/icon.png'));
+});
 
 // Routes
 app.get('/', serveConfig);

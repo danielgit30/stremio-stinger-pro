@@ -1,4 +1,3 @@
-
-## 2024-05-19 - Replace tooltips with inline text for touch accessibility
-**Learning:** `title` attributes on DOM elements fail to provide reliable accessibility on mobile and touch devices because there is no way to simulate a 'hover' to trigger them. This means critical field dependency warnings (e.g. "Not applicable when Wiki is selected") become invisible to touch users.
-**Action:** When communicating critical field states or form validation rules, always use explicitly visible inline subtext elements (e.g. `<span class="optional-text">`) combined with dynamic display logic rather than relying on `title` tooltips.
+## 2024-06-03 - Custom Glassmorphic Inputs Require Explicit ARIA States
+**Learning:** The custom glassmorphic inputs and select triggers in this app rely heavily on CSS pseudo-classes (`:focus`, border colors) to indicate state. However, dynamic form validation scripts often forget to sync `aria-invalid="true"` or explicit `aria-describedby` when these visual errors appear. Also, custom buttons without text (like the password visibility toggle) need `aria-label`.
+**Action:** When working on custom-styled forms, ensure JavaScript validation explicitly toggles ARIA attributes alongside visual class/style changes, and use `:focus-visible` instead of just `:focus` on buttons to support keyboard navigation without disrupting mouse clicks.
