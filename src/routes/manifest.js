@@ -1,6 +1,4 @@
 const manifestHandler = (req, res) => {
-    const host = req.get('host');
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.json({
         id: 'org.stinger.pro',
@@ -8,7 +6,7 @@ const manifestHandler = (req, res) => {
         name: 'Stremio Stinger Pro',
         description:
             'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, TMDB, and Wikipedia.',
-        logo: `${protocol}://${host}/icon.png`,
+        logo: 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png',
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
