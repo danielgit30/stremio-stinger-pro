@@ -16,7 +16,7 @@ const { log } = require('../utils/logger');
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
-    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=title,link&per_page=20`;
+    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=title,link&per_page=10`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     let potentialMatches = [];
 
@@ -45,29 +45,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     return potentialMatches[0];
 }
 
-const extractText = (node) => {
-    if (!node) return '';
-    if (node.type === 'text') return node.data;
-    let text = '';
-    if (node.children) {
-        for (let j = 0; j < node.children.length; j++) {
-            text += extractText(node.children[j]);
-        }
-    }
-    return text;
-};
 
-const findFirstClass = (node, className) => {
-    if (node.type === 'tag' && node.attribs && node.attribs.class && node.attribs.class.includes(className))
-        return node;
-    if (node.children) {
-        for (let j = 0; j < node.children.length; j++) {
-            const found = findFirstClass(node.children[j], className);
-            if (found) return found;
-        }
-    }
-    return null;
-};
 
 async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     const movieRes = await axios.get(bestMatchUrl, reqConfig);
@@ -125,14 +103,14 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     };
 
     $$('.spoiler-wrap').each((i, el) => {
-        const headNode = findFirstClass(el, 'spoiler-head');
-        const headText = extractText(headNode).trim().toLowerCase();
+        const $el = $$(el);
+        const headText = $el.find('.spoiler-head').first().text().trim().toLowerCase();
 
         const isMid = headText.includes('during') || headText.includes('mid');
         const isPost = headText.includes('after') || headText.includes('post');
 
         if (isMid || isPost) {
-            const blockText = extractText(el).toLowerCase();
+            const blockText = $el.text().toLowerCase();
             const isBlooper = BLOOPER_REGEX.test(blockText);
             const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 

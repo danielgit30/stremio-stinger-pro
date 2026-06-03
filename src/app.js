@@ -32,18 +32,6 @@ app.set('trust proxy', 1);
 
 // Rate Limiting
 const rateLimitMap = new Map();
-const rateLimitInterval = setInterval(() => {
-    const now = Date.now();
-    for (const [ip, data] of rateLimitMap.entries()) {
-        if (now - data.startTime > RATE_LIMIT_WINDOW_MS) {
-            rateLimitMap.delete(ip);
-        }
-    }
-}, RATE_LIMIT_WINDOW_MS);
-
-if (rateLimitInterval.unref) {
-    rateLimitInterval.unref();
-}
 
 app.use((req, res, next) => {
     const ip = req.ip;
@@ -103,5 +91,12 @@ app.get('/:style/:apiKey/manifest.json', manifestHandler);
 app.get('/stream/:type/:id.json', streamHandler);
 app.get('/:p1/stream/:type/:id.json', streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', streamHandler);
+
+// Global Error Boundary
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error(`[System Error] ${sanitizeError(err.message)}`, err.stack ? `\nStack: ${sanitizeError(err.stack)}` : '');
+    res.status(500).json({ error: 'Internal Server Error', message: 'An unexpected error occurred.' });
+});
 
 module.exports = app;

@@ -11,28 +11,7 @@ let wikiCache = new Map();
 let wikiLastFetched = 0;
 let wikiFetchPromise = null;
 
-const extractText = (node) => {
-    if (!node) return '';
-    if (node.type === 'text') return node.data;
-    let text = '';
-    if (node.children) {
-        for (let j = 0; j < node.children.length; j++) {
-            text += extractText(node.children[j]);
-        }
-    }
-    return text;
-};
 
-const findFirstTag = (node, tagName) => {
-    if (node.type === 'tag' && node.name === tagName) return node;
-    if (node.children) {
-        for (let j = 0; j < node.children.length; j++) {
-            const found = findFirstTag(node.children[j], tagName);
-            if (found) return found;
-        }
-    }
-    return null;
-};
 
 async function buildWikiIndex(reqConfig) {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
@@ -62,31 +41,23 @@ async function buildWikiIndex(reqConfig) {
             const newCache = new Map();
 
             $('table.wikitable tr').each((i, el) => {
+                const $el = $(el);
                 let titleText = '';
 
-                const iNode = findFirstTag(el, 'i');
-                if (iNode) {
-                    titleText = extractText(iNode);
+                const $iNode = $el.find('i').first();
+                if ($iNode.length > 0) {
+                    titleText = $iNode.text();
                 } else {
-                    let tdCount = 0;
-                    if (el.children) {
-                        for (let j = 0; j < el.children.length; j++) {
-                            const child = el.children[j];
-                            if (child.type === 'tag' && child.name === 'td') {
-                                if (tdCount === 1) {
-                                    titleText = extractText(child);
-                                    break;
-                                }
-                                tdCount++;
-                            }
-                        }
+                    const $tds = $el.find('td');
+                    if ($tds.length > 1) {
+                        titleText = $tds.eq(1).text();
                     }
                 }
 
                 if (!titleText) return;
 
                 const cleanTitle = wikiNormalize(titleText);
-                const rowText = extractText(el).toLowerCase();
+                const rowText = $el.text().toLowerCase();
 
                 let hasMid = rowText.includes('mid-') || rowText.includes('during');
                 let hasPost = rowText.includes('post-') || rowText.includes('after');

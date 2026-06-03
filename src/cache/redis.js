@@ -42,8 +42,21 @@ const setCache = async (key, value, ttlSeconds) => {
     }
 };
 
+const quitRedis = async () => {
+    if (useRedis && redisClient) {
+        try {
+            await redisClient.quit();
+            console.log('[System] Redis client disconnected gracefully.');
+        } catch (e) {
+            console.error('Redis quit error', sanitizeError(e.message || e));
+        }
+    }
+};
+
 module.exports = {
     getCache,
     setCache,
     isRedisEnabled: () => useRedis,
+    quitRedis,
 };
+
