@@ -44,14 +44,17 @@ class MemoryCache {
 
 const streamCache = new MemoryCache();
 const cinemetaCache = new MemoryCache();
+const rawScraperCache = new MemoryCache();
 
 const gcInterval = setInterval(() => {
     streamCache.prune();
     cinemetaCache.prune();
+    rawScraperCache.prune();
 }, 10 * 60 * 1000); // 10 minutes
 gcInterval.unref();
 
 module.exports = {
     streamCache,
     cinemetaCache,
+    rawScraperCache,
 };

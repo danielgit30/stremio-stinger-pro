@@ -16,7 +16,7 @@ const { log } = require('../utils/logger');
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
-    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=title,link&per_page=10`;
+    const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=id,title,link&per_page=10`;
     const searchRes = await axios.get(searchUrl, reqConfig);
     let potentialMatches = [];
 
@@ -27,6 +27,7 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 
             if (isTitleMatch(rawLinkText, cleanedTitle)) {
                 potentialMatches.push({
+                    id: post.id,
                     url: post.link,
                     isReview: rawLinkText.includes('review'),
                     rawText: rawLinkText,
@@ -47,24 +48,27 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 
 
 
-async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
-    const movieRes = await axios.get(bestMatchUrl, reqConfig);
-    const $$ = cheerio.load(movieRes.data);
+async function parseAfterCreditsPage(bestMatch, reqConfig) {
+    const { id, url } = bestMatch;
+
+    // Fetch only the post content and categories via REST API to avoid full HTML payload
+    const postRes = await axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig);
+    const content = postRes.data?.content?.rendered || '';
+
+    const catRes = await axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig);
+    const categoryTags = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
+
+    const $$ = cheerio.load(content);
     let hasMid = false,
         hasPost = false,
         bloopers = false,
         sequel = false;
 
-    let categoryTags = [];
-    $$('ul.td-category li.entry-category a').each((i, el) => {
-        const $el = $$(el);
-        categoryTags.push($el.text().trim().toLowerCase());
-    });
     log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
 
     if (categoryTags.includes('non-stingers')) {
         log(`[AfterCredits] 'non-stingers' category detected. Forcing definitive negative state.`);
-        return getResultObj(false, false, true, bestMatchUrl, 'AfterCredits', false, true);
+        return getResultObj(false, false, true, url, 'AfterCredits', false, true);
     }
 
     if (categoryTags.includes('unknown')) {
@@ -134,7 +138,7 @@ async function parseAfterCreditsPage(bestMatchUrl, reqConfig) {
     log(
         `[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`
     );
-    return getResultObj(hasMid, hasPost, isNegative, bestMatchUrl, 'AfterCredits', bloopers, isDefinitive, sequel);
+    return getResultObj(hasMid, hasPost, isNegative, url, 'AfterCredits', bloopers, isDefinitive, sequel);
 }
 
 async function checkAfterCredits(title, year, reqConfig) {
@@ -151,7 +155,8 @@ async function checkAfterCredits(title, year, reqConfig) {
         const safeUrl = validateUrl(bestMatch.url, 'https://aftercredits.com', 'aftercredits.com');
         if (!safeUrl) return null;
 
-        return await parseAfterCreditsPage(safeUrl, reqConfig);
+        bestMatch.url = safeUrl;
+        return await parseAfterCreditsPage(bestMatch, reqConfig);
     } catch (e) {
         if (e.name !== 'CanceledError' && e.message !== 'canceled') {
             console.error(`[AfterCredits Error] ${sanitizeError(e.message)}`);

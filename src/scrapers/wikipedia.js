@@ -33,12 +33,20 @@ async function buildWikiIndex() {
 
             const { axiosConfig } = require('../config');
             // Isolate the global index build from request-specific abort signals
-            const mergedConfig = { ...axiosConfig, timeout: 20000 };
-            const res = await axios.get(
-                'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes',
-                mergedConfig
-            );
-            const $ = cheerio.load(res.data);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
+            const mergedConfig = { ...axiosConfig, timeout: 20000, signal: controller.signal };
+            let $;
+            try {
+                const res = await axios.get(
+                    'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_films_with_post-credits_scenes&prop=text&format=json',
+                    mergedConfig
+                );
+                const htmlContent = res.data?.parse?.text?.['*'] || '';
+                $ = cheerio.load(htmlContent);
+            } finally {
+                clearTimeout(timeoutId);
+            }
             const newCache = new Map();
 
             $('table.wikitable tr').each((i, el) => {
