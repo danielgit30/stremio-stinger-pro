@@ -110,6 +110,8 @@
                         <input
                             type="password"
                             id="apiKey"
+                            aria-describedby="apiKeyHelp apiKeyError"
+                            aria-invalid="false"
                             placeholder="Enter key or leave blank"
                             style="padding-right: 40px"
                             oninput="validateApiKey()"
@@ -117,6 +119,7 @@
                         <button
                             type="button"
                             id="toggleApiKeyBtn"
+                            aria-label="Show API Key"
                             onclick="toggleApiKeyVisibility()"
                             title="Show API Key"
                             style="
@@ -136,6 +139,7 @@
                         >
                             <svg
                                 id="eyeIcon"
+                                aria-hidden="true"
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="18"
                                 height="18"
@@ -154,10 +158,13 @@
                     <span
                         class="error-text"
                         id="apiKeyError"
+                        aria-live="polite"
                         style="color: var(--danger-color); font-size: 12px; margin-top: 6px; display: none"
                         >TMDB v3 API Key must be a 32-character hexadecimal string.</span
                     >
-                    <span class="optional-text">If left blank, the addon will use the default community key.</span>
+                    <span class="optional-text" id="apiKeyHelp"
+                        >If left blank, the addon will use the default community key.</span
+                    >
                 </div>
 
                 <button type="submit">Install Addon</button>
@@ -168,7 +175,7 @@
                     Addon URL generated! Copy it manually below:
                 </p>
                 <div class="code-box" id="install-link"></div>
-                <button class="copy-btn" onclick="copyLink()">Copy Manifest URL</button>
+                <button class="copy-btn" id="copyBtn" onclick="copyLink()" aria-live="polite">Copy Manifest URL</button>
             </div>
 
             <div class="footer">

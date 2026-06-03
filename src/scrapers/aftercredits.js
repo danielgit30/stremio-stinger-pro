@@ -58,7 +58,8 @@ const extractText = (node) => {
 };
 
 const findFirstClass = (node, className) => {
-    if (node.type === 'tag' && node.attribs && node.attribs.class && node.attribs.class.includes(className)) return node;
+    if (node.type === 'tag' && node.attribs && node.attribs.class && node.attribs.class.includes(className))
+        return node;
     if (node.children) {
         for (let j = 0; j < node.children.length; j++) {
             const found = findFirstClass(node.children[j], className);
