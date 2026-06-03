@@ -13,7 +13,7 @@ let wikiFetchPromise = null;
 
 
 
-async function buildWikiIndex(reqConfig) {
+async function buildWikiIndex() {
     if (Date.now() - wikiLastFetched < WIKI_TTL && wikiCache.size > 0) return;
     if (wikiFetchPromise) return wikiFetchPromise;
 
@@ -32,7 +32,8 @@ async function buildWikiIndex(reqConfig) {
             }
 
             const { axiosConfig } = require('../config');
-            const mergedConfig = reqConfig ? { ...axiosConfig, ...reqConfig } : axiosConfig;
+            // Isolate the global index build from request-specific abort signals
+            const mergedConfig = { ...axiosConfig, timeout: 20000 };
             const res = await axios.get(
                 'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes',
                 mergedConfig
@@ -89,7 +90,7 @@ async function buildWikiIndex(reqConfig) {
 
 async function checkWikipedia(title, reqConfig) {
     log(`\n--- [Wikipedia] Execution Start: "${title}" ---`);
-    await buildWikiIndex(reqConfig);
+    await buildWikiIndex();
     const cleanQuery = wikiNormalize(title);
     if (wikiCache.has(cleanQuery)) {
         const data = wikiCache.get(cleanQuery);
