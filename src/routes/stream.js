@@ -1,12 +1,5 @@
 const axios = require('axios');
-const {
-    CACHE_TTL_SUCCESS,
-    CACHE_TTL_ERROR,
-    axiosConfig,
-    CINEMETA_TIMEOUT,
-    SCRAPER_TIMEOUT,
-    WIKI_TTL,
-} = require('../config');
+const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT } = require('../config');
 const { streamCache, cinemetaCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
@@ -164,7 +157,7 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
             ]);
         } catch {
             // AggregateError: All promises were rejected (meaning no definitive result)
-            finalResult = null;
+            // finalResult remains what it was initialized/set to
         }
     }
 
