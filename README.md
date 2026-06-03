@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 2.1.0
+## Version 2.5.0
 
 ![logo](/icon.png)
 
@@ -10,11 +10,10 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 
 ## Latest Optimizations
 
-- **Distributed Caching for Wikipedia Index:** Stores the compiled Wikipedia post-credits films index in Redis (24-hour TTL) if Redis is active, reducing server startup cold-starts from 1–2s to under 10ms.
-- **Client-Side TMDB API Key Validation:** Ensures user-provided keys match the 32-character hexadecimal format before saving/generating Stremio addon links.
-- **Differentiated Timeouts:** Isolated Cinemeta API calls (3s timeout) and concurrent scraper calls (7s timeout) to stay well within Stremio's connection timeouts.
-- **Enhanced Rate-Limiting Headers:** Exposes `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` to all clients.
-- **Open-Handle Test Optimizations:** Fixed open handle warnings in Jest tests by unreferencing background timers cleanly.
+- **Massive Server-Side Optimization:** Fully sanitized the codebase to eliminate unused dead code.
+- **Memory Optimization:** Implemented bounded LRU cache limits (`MAX_CACHE_SIZE = 5000`) and request coalescing limits (1000 maximum active requests) to guarantee protection against exhaustion DoS.
+- **Network Egress Optimization:** Brought in `compression` middleware and `keepAlive` Axios agents for HTTP/HTTPS to minimize payloads and latency.
+- **Aggressive Caching Strategy:** Introduced `stale-while-revalidate=3600` for public stream responses to offload traffic seamlessly.
 
 ---
 
@@ -26,10 +25,9 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v2.1.0](#release-v210)
-> [!WARNING]
-> Removed MediaStinger scraper completely as the source website has shut down.
-> Tightened timeouts for quicker resolution given that MediaStinger is no longer queried.
+[Latest Release: v2.5.0](#release-v250)
+> [!TIP]
+> This release introduces massive server-side optimization including compression and memory guards!
 
 ---
 
@@ -115,6 +113,13 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 - **Jules:** Jules is connected to this repository to constantly improve the code and UX of the addon.
 
 ---
+
+## Release: v2.5.0
+
+- **Feature:** Massive server-side architecture optimization.
+- **Performance:** Implemented bounded LRU caching (max size 5000) and request coalescing to prevent OOM crashes and resolve concurrent request spikes.
+- **Performance:** Added `compression` middleware, aggressive `Cache-Control` headers (`stale-while-revalidate`), and HTTP keep-alive agents to drastically reduce network egress and latency.
+- **Maintenance:** Conducted a definitive codebase sanitization, completely removing legacy/dead code and minimizing redundant operations.
 
 ## Release: v2.1.0
 
