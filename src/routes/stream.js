@@ -122,9 +122,11 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         }
     };
 
-    log(`[Stream] Firing Tier 0 scraper (AfterCredits)...`);
+    log(`[Stream] Firing all scrapers concurrently for minimal latency...`);
 
     const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
+    const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
+    const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
 
     const checkDefinitive = (promise, name) =>
         promise.then((res) => {
@@ -137,23 +139,14 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         });
 
     try {
-        // Tier 0
-        finalResult = await checkDefinitive(pAc, 'AfterCredits');
+        finalResult = await Promise.any([
+            checkDefinitive(pAc, 'AfterCredits'),
+            checkDefinitive(pTmdb, 'TMDB'),
+            checkDefinitive(pWiki, 'Wikipedia'),
+        ]);
     } catch {
-        // Tier 1 - wait for the first definitive result
-        log(`[Stream] Tier 0 missed. Firing Tier 1 scrapers (TMDB, Wikipedia)...`);
-        const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
-        const pWiki = scrapers.checkWikipedia(title, scraperConfig).catch(() => null);
-
-        try {
-            finalResult = await Promise.any([
-                checkDefinitive(pTmdb, 'TMDB'),
-                checkDefinitive(pWiki, 'Wikipedia'),
-            ]);
-        } catch {
-            // AggregateError: All promises were rejected (meaning no definitive result)
-            // finalResult remains what it was initialized/set to
-        }
+        // AggregateError: All promises were rejected (meaning no definitive result)
+        // finalResult remains what it was initialized/set to (null)
     }
 
     if (finalResult) {
