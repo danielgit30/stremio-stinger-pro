@@ -24,9 +24,8 @@ class MemoryCache {
     }
 
     set(key, value) {
-        if (this._cache.has(key)) {
-            this._cache.delete(key);
-        } else if (this._cache.size >= MAX_CACHE_SIZE) {
+        const existed = this._cache.delete(key);
+        if (!existed && this._cache.size >= MAX_CACHE_SIZE) {
             const firstKey = this._cache.keys().next().value;
             this._cache.delete(firstKey);
         }
