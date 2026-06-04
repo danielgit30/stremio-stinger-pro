@@ -1,12 +1,5 @@
 // Pre-compiled regexes
 const RE_HTML_TAGS = /<[^>]*>?/gm;
-const RE_DECIMAL_ENT = /&#(\d+);/g;
-const RE_HEX_ENT = /&#x([0-9a-f]+);/gi;
-const RE_AMP = /&amp;/g;
-const RE_QUOT = /&quot;/g;
-const RE_LT = /&lt;/g;
-const RE_GT = /&gt;/g;
-const RE_NBSP = /&nbsp;/g;
 
 const RE_YEAR = /\(\d{4}\)/g;
 const RE_NON_WORD = /[^\w\s]/g;
@@ -116,14 +109,74 @@ const wikiNormalize = (title) => {
 const decodeHtmlString = (html) => {
     if (!html) return '';
     let text = html.replace(RE_HTML_TAGS, '');
-    return text
-        .replace(RE_DECIMAL_ENT, (match, dec) => String.fromCharCode(dec))
-        .replace(RE_AMP, '&')
-        .replace(RE_QUOT, '"')
-        .replace(RE_LT, '<')
-        .replace(RE_GT, '>')
-        .replace(RE_NBSP, ' ')
-        .replace(RE_HEX_ENT, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+    if (text.indexOf('&') === -1) return text;
+
+    let result = '';
+    let lastIndex = 0;
+
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === '&') {
+            const semicolonIndex = text.indexOf(';', i + 1);
+            if (semicolonIndex !== -1 && semicolonIndex - i <= 10) {
+                const entity = text.substring(i + 1, semicolonIndex);
+                let replacement = null;
+
+                if (entity[0] === '#') {
+                    if (entity[1] === 'x' || entity[1] === 'X') {
+                        let valid = true;
+                        for (let j = 2; j < entity.length; j++) {
+                            const c = entity.charCodeAt(j);
+                            if (!((c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70))) {
+                                valid = false;
+                                break;
+                            }
+                        }
+                        if (valid && entity.length > 2) {
+                            replacement = String.fromCharCode(parseInt(entity.substring(2), 16));
+                        }
+                    } else {
+                        let valid = true;
+                        for (let j = 1; j < entity.length; j++) {
+                            const c = entity.charCodeAt(j);
+                            if (!(c >= 48 && c <= 57)) {
+                                valid = false;
+                                break;
+                            }
+                        }
+                        if (valid && entity.length > 1) {
+                            replacement = String.fromCharCode(parseInt(entity.substring(1), 10));
+                        }
+                    }
+                } else {
+                    switch (entity) {
+                        case 'amp':
+                            replacement = '&';
+                            break;
+                        case 'quot':
+                            replacement = '"';
+                            break;
+                        case 'lt':
+                            replacement = '<';
+                            break;
+                        case 'gt':
+                            replacement = '>';
+                            break;
+                        case 'nbsp':
+                            replacement = ' ';
+                            break;
+                    }
+                }
+
+                if (replacement !== null) {
+                    result += text.substring(lastIndex, i) + replacement;
+                    lastIndex = semicolonIndex + 1;
+                    i = semicolonIndex;
+                }
+            }
+        }
+    }
+
+    return result + text.substring(lastIndex);
 };
 
 module.exports = {
