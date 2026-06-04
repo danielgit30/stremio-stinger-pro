@@ -1,0 +1,121 @@
+<<<<<<< SEARCH
+        const cinemetaController = new AbortController();
+        const cinemetaTimeoutId = setTimeout(() => cinemetaController.abort(), CINEMETA_TIMEOUT);
+        const cinemetaConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: cinemetaController.signal };
+
+        const cinemetaData = await fetchCinemeta(id, cinemetaConfig);
+        title = cinemetaData.title;
+        year = cinemetaData.year;
+        const moviedbId = cinemetaData.moviedbId;
+
+        clearTimeout(cinemetaTimeoutId);
+
+        if (!title) {
+            log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
+            log(`=================================\n`);
+            setCacheError(cacheKey);
+            return null;
+        }
+
+        log(`[Stream] Target: "${title}" (${year})`);
+
+        const scraperController = new AbortController();
+        const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
+        const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+
+        try {
+            const results = await runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
+            finalResult = results.finalResult;
+            bestFallback = results.bestFallback;
+
+            rawScraperCache.set(id, {
+                finalResult,
+                bestFallback,
+                title,
+                year,
+                expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+            });
+        } catch (e) {
+            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+            }
+            setCacheError(cacheKey);
+            return null;
+        } finally {
+            clearTimeout(scraperTimeoutId);
+            scraperController.abort();
+        }
+    }
+=======
+        if (redisCache.isRedisEnabled()) {
+            const redisScraperData = await redisCache.getCache(`rawScraper_${id}`);
+            if (redisScraperData !== null) {
+                log(`[Stream] Raw Scraper Cache HIT (Redis). Bypassing duplicate network requests.`);
+                finalResult = redisScraperData.finalResult;
+                bestFallback = redisScraperData.bestFallback;
+                title = redisScraperData.title;
+                year = redisScraperData.year;
+
+                rawScraperCache.set(id, {
+                    finalResult,
+                    bestFallback,
+                    title,
+                    year,
+                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                });
+            }
+        }
+
+        if (!title) {
+            const cinemetaController = new AbortController();
+            const cinemetaTimeoutId = setTimeout(() => cinemetaController.abort(), CINEMETA_TIMEOUT);
+            const cinemetaConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: cinemetaController.signal };
+
+            const cinemetaData = await fetchCinemeta(id, cinemetaConfig);
+            title = cinemetaData.title;
+            year = cinemetaData.year;
+            const moviedbId = cinemetaData.moviedbId;
+
+            clearTimeout(cinemetaTimeoutId);
+
+            if (!title) {
+                log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
+                log(`=================================\n`);
+                setCacheError(cacheKey);
+                return null;
+            }
+
+            log(`[Stream] Target: "${title}" (${year})`);
+
+            const scraperController = new AbortController();
+            const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
+            const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+
+            try {
+                const results = await runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
+                finalResult = results.finalResult;
+                bestFallback = results.bestFallback;
+
+                rawScraperCache.set(id, {
+                    finalResult,
+                    bestFallback,
+                    title,
+                    year,
+                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                });
+                if (redisCache.isRedisEnabled()) {
+                    redisCache.setCache(`rawScraper_${id}`, { finalResult, bestFallback, title, year }, Math.floor(CACHE_TTL_SUCCESS / 1000));
+                }
+            } catch (e) {
+                if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                    console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+                }
+                setCacheError(cacheKey);
+                return null;
+            } finally {
+                clearTimeout(scraperTimeoutId);
+                scraperController.abort();
+            }
+        }
+    }
+>>>>>>> REPLACE
