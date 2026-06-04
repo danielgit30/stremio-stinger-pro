@@ -7,11 +7,7 @@ const scrapers = require('../scrapers');
 const { formatMessage } = require('../utils/formatter');
 const { log } = require('../utils/logger');
 
-
-
 const activeRequests = new Map();
-
-
 
 const parseRequestConfig = (req) => {
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
@@ -49,15 +45,15 @@ const getCachedStream = async (cacheKey) => {
         const redisData = await redisCache.getCache(cacheKey);
         if (redisData !== null) {
             log(`[Stream] Cache HIT (Redis). Resolving from Redis.`);
-            
+
             let stream = redisData;
             if (redisData.isCachedWrapper) {
                 stream = redisData.stream;
             }
-            
+
             const ttl = stream === null ? CACHE_TTL_ERROR : CACHE_TTL_SUCCESS;
-            streamCache.set(cacheKey, { expiresAt: Date.now() + ttl, stream }); 
-            
+            streamCache.set(cacheKey, { expiresAt: Date.now() + ttl, stream });
+
             return { hit: true, stream };
         }
     }
@@ -132,10 +128,7 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
         const pWiki = scrapers.checkWikipedia(title).catch(() => null);
 
         try {
-            finalResult = await Promise.any([
-                checkDefinitive(pTmdb, 'TMDB'),
-                checkDefinitive(pWiki, 'Wikipedia'),
-            ]);
+            finalResult = await Promise.any([checkDefinitive(pTmdb, 'TMDB'), checkDefinitive(pWiki, 'Wikipedia')]);
         } catch {
             // AggregateError: All promises were rejected (meaning no definitive result)
             // finalResult remains what it was initialized/set to (null)
@@ -184,7 +177,11 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             log(`=================================\n`);
             streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
             if (redisCache.isRedisEnabled()) {
-                redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
+                redisCache.setCache(
+                    cacheKey,
+                    { isCachedWrapper: true, stream: null },
+                    Math.floor(CACHE_TTL_ERROR / 1000)
+                );
             }
             return null;
         }
@@ -213,7 +210,11 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             }
             streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
             if (redisCache.isRedisEnabled()) {
-                redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
+                redisCache.setCache(
+                    cacheKey,
+                    { isCachedWrapper: true, stream: null },
+                    Math.floor(CACHE_TTL_ERROR / 1000)
+                );
             }
             return null;
         } finally {
@@ -222,22 +223,25 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         }
     }
 
-    const resolvedResult = finalResult || bestFallback || {
-        mid: false,
-        post: false,
-        no: false,
-        bloopers: false,
-        sequel: false,
-        url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
-        source: 'Aggregated',
-    };
+    const resolvedResult = finalResult ||
+        bestFallback || {
+            mid: false,
+            post: false,
+            no: false,
+            bloopers: false,
+            sequel: false,
+            url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+            source: 'Aggregated',
+        };
 
     log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
 
     const stream = {
         name: 'After-Credits Scenes',
         title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `\nSource: ${resolvedResult.source}` : ''}`,
-        url: resolvedResult.url || `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+        url:
+            resolvedResult.url ||
+            `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
     };
 
     const cacheDuration = CACHE_TTL_SUCCESS;

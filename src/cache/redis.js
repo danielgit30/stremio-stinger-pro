@@ -1,5 +1,6 @@
 const { createClient } = require('redis');
 const { sanitizeError } = require('../utils/network');
+const { log } = require('../utils/logger');
 
 let redisClient;
 let useRedis = false;
@@ -12,7 +13,7 @@ if (process.env.REDIS_URL) {
     redisClient
         .connect()
         .then(() => {
-            console.log('[System] Redis distributed cache connected.');
+            log('[System] Redis distributed cache connected.');
             useRedis = true;
         })
         .catch((err) => console.error('Failed to connect to Redis', sanitizeError(err.message || err)));
@@ -46,7 +47,7 @@ const quitRedis = async () => {
     if (useRedis && redisClient) {
         try {
             await redisClient.quit();
-            console.log('[System] Redis client disconnected gracefully.');
+            log('[System] Redis client disconnected gracefully.');
         } catch (e) {
             console.error('Redis quit error', sanitizeError(e.message || e));
         }
