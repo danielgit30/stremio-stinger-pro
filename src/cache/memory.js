@@ -1,60 +1,39 @@
-const { MAX_CACHE_SIZE } = require('../config');
+const { LRUCache } = require('lru-cache');
+const { MAX_CACHE_SIZE, CACHE_TTL_SUCCESS } = require('../config');
 
-class MemoryCache {
-    constructor() {
-        this._cache = new Map();
-    }
-
-    prune() {
-        const now = Date.now();
-        for (const [key, value] of this._cache.entries()) {
-            if (value && value.expiresAt && now > value.expiresAt) {
-                this._cache.delete(key);
-            }
-        }
+class MemoryCacheWrapper {
+    constructor(defaultTtlMs) {
+        this.cache = new LRUCache({
+            max: MAX_CACHE_SIZE,
+            ttl: defaultTtlMs,
+            updateAgeOnGet: true, // Equivalent to the LRU refresh behavior
+        });
     }
 
     has(key) {
-        return this._cache.has(key);
+        return this.cache.has(key);
     }
 
     get(key) {
-        const value = this._cache.get(key);
-        if (value) {
-            // Convert FIFO to LRU by deleting and re-inserting
-            this._cache.delete(key);
-            this._cache.set(key, value);
-        }
-        return value;
+        return this.cache.get(key);
     }
 
     delete(key) {
-        return this._cache.delete(key);
+        return this.cache.delete(key);
     }
 
     set(key, value) {
-        const existed = this._cache.delete(key);
-        if (!existed && this._cache.size >= MAX_CACHE_SIZE) {
-            const firstKey = this._cache.keys().next().value;
-            this._cache.delete(firstKey);
+        let itemTtl = undefined;
+        if (value && value.expiresAt) {
+            itemTtl = Math.max(1, value.expiresAt - Date.now());
         }
-        this._cache.set(key, value);
+        this.cache.set(key, value, { ttl: itemTtl });
     }
 }
 
-const streamCache = new MemoryCache();
-const cinemetaCache = new MemoryCache();
-const rawScraperCache = new MemoryCache();
-
-const gcInterval = setInterval(
-    () => {
-        streamCache.prune();
-        cinemetaCache.prune();
-        rawScraperCache.prune();
-    },
-    10 * 60 * 1000
-); // 10 minutes
-gcInterval.unref();
+const streamCache = new MemoryCacheWrapper(CACHE_TTL_SUCCESS);
+const cinemetaCache = new MemoryCacheWrapper(CACHE_TTL_SUCCESS);
+const rawScraperCache = new MemoryCacheWrapper(CACHE_TTL_SUCCESS);
 
 module.exports = {
     streamCache,

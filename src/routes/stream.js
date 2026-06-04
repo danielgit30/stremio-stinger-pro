@@ -7,8 +7,12 @@ const scrapers = require('../scrapers');
 const { formatMessage } = require('../utils/formatter');
 const { log } = require('../utils/logger');
 
-const activeRequests = new Map();
+const { LRUCache } = require('lru-cache');
 
+const activeRequests = new LRUCache({
+    max: 1000,
+    ttl: 30000, // Safety net TTL for requests hanging
+});
 const setCacheError = (cacheKey) => {
     streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
     if (redisCache.isRedisEnabled()) {
@@ -319,19 +323,12 @@ const streamHandler = async (req, res) => {
     if (activeRequests.has(cacheKey)) {
         log(`[Stream] Cache MISS. Concurrent request detected for key: ${cacheKey}. Coalescing...`);
         const p = activeRequests.get(cacheKey);
-        activeRequests.delete(cacheKey);
-        activeRequests.set(cacheKey, p);
         try {
             const stream = await p;
             return res.json({ streams: stream ? [stream] : [] });
         } catch {
             return res.json({ streams: [] });
         }
-    }
-
-    if (activeRequests.size >= 1000) {
-        const firstKey = activeRequests.keys().next().value;
-        activeRequests.delete(firstKey);
     }
 
     const scrapePromise = processScrapingSequence(id, apiKey, cacheKey, styleConfig);

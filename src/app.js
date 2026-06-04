@@ -31,25 +31,25 @@ app.use((req, res, next) => {
 
 app.set('trust proxy', 1);
 
+const { LRUCache } = require('lru-cache');
+
 // Rate Limiting
-const rateLimitMap = new Map();
+const rateLimitMap = new LRUCache({
+    max: 5000,
+    ttl: RATE_LIMIT_WINDOW_MS,
+    updateAgeOnGet: false, // We handle TTL manually for rate limiting windows
+});
 
 const applyLocalRateLimit = (ip, now) => {
-    const clientData = rateLimitMap.get(ip) || { count: 0, startTime: now };
-
-    if (now - clientData.startTime > RATE_LIMIT_WINDOW_MS) {
-        clientData.count = 1;
-        clientData.startTime = now;
+    let clientData = rateLimitMap.get(ip);
+    
+    if (!clientData || now - clientData.startTime > RATE_LIMIT_WINDOW_MS) {
+        clientData = { count: 1, startTime: now };
     } else {
         clientData.count++;
     }
 
-    const hasIp = rateLimitMap.delete(ip);
-    if (rateLimitMap.size >= 5000 && !hasIp) {
-        const firstKey = rateLimitMap.keys().next().value;
-        rateLimitMap.delete(firstKey);
-    }
-    rateLimitMap.set(ip, clientData);
+    rateLimitMap.set(ip, clientData, { ttl: Math.max(1, clientData.startTime + RATE_LIMIT_WINDOW_MS - now) });
 
     return {
         currentCount: clientData.count,
