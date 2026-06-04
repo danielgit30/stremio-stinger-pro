@@ -75,6 +75,20 @@ const fetchCinemeta = async (id, cinemetaConfig) => {
         return { title: cachedCinemeta.title, year: cachedCinemeta.year, moviedbId: cachedCinemeta.moviedbId };
     }
 
+    if (redisCache.isRedisEnabled()) {
+        const redisCinemeta = await redisCache.getCache(`cinemeta_${id}`);
+        if (redisCinemeta !== null) {
+            log(`[Stream] Cinemeta Cache HIT (Redis) for ID: ${id}`);
+            cinemetaCache.set(id, {
+                title: redisCinemeta.title,
+                year: redisCinemeta.year,
+                moviedbId: redisCinemeta.moviedbId,
+                expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+            });
+            return { title: redisCinemeta.title, year: redisCinemeta.year, moviedbId: redisCinemeta.moviedbId };
+        }
+    }
+
     try {
         const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
         const title = metaRes.data?.meta?.name;
@@ -88,6 +102,9 @@ const fetchCinemeta = async (id, cinemetaConfig) => {
                 moviedbId,
                 expiresAt: Date.now() + CACHE_TTL_SUCCESS,
             });
+            if (redisCache.isRedisEnabled()) {
+                redisCache.setCache(`cinemeta_${id}`, { title, year, moviedbId }, Math.floor(CACHE_TTL_SUCCESS / 1000));
+            }
             return { title, year, moviedbId };
         }
     } catch (e) {
