@@ -2,10 +2,7 @@
 const RE_HTML_TAGS = /<[^>]*>?/gm;
 
 const RE_YEAR = /\(\d{4}\)/g;
-const RE_NON_WORD = /[^\w\s]/g;
-const RE_MULTI_SPACE = /\s+/g;
 const RE_ARTICLE_START = /^(the|a|an)\s+/i;
-const RE_ARTICLE_END = /\s+(the|a|an)$/i;
 const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
 const RE_WIKI_PARENS = /\s*\(.*?\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
@@ -50,8 +47,51 @@ const safeTokens = new Set([
 ]);
 
 const cleanTitle = (str) => {
-    let s = str.replace(RE_NON_WORD, ' ').replace(RE_MULTI_SPACE, ' ').trim();
-    return s.replace(RE_ARTICLE_START, '').replace(RE_ARTICLE_END, '').trim();
+    if (!str) return '';
+    let i = 0;
+    let len = str.length;
+    let wordStart = -1;
+    let words = [];
+
+    for (; i < len; i++) {
+        let code = str.charCodeAt(i);
+        if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 95) {
+            if (wordStart === -1) wordStart = i;
+        } else {
+            if (wordStart !== -1) {
+                words.push(str.substring(wordStart, i));
+                wordStart = -1;
+            }
+        }
+    }
+    if (wordStart !== -1) {
+        words.push(str.substring(wordStart, len));
+    }
+
+    if (words.length === 0) return '';
+
+    let start = 0;
+    let end = words.length - 1;
+
+    if (words.length > 1) {
+        let first = words[0].toLowerCase();
+        if (first === 'the' || first === 'a' || first === 'an') {
+            start = 1;
+        }
+    }
+
+    if (end > start) {
+        let last = words[end].toLowerCase();
+        if (last === 'the' || last === 'a' || last === 'an') {
+            end--;
+        }
+    }
+
+    let res = words[start];
+    for (let j = start + 1; j <= end; j++) {
+        res += ' ' + words[j];
+    }
+    return res;
 };
 
 const isSafeSuffix = (str) => {
