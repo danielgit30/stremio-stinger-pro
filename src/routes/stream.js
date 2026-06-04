@@ -450,7 +450,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     if (styleConfig.showRelated && relatedData) {
         streamsToReturn.push({
-            name: relatedData.collectionName || 'Part of a Collection',
+            name: relatedData.collectionName ? `Part of ${relatedData.collectionName}` : 'Part of a Collection',
             title: formatRelatedMessage(styleConfig, relatedData),
             url: relatedData.collectionUrl,
         });
