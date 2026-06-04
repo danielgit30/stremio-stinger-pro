@@ -24,7 +24,7 @@ app.use((req, res, next) => {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self'; img-src 'self' https://github.com data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     );
     next();
 });
