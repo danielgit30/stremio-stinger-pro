@@ -60,9 +60,14 @@ function updatePreview() {
     if (isWiki && !isMid && !isPost) {
         lines.push(style === 'simple' ? 'Unclassified Scene' : '❓ Unclassified Scene');
     } else {
-        if (isMid && isPost)
-            lines.push(style === 'simple' ? 'Mid-Credits Scene<br>Post-Credits Scene' : '🍿 Mid & Post-Credits Scenes');
-        else if (isMid) lines.push(style === 'simple' ? 'Mid-Credits Scene' : '⏳ Mid-Credits Scene');
+        if (isMid && isPost) {
+            if (style === 'simple') {
+                lines.push('Mid-Credits Scene');
+                lines.push('Post-Credits Scene');
+            } else {
+                lines.push('🍿 Mid & Post-Credits Scenes');
+            }
+        } else if (isMid) lines.push(style === 'simple' ? 'Mid-Credits Scene' : '⏳ Mid-Credits Scene');
         else if (isPost) lines.push(style === 'simple' ? 'Post-Credits Scene' : '🎬 Post-Credits Scene');
         else if (!isBloopers || !configShowBloopers)
             lines.push(style === 'simple' ? 'No Bonus Scenes' : '🏃‍♂️ Nothing But Credits');
@@ -85,7 +90,13 @@ function updatePreview() {
         lines.push(`Source: ${mockSource}`);
     }
 
-    previewText.innerHTML = lines.join('<br>');
+    previewText.textContent = '';
+    lines.forEach((line, index) => {
+        previewText.appendChild(document.createTextNode(line));
+        if (index < lines.length - 1) {
+            previewText.appendChild(document.createElement('br'));
+        }
+    });
 }
 
 function validateApiKey() {
