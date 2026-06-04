@@ -54,9 +54,37 @@ const quitRedis = async () => {
     }
 };
 
+const incrementRateLimit = async (key, ttlSeconds) => {
+    if (useRedis) {
+        try {
+            const multi = redisClient.multi();
+            multi.incr(key);
+            multi.pttl(key);
+            const results = await multi.exec();
+
+            const count = results[0];
+            let pttl = results[1];
+
+            // If key has no expiration (-1) or didn't exist (-2) before incr
+            // set the expiration
+            if (pttl === -1 || pttl === -2) {
+                await redisClient.expire(key, ttlSeconds);
+                pttl = ttlSeconds * 1000;
+            }
+
+            return { count, pttl };
+        } catch (e) {
+            console.error('Redis incr error', sanitizeError(e.message || e));
+            return null;
+        }
+    }
+    return null;
+};
+
 module.exports = {
     getCache,
     setCache,
     isRedisEnabled: () => useRedis,
     quitRedis,
+    incrementRateLimit,
 };

@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config');
 const { sanitizeError } = require('./utils/network');
+const { incrementRateLimit, isRedisEnabled } = require('./cache/redis');
 const { manifestHandler } = require('./routes/manifest');
 const { streamHandler } = require('./routes/stream');
 const { serveConfig } = require('./routes/ui');
@@ -33,11 +34,7 @@ app.set('trust proxy', 1);
 // Rate Limiting
 const rateLimitMap = new Map();
 
-const rateLimiter = (req, res, next) => {
-    const ip = req.ip;
-    if (!ip) return next();
-
-    const now = Date.now();
+const applyLocalRateLimit = (ip, now) => {
     const clientData = rateLimitMap.get(ip) || { count: 0, startTime: now };
 
     if (now - clientData.startTime > RATE_LIMIT_WINDOW_MS) {
@@ -47,32 +44,66 @@ const rateLimiter = (req, res, next) => {
         clientData.count++;
     }
 
-    // Refresh to front of map for LRU iteration
     const hasIp = rateLimitMap.delete(ip);
-
-    // Prevent memory exhaustion DoS
     if (rateLimitMap.size >= 5000 && !hasIp) {
         const firstKey = rateLimitMap.keys().next().value;
         rateLimitMap.delete(firstKey);
     }
-
     rateLimitMap.set(ip, clientData);
 
-    const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientData.count);
-    const resetTime = Math.ceil((clientData.startTime + RATE_LIMIT_WINDOW_MS) / 1000);
+    return {
+        currentCount: clientData.count,
+        resetTimeRemainingMs: Math.max(0, clientData.startTime + RATE_LIMIT_WINDOW_MS - now),
+    };
+};
 
-    res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
-    res.setHeader('X-RateLimit-Remaining', remaining);
-    res.setHeader('X-RateLimit-Reset', resetTime);
+const rateLimiter = async (req, res, next) => {
+    try {
+        const ip = req.ip;
+        if (!ip) return next();
 
-    if (clientData.count > RATE_LIMIT_MAX_REQUESTS) {
-        console.warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
-        const retryAfter = Math.ceil((clientData.startTime + RATE_LIMIT_WINDOW_MS - now) / 1000);
-        res.setHeader('Retry-After', retryAfter);
-        return res.status(429).json({ error: 'Too many requests, please try again later.' });
+        const now = Date.now();
+        let currentCount = 0;
+        let resetTimeRemainingMs = 0;
+
+        if (isRedisEnabled()) {
+            const redisKey = `ratelimit_${ip}`;
+            const windowSeconds = Math.ceil(RATE_LIMIT_WINDOW_MS / 1000);
+
+            const result = await incrementRateLimit(redisKey, windowSeconds);
+            if (result !== null) {
+                currentCount = result.count;
+                resetTimeRemainingMs = result.pttl;
+            } else {
+                const localRes = applyLocalRateLimit(ip, now);
+                currentCount = localRes.currentCount;
+                resetTimeRemainingMs = localRes.resetTimeRemainingMs;
+            }
+        } else {
+            const localRes = applyLocalRateLimit(ip, now);
+            currentCount = localRes.currentCount;
+            resetTimeRemainingMs = localRes.resetTimeRemainingMs;
+        }
+
+        const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - currentCount);
+        const resetTimeSec = Math.ceil((now + resetTimeRemainingMs) / 1000);
+
+        res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+        res.setHeader('X-RateLimit-Remaining', remaining);
+        res.setHeader('X-RateLimit-Reset', resetTimeSec);
+
+        if (currentCount > RATE_LIMIT_MAX_REQUESTS) {
+            console.warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
+            const retryAfterSec = Math.ceil(resetTimeRemainingMs / 1000);
+            res.setHeader('Retry-After', retryAfterSec > 0 ? retryAfterSec : Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
+            return res.status(429).json({ error: 'Too many requests, please try again later.' });
+        }
+
+        next();
+    } catch (e) {
+        console.error('Rate limiter error', sanitizeError(e.message || e));
+        next();
     }
-
-    next();
 };
 
 // Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress
