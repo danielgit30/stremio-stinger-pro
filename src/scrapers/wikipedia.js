@@ -3,6 +3,9 @@ const cheerio = require('cheerio');
 const { WIKI_TTL } = require('../config');
 const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
 const { sanitizeError } = require('../utils/network');
+
+const WIKI_MID_REGEX = /mid-|during/;
+const WIKI_POST_REGEX = /post-|after/;
 const redisCache = require('../cache/redis');
 const { log } = require('../utils/logger');
 const { getResultObj } = require('../utils/formatter');
@@ -66,8 +69,8 @@ async function buildWikiIndex() {
                 const cleanTitle = wikiNormalize(titleText);
                 const rowText = $el.text().toLowerCase();
 
-                let hasMid = rowText.includes('mid-') || rowText.includes('during');
-                let hasPost = rowText.includes('post-') || rowText.includes('after');
+                let hasMid = WIKI_MID_REGEX.test(rowText);
+                let hasPost = WIKI_POST_REGEX.test(rowText);
                 let hasBloopers = BLOOPER_REGEX.test(rowText);
 
                 newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
