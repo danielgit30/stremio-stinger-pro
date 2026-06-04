@@ -80,14 +80,14 @@ function updatePreview() {
             else lines.push('🎬 Post-Credits Scene');
         } else if (!isBloopers || !configShowBloopers) {
             if (style === 'simple') lines.push('None');
-            else if (style === 'monochrome') lines.push('𐦂༄ Nothing But Credits');
+            else if (style === 'monochrome') lines.push('𐦂 Nothing But Credits');
             else lines.push('🏃‍♂️ Nothing But Credits');
         }
     }
 
     if (configShowBloopers && isBloopers) {
         if (style === 'simple') lines.push('Outtakes');
-        else if (style === 'monochrome') lines.push('🗯 Outtakes');
+        else if (style === 'monochrome') lines.push('☄ Outtakes');
         else lines.push('🎭 Outtakes');
     }
 

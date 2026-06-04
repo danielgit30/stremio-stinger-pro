@@ -27,7 +27,7 @@ const formatMessage = (styleConfig, data) => {
         else if (data.post) output.push('⤵︎ Post-Credits Scene');
         else if (!data.bloopers || !showBloopers) {
             output.push(
-                data.no || (data.bloopers && !showBloopers) ? '𐦂༄ Nothing But Credits' : "⊘ Couldn't Find Stingers"
+                data.no || (data.bloopers && !showBloopers) ? '𐦂 Nothing But Credits' : "⊘ Couldn't Find Stingers"
             );
         }
     } else {
@@ -43,7 +43,7 @@ const formatMessage = (styleConfig, data) => {
 
     if (showBloopers && data.bloopers) {
         if (isSimple) output.push('Outtakes');
-        else if (isMonochrome) output.push('🗯 Outtakes');
+        else if (isMonochrome) output.push('☄ Outtakes');
         else output.push('🎭 Outtakes');
     }
 
