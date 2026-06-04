@@ -88,7 +88,6 @@ app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: 
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
 
-
 app.get('/manifest.json', manifestHandler);
 app.get('/:p1/manifest.json', manifestHandler);
 app.get('/:style/:apiKey/manifest.json', manifestHandler);
@@ -100,7 +99,10 @@ app.get('/:style/:apiKey/stream/:type/:id.json', rateLimiter, streamHandler);
 // Global Error Boundary
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-    console.error(`[System Error] ${sanitizeError(err.message)}`, err.stack ? `\nStack: ${sanitizeError(err.stack)}` : '');
+    console.error(
+        `[System Error] ${sanitizeError(err.message)}`,
+        err.stack ? `\nStack: ${sanitizeError(err.stack)}` : ''
+    );
     res.status(500).json({ error: 'Internal Server Error', message: 'An unexpected error occurred.' });
 });
 

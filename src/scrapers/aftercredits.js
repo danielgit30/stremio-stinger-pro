@@ -46,8 +46,6 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     return potentialMatches[0];
 }
 
-
-
 async function parseAfterCreditsPage(bestMatch, reqConfig) {
     const { id, url } = bestMatch;
 
