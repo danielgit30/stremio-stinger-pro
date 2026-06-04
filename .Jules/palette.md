@@ -1,3 +1,0 @@
-## 2024-06-03 - Custom Glassmorphic Inputs Require Explicit ARIA States
-**Learning:** The custom glassmorphic inputs and select triggers in this app rely heavily on CSS pseudo-classes (`:focus`, border colors) to indicate state. However, dynamic form validation scripts often forget to sync `aria-invalid="true"` or explicit `aria-describedby` when these visual errors appear. Also, custom buttons without text (like the password visibility toggle) need `aria-label`.
-**Action:** When working on custom-styled forms, ensure JavaScript validation explicitly toggles ARIA attributes alongside visual class/style changes, and use `:focus-visible` instead of just `:focus` on buttons to support keyboard navigation without disrupting mouse clicks.

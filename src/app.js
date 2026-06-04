@@ -8,22 +8,25 @@ const { incrementRateLimit, isRedisEnabled } = require('./cache/redis');
 const { manifestHandler } = require('./routes/manifest');
 const { streamHandler } = require('./routes/stream');
 const { serveConfig } = require('./routes/ui');
+const { warn, error } = require('./utils/logger');
 
 const app = express();
 
 app.use(compression());
 app.use(cors());
 
-// Security Headers Middleware
+// Optimized Security Headers Middleware
+const SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Content-Security-Policy':
+        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'",
+};
+
 app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
-    );
+    res.set(SECURITY_HEADERS);
     next();
 });
 
@@ -91,7 +94,7 @@ const rateLimiter = async (req, res, next) => {
         res.setHeader('X-RateLimit-Reset', resetTimeSec);
 
         if (currentCount > RATE_LIMIT_MAX_REQUESTS) {
-            console.warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
+            warn(`[Security] Rate limit exceeded for IP: ${sanitizeError(ip)}`);
             const retryAfterSec = Math.ceil(resetTimeRemainingMs / 1000);
             res.setHeader('Retry-After', retryAfterSec > 0 ? retryAfterSec : Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
             return res.status(429).json({ error: 'Too many requests, please try again later.' });
@@ -99,7 +102,7 @@ const rateLimiter = async (req, res, next) => {
 
         next();
     } catch (e) {
-        console.error('Rate limiter error', sanitizeError(e.message || e));
+        error('Rate limiter error', sanitizeError(e.message || e));
         next();
     }
 };
@@ -136,10 +139,7 @@ app.get('/:style/:apiKey/stream/:type/:id.json', rateLimiter, streamHandler);
 // Global Error Boundary
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-    console.error(
-        `[System Error] ${sanitizeError(err.message)}`,
-        err.stack ? `\nStack: ${sanitizeError(err.stack)}` : ''
-    );
+    error(`[System Error] ${sanitizeError(err.message)}`, err.stack ? `\nStack: ${sanitizeError(err.stack)}` : '');
 
     // Add Retry-After for upstream timeouts or rate limits bubbling up
     if (err.message && (err.message.includes('timeout') || err.message.includes('ETIMEDOUT'))) {

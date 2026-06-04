@@ -123,27 +123,28 @@ function updatePreview() {
         relatedBox.style.display = 'block';
         relatedText.textContent = '';
         if (style === 'simple') {
-            relatedText.appendChild(document.createTextNode('Based on Novel'));
+            relatedText.appendChild(document.createTextNode('Based on Comic: Iron Man (1968)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('Prequel: Sample Movie 1'));
+            relatedText.appendChild(document.createTextNode('Prequel: Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('Sequel: Sample Movie 2'));
+            relatedText.appendChild(document.createTextNode('Sequel: Iron Man 3 (2013)'));
         } else if (style === 'monochrome') {
-            relatedText.appendChild(document.createTextNode('✐ Based on Novel'));
+            relatedText.appendChild(document.createTextNode('✐ Based on Comic: Iron Man (1968)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('◂ Sample Movie 1'));
+            relatedText.appendChild(document.createTextNode('◂ Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('▸ Sample Movie 2'));
+            relatedText.appendChild(document.createTextNode('▸ Iron Man 3 (2013)'));
         } else {
-            relatedText.appendChild(document.createTextNode('📖 Based on Novel'));
+            relatedText.appendChild(document.createTextNode('📖 Based on Comic: Iron Man (1968)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('⏪ Sample Movie 1'));
+            relatedText.appendChild(document.createTextNode('⏪ Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('⏩ Sample Movie 2'));
+            relatedText.appendChild(document.createTextNode('⏩ Iron Man 3 (2013)'));
         }
     } else {
         relatedBox.style.display = 'none';
     }
+    saveConfigToLocalStorage();
 }
 
 function validateApiKey() {
@@ -151,25 +152,28 @@ function validateApiKey() {
     const key = apiKeyInput.value.trim();
     const errorSpan = document.getElementById('apiKeyError');
 
+    let result;
     if (key === '') {
         errorSpan.style.display = 'none';
         apiKeyInput.style.borderColor = '';
         apiKeyInput.setAttribute('aria-invalid', 'false');
-        return true;
-    }
-
-    const isValid = /^[a-f0-9]{32}$/i.test(key);
-    if (isValid) {
-        errorSpan.style.display = 'none';
-        apiKeyInput.style.borderColor = 'var(--success-color)';
-        apiKeyInput.setAttribute('aria-invalid', 'false');
-        return true;
+        result = true;
     } else {
-        errorSpan.style.display = 'block';
-        apiKeyInput.style.borderColor = 'var(--danger-color)';
-        apiKeyInput.setAttribute('aria-invalid', 'true');
-        return false;
+        const isValid = /^[a-f0-9]{32}$/i.test(key);
+        if (isValid) {
+            errorSpan.style.display = 'none';
+            apiKeyInput.style.borderColor = 'var(--success-color)';
+            apiKeyInput.setAttribute('aria-invalid', 'false');
+            result = true;
+        } else {
+            errorSpan.style.display = 'block';
+            apiKeyInput.style.borderColor = 'var(--danger-color)';
+            apiKeyInput.setAttribute('aria-invalid', 'true');
+            result = false;
+        }
     }
+    saveConfigToLocalStorage();
+    return result;
 }
 
 function installAddon() {
@@ -205,11 +209,30 @@ function installAddon() {
 
 function copyLink() {
     const copyBtn = document.querySelector('.copy-btn');
-    navigator.clipboard.writeText(currentHttpsUrl).then(() => {
-        const ogText = copyBtn.innerText;
-        copyBtn.innerText = 'Copied! ✓';
-        setTimeout(() => (copyBtn.innerText = ogText), 2000);
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(currentHttpsUrl).then(() => {
+            const ogText = copyBtn.innerText;
+            copyBtn.innerText = 'Copied! ✓';
+            setTimeout(() => (copyBtn.innerText = ogText), 2000);
+        });
+    } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = currentHttpsUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            const ogText = copyBtn.innerText;
+            copyBtn.innerText = 'Copied! ✓';
+            setTimeout(() => (copyBtn.innerText = ogText), 2000);
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
+    }
 }
 
 function initCustomSelect() {
@@ -304,8 +327,87 @@ function initCustomSelect() {
     });
 }
 
+function saveConfigToLocalStorage() {
+    try {
+        const key = document.getElementById('apiKey')?.value.trim() || '';
+        const style = document.getElementById('displayStyle')?.value || 'colorful';
+        const showSource = document.getElementById('showSource')?.checked ?? true;
+        const showBloopers = document.getElementById('showBloopers')?.checked ?? false;
+        const showSequel = document.getElementById('showSequel')?.checked ?? false;
+        const showRelated = document.getElementById('showRelated')?.checked ?? false;
+
+        localStorage.setItem('stinger_apiKey', key);
+        localStorage.setItem('stinger_style', style);
+        localStorage.setItem('stinger_showSource', showSource);
+        localStorage.setItem('stinger_showBloopers', showBloopers);
+        localStorage.setItem('stinger_showSequel', showSequel);
+        localStorage.setItem('stinger_showRelated', showRelated);
+    } catch (e) {
+        console.warn('Failed to save configuration to localStorage:', e);
+    }
+}
+
+function loadConfigFromLocalStorage() {
+    try {
+        const key = localStorage.getItem('stinger_apiKey');
+        const style = localStorage.getItem('stinger_style');
+        const showSource = localStorage.getItem('stinger_showSource');
+        const showBloopers = localStorage.getItem('stinger_showBloopers');
+        const showSequel = localStorage.getItem('stinger_showSequel');
+        const showRelated = localStorage.getItem('stinger_showRelated');
+
+        const apiKeyInput = document.getElementById('apiKey');
+        if (apiKeyInput && key !== null) {
+            apiKeyInput.value = key;
+        }
+
+        const hiddenSelect = document.getElementById('displayStyle');
+        if (hiddenSelect && style !== null) {
+            hiddenSelect.value = style;
+            const selectValueSpan = document.getElementById('customSelectValue');
+            if (selectValueSpan) {
+                const displayNames = {
+                    colorful: 'Colorful',
+                    monochrome: 'Monochrome',
+                    simple: 'Simple',
+                };
+                selectValueSpan.textContent = displayNames[style] || 'Colorful';
+            }
+            const options = document.querySelectorAll('.custom-option');
+            options.forEach((option) => {
+                if (option.getAttribute('data-value') === style) {
+                    option.classList.add('selected');
+                } else {
+                    option.classList.remove('selected');
+                }
+            });
+        }
+
+        if (showSource !== null) {
+            const checkbox = document.getElementById('showSource');
+            if (checkbox) checkbox.checked = showSource === 'true';
+        }
+        if (showBloopers !== null) {
+            const checkbox = document.getElementById('showBloopers');
+            if (checkbox) checkbox.checked = showBloopers === 'true';
+        }
+        if (showSequel !== null) {
+            const checkbox = document.getElementById('showSequel');
+            if (checkbox) checkbox.checked = showSequel === 'true';
+        }
+        if (showRelated !== null) {
+            const checkbox = document.getElementById('showRelated');
+            if (checkbox) checkbox.checked = showRelated === 'true';
+        }
+    } catch (e) {
+        console.warn('Failed to load configuration from localStorage:', e);
+    }
+}
+
 window.onload = () => {
     initCustomSelect();
+    loadConfigFromLocalStorage();
+    validateApiKey();
     updatePreview();
 
     // Attach event listeners dynamically

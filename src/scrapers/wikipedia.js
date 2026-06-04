@@ -9,7 +9,7 @@ const WIKI_MID_REGEX =
 const WIKI_POST_REGEX =
     /post-|after|following|follows|at the end|very end|once the credits|final scene|last scene|after the final|after the end titles|ends with|concludes with/;
 const redisCache = require('../cache/redis');
-const { log } = require('../utils/logger');
+const { log, error } = require('../utils/logger');
 const { getResultObj } = require('../utils/formatter');
 
 let wikiCache = new Map();
@@ -66,10 +66,21 @@ async function buildWikiIndex(options = {}) {
 
             const newCache = new Map();
 
+            // Optimize memory by extracting only wikitable blocks before handing off to Cheerio
+            const tableRegex = /<table[^>]*class\s*=\s*["'][^"']*wikitable[^"']*["'][^>]*>[\s\S]*?<\/table>/gi;
+            let match;
+            let extractedHtml = '';
+            while ((match = tableRegex.exec(htmlContent)) !== null) {
+                extractedHtml += match[0] + '\n';
+            }
+
+            // Explicitly clear original huge payload before DOM parse
+            htmlContent = '';
+
             // Tight scope for Cheerio to ensure immediate garbage collection
             (() => {
-                const $ = cheerio.load(htmlContent);
-                $('table.wikitable tr').each((i, el) => {
+                const $ = cheerio.load(extractedHtml);
+                $('table tr').each((i, el) => {
                     const $el = $(el);
                     let titleText = '';
 
@@ -97,6 +108,7 @@ async function buildWikiIndex(options = {}) {
             })();
 
             // Explicitly clear references
+            extractedHtml = '';
             htmlContent = '';
 
             wikiCache = newCache;
@@ -109,8 +121,8 @@ async function buildWikiIndex(options = {}) {
                 log(`[Wiki] Saved pre-compiled index to Redis cache.`);
             }
         } catch (e) {
-            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-                console.error(`[Wiki Error] ${sanitizeError(e.message)}`);
+            if (!axios.isCancel(e)) {
+                error(`[Wiki Error] ${sanitizeError(e.message)}`);
             }
         } finally {
             wikiFetchPromise = null;

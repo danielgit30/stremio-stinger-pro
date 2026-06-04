@@ -1,18 +1,29 @@
 const { createClient } = require('redis');
 const { sanitizeError } = require('../utils/network');
-const { log } = require('../utils/logger');
+const { log, warn, error } = require('../utils/logger');
 
 let redisClient;
 let useRedis = false;
 
 // Initialize Redis if URL is provided and not in a test environment
+const luaScript = `
+    local current = redis.call('INCR', KEYS[1])
+    local pttl = redis.call('PTTL', KEYS[1])
+    if pttl < 0 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+        pttl = tonumber(ARGV[1]) * 1000
+    end
+    return {current, pttl}
+`;
+let rateLimitSha = null;
+
 if (process.env.REDIS_URL && process.env.NODE_ENV !== 'test') {
     redisClient = createClient({
         url: process.env.REDIS_URL,
         socket: {
             reconnectStrategy: (retries) => {
                 if (retries > 10) {
-                    console.warn('[System] Redis reconnect limits reached. Falling back to memory cache entirely.');
+                    warn('[System] Redis reconnect limits reached. Falling back to memory cache entirely.');
                     useRedis = false;
                     return new Error('Redis reconnect limits reached');
                 }
@@ -22,22 +33,29 @@ if (process.env.REDIS_URL && process.env.NODE_ENV !== 'test') {
     });
     redisClient.on('error', (err) => {
         if (redisClient.isOpen) {
-            console.error('Redis Client Error', sanitizeError(err.message || err));
+            error('Redis Client Error', sanitizeError(err.message || err));
         }
     });
 
     redisClient
         .connect()
-        .then(() => {
+        .then(async () => {
             if (redisClient.isOpen) {
                 log('[System] Redis distributed cache connected.');
                 useRedis = true;
+                try {
+                    rateLimitSha = await redisClient.sendCommand(['SCRIPT', 'LOAD', luaScript]);
+                    log('[System] Redis rate limit script loaded into cache.');
+                } catch (e) {
+                    warn(
+                        '[System] Failed to load Lua script into Redis, falling back to EVAL',
+                        sanitizeError(e.message || e)
+                    );
+                }
             }
         })
         .catch((err) => {
-            if (redisClient.isOpen) {
-                console.error('Failed to connect to Redis', sanitizeError(err.message || err));
-            }
+            error('Failed to connect to Redis', sanitizeError(err.message || err));
         });
 }
 
@@ -67,7 +85,7 @@ const getCache = async (key) => {
             const data = await withTimeout(redisClient.get(key), 500);
             return data ? JSON.parse(data) : null;
         } catch (e) {
-            console.error('Redis get error', sanitizeError(e.message || e));
+            error('Redis get error', sanitizeError(e.message || e));
             return null;
         }
     }
@@ -80,7 +98,7 @@ const setCache = async (key, value, ttlSeconds) => {
         try {
             await withTimeout(redisClient.setEx(key, ttlSeconds, JSON.stringify(value)), 500);
         } catch (e) {
-            console.error('Redis set error', sanitizeError(e.message || e));
+            error('Redis set error', sanitizeError(e.message || e));
         }
     }
 };
@@ -91,7 +109,7 @@ const quitRedis = async () => {
             await withTimeout(redisClient.disconnect(), 1000);
             log('[System] Redis client disconnected.');
         } catch (e) {
-            console.error('Redis disconnect error', sanitizeError(e.message || e));
+            error('Redis disconnect error', sanitizeError(e.message || e));
         } finally {
             useRedis = false;
         }
@@ -101,29 +119,34 @@ const quitRedis = async () => {
 const incrementRateLimit = async (key, ttlSeconds) => {
     if (useRedis) {
         try {
-            const luaScript = `
-                local current = redis.call('INCR', KEYS[1])
-                local pttl = redis.call('PTTL', KEYS[1])
-                if pttl < 0 then
-                    redis.call('EXPIRE', KEYS[1], ARGV[1])
-                    pttl = tonumber(ARGV[1]) * 1000
-                end
-                return {current, pttl}
-            `;
-            const results = await withTimeout(
-                redisClient.eval(luaScript, {
-                    keys: [key],
-                    arguments: [String(ttlSeconds)],
-                }),
-                500
-            );
+            let results;
+            if (rateLimitSha) {
+                results = await withTimeout(
+                    redisClient.sendCommand(['EVALSHA', rateLimitSha, '1', key, String(ttlSeconds)]),
+                    500
+                );
+            } else {
+                results = await withTimeout(
+                    redisClient.eval(luaScript, {
+                        keys: [key],
+                        arguments: [String(ttlSeconds)],
+                    }),
+                    500
+                );
+            }
 
             const count = results[0];
             const pttl = results[1];
 
             return { count, pttl };
         } catch (e) {
-            console.error('Redis incr error', sanitizeError(e.message || e));
+            // If EVALSHA fails because script is flushed, reset SHA and fallback to EVAL next time
+            if (e.message && e.message.includes('NOSCRIPT')) {
+                rateLimitSha = null;
+                warn('Redis NOSCRIPT error, clearing SHA cache to reload next time');
+            } else {
+                error('Redis incr error', sanitizeError(e.message || e));
+            }
             return null;
         }
     }

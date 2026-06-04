@@ -6,13 +6,14 @@ const {
     axiosConfig,
     CINEMETA_TIMEOUT,
     SCRAPER_TIMEOUT,
+    DEFAULT_TMDB_KEY,
 } = require('../config');
 const { streamCache, cinemetaCache, rawScraperCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
 const { formatMessage, formatRelatedMessage } = require('../utils/formatter');
-const { log } = require('../utils/logger');
+const { log, warn, error } = require('../utils/logger');
 
 const { LRUCache } = require('lru-cache');
 
@@ -95,8 +96,8 @@ const fetchCinemetaNetwork = async (id, signal) => {
             return { title, year, moviedbId };
         }
     } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
+        if (!axios.isCancel(e)) {
+            error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
         }
     }
     return null;
@@ -118,8 +119,8 @@ const fetchTmdbMetadataNetwork = async (imdbId, apiKey, signal) => {
             return { title, year, moviedbId };
         }
     } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[Stream Error] TMDB Metadata Fallback Failed: ${sanitizeError(e.message)}`);
+        if (!axios.isCancel(e)) {
+            error(`[Stream Error] TMDB Metadata Fallback Failed: ${sanitizeError(e.message)}`);
         }
     }
     return null;
@@ -179,7 +180,6 @@ const fetchMetadata = async (id, apiKey) => {
         }
     }
 
-    const { DEFAULT_TMDB_KEY } = require('../config');
     const key = apiKey || DEFAULT_TMDB_KEY;
     let result;
 
@@ -300,7 +300,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                     relatedData,
                     title,
                     year,
-                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                    expiresAt: Date.now() + METADATA_TTL,
                 });
             }
         }
@@ -324,11 +324,21 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
             const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
 
+            let relatedController = null;
+            let relatedTimeoutId = null;
+            let relatedConfig = null;
+
+            if (moviedbId && styleConfig.showRelated) {
+                relatedController = new AbortController();
+                relatedTimeoutId = setTimeout(() => relatedController.abort(), SCRAPER_TIMEOUT);
+                relatedConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: relatedController.signal };
+            }
+
             try {
                 const pScrapers = runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
-                const pRelated = moviedbId
-                    ? scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig)
-                    : Promise.resolve(null);
+                const pRelated = relatedConfig
+                    ? scrapers.getRelatedMovies(moviedbId, apiKey, relatedConfig, id)
+                    : Promise.resolve(undefined);
 
                 const [results, relatedRes] = await Promise.all([pScrapers, pRelated]);
                 finalResult = results.finalResult;
@@ -341,25 +351,31 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                     relatedData,
                     title,
                     year,
-                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                    expiresAt: Date.now() + METADATA_TTL,
                 });
 
                 if (redisCache.isRedisEnabled()) {
                     redisCache.setCache(
                         `rawScraper_${id}`,
                         { finalResult, bestFallback, relatedData, title, year },
-                        Math.floor(CACHE_TTL_SUCCESS / 1000)
+                        Math.floor(METADATA_TTL / 1000)
                     );
                 }
             } catch (e) {
-                if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-                    console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+                if (!axios.isCancel(e)) {
+                    error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
                 }
                 setCacheError(cacheKey);
                 return null;
             } finally {
                 clearTimeout(scraperTimeoutId);
                 scraperController.abort();
+                if (relatedTimeoutId) {
+                    clearTimeout(relatedTimeoutId);
+                }
+                if (relatedController) {
+                    relatedController.abort();
+                }
             }
         }
     }
@@ -373,23 +389,23 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
             const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
             try {
-                relatedData = await scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig);
+                relatedData = await scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig, id);
                 rawScraperCache.set(id, {
                     finalResult,
                     bestFallback,
                     relatedData,
                     title,
                     year,
-                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                    expiresAt: Date.now() + METADATA_TTL,
                 });
                 if (redisCache.isRedisEnabled()) {
                     redisCache.setCache(
                         `rawScraper_${id}`,
                         { finalResult, bestFallback, relatedData, title, year },
-                        Math.floor(CACHE_TTL_SUCCESS / 1000)
+                        Math.floor(METADATA_TTL / 1000)
                     );
                 }
-            } catch (e) {
+            } catch {
                 relatedData = null;
             } finally {
                 clearTimeout(scraperTimeoutId);
@@ -425,7 +441,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     if (styleConfig.showRelated && relatedData) {
         streamsToReturn.push({
-            name: 'Part of a Collection',
+            name: relatedData.collectionName || 'Part of a Collection',
             title: formatRelatedMessage(styleConfig, relatedData),
             url: relatedData.collectionUrl,
         });
@@ -460,7 +476,7 @@ const streamHandler = async (req, res) => {
         return res.json({ streams: [] });
     }
     if (!id || !/^tt\d+$/.test(id)) {
-        console.warn(`[Stream] Invalid ID format: ${sanitizeError(id)}`);
+        warn(`[Stream] Invalid ID format: ${sanitizeError(id)}`);
         res.setHeader('Cache-Control', 'public, max-age=86400');
         return res.json({ streams: [] });
     }

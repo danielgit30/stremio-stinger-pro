@@ -11,13 +11,20 @@ const {
 } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
-const { log } = require('../utils/logger');
+const { log, error } = require('../utils/logger');
 
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
     const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=id,title,link&per_page=10`;
-    const searchRes = await axios.get(searchUrl, reqConfig);
+    let searchRes = await axios.get(searchUrl, reqConfig);
+
+    if ((!searchRes.data || searchRes.data.length === 0) && year) {
+        log(`[AfterCredits] No results with year. Retrying search without year...`);
+        const searchUrlNoYear = `https://aftercredits.com/wp-json/wp/v2/posts?search=${encodeURIComponent(title)}&_fields=id,title,link&per_page=10`;
+        searchRes = await axios.get(searchUrlNoYear, reqConfig);
+    }
+
     let potentialMatches = [];
 
     if (Array.isArray(searchRes.data)) {
@@ -71,7 +78,7 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
             }
         }
     } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+        if (!axios.isCancel(e)) {
             log(`[AfterCredits Warning] Embedded fetch failed: ${sanitizeError(e.message)}. Retrying with fallback...`);
         }
     }
@@ -85,8 +92,8 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
             content = postRes.data?.content?.rendered || '';
             categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
         } catch (e) {
-            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-                console.error(`[AfterCredits Error] Page parse fallback failed: ${sanitizeError(e.message)}`);
+            if (!axios.isCancel(e)) {
+                error(`[AfterCredits Error] Page parse fallback failed: ${sanitizeError(e.message)}`);
             }
             return null;
         }
@@ -142,6 +149,8 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
         return !isNegative;
     };
 
+    let hasStingerInfo = false;
+
     $$('.spoiler-wrap').each((i, el) => {
         const $el = $$(el);
         const headText = $el.find('.spoiler-head').first().text().trim().toLowerCase();
@@ -150,22 +159,23 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
         const isPost = headText.includes('after') || headText.includes('post');
 
         if (isMid || isPost) {
+            hasStingerInfo = true;
             const blockText = $el.text().toLowerCase();
             const isBlooper = BLOOPER_REGEX.test(blockText);
             const isNegative = NEGATIVE_REGEX.test(blockText) && !STINGER_EXCEPTION_REGEX.test(blockText);
 
             if (isMid) {
-                hasMid = updateStingerState(isBlooper, isNegative, hasMid, 'MID');
+                hasMid = hasMid || updateStingerState(isBlooper, isNegative, hasMid, 'MID');
             }
 
             if (isPost) {
-                hasPost = updateStingerState(isBlooper, isNegative, hasPost, 'POST');
+                hasPost = hasPost || updateStingerState(isBlooper, isNegative, hasPost, 'POST');
             }
         }
     });
 
     let isDefinitive = false;
-    if (hasMid || hasPost || bloopers || sequel) {
+    if (hasMid || hasPost || bloopers || sequel || hasStingerInfo) {
         isDefinitive = true;
     }
 
@@ -194,8 +204,8 @@ async function checkAfterCredits(title, year, reqConfig) {
         bestMatch.url = safeUrl;
         return await parseAfterCreditsPage(bestMatch, reqConfig);
     } catch (e) {
-        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
-            console.error(`[AfterCredits Error] ${sanitizeError(e.message)}`);
+        if (!axios.isCancel(e)) {
+            error(`[AfterCredits Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }

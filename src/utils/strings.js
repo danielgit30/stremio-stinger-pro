@@ -7,6 +7,7 @@ const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
 const RE_WIKI_PARENS = /\s*\([^)]*\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
 const RE_FOUR_DIGITS = /^\d{4}$/;
+const RE_WIKI_BRACKETS = /\s*\[[^\]]*\]\s*/g;
 
 const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel|behind-the-scenes)\b/;
 const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
@@ -145,6 +146,7 @@ const isTitleMatch = (linkText, cleanedTargetTitle) => {
 const wikiNormalize = (title) => {
     return title
         .toLowerCase()
+        .replace(RE_WIKI_BRACKETS, '')
         .replace(RE_ARTICLE_START, '')
         .replace(RE_WIKI_ARTICLE_END, '')
         .replace(RE_WIKI_PARENS, '')
