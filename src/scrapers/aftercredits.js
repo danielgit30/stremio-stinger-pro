@@ -87,7 +87,10 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
         try {
             const [postRes, catRes] = await Promise.all([
                 axiosInstance.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
-                axiosInstance.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
+                axiosInstance.get(
+                    `https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`,
+                    reqConfig
+                ),
             ]);
             content = postRes.data?.content?.rendered || '';
             categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());

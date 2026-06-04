@@ -222,7 +222,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         if (franchiseMatch) {
             log(`[TMDB - Related] Detected mega-collection franchise: "${franchiseMatch.name}"`);
             const targetDate = movie.release_date;
-            const neighbors = await getFranchiseNeighbors(franchiseMatch.keywordId, key, reqConfig, targetDate);
+            const neighbors = await getFranchiseNeighbors(franchiseMatch.keywordId, key, reqConfig, targetDate, tmdbId);
             prequel = neighbors.prequel;
             sequel = neighbors.sequel;
 
@@ -359,7 +359,7 @@ function isMainMovie(title) {
     return !BLACKLIST_PATTERNS.some((pattern) => pattern.test(title));
 }
 
-async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetReleaseDate) {
+async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetReleaseDate, currentMovieId) {
     let prequel = null;
     let sequel = null;
     try {
@@ -367,18 +367,18 @@ async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetRelease
             return { prequel, sequel };
         }
 
-        // Prequel: strictly earlier release date, sorted desc
+        // Prequel: release date on or before target release date, sorted desc
         const preRes = axiosInstance
             .get(
-                `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.lt=${targetReleaseDate}&sort_by=primary_release_date.desc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
+                `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.lte=${targetReleaseDate}&sort_by=primary_release_date.desc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
                 reqConfig
             )
             .catch(() => null);
 
-        // Sequel: strictly later release date, sorted asc
+        // Sequel: release date on or after target release date, sorted asc
         const seqRes = axiosInstance
             .get(
-                `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.gt=${targetReleaseDate}&sort_by=primary_release_date.asc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
+                `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.gte=${targetReleaseDate}&sort_by=primary_release_date.asc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
                 reqConfig
             )
             .catch(() => null);
@@ -386,11 +386,13 @@ async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetRelease
         const [pre, seq] = await Promise.all([preRes, seqRes]);
 
         if (pre && pre.data && pre.data.results) {
-            prequel = pre.data.results.find((m) => isMainMovie(m.title)) || null;
+            prequel =
+                pre.data.results.find((m) => isMainMovie(m.title) && Number(m.id) !== Number(currentMovieId)) || null;
         }
 
         if (seq && seq.data && seq.data.results) {
-            sequel = seq.data.results.find((m) => isMainMovie(m.title)) || null;
+            sequel =
+                seq.data.results.find((m) => isMainMovie(m.title) && Number(m.id) !== Number(currentMovieId)) || null;
         }
     } catch (err) {
         error(`[TMDB - Franchise Warning] Neighbor discover failed for keyword ID ${keywordId}: ${err.message}`);
