@@ -282,6 +282,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         bestFallback = cachedScraperData.bestFallback;
         title = cachedScraperData.title;
         year = cachedScraperData.year;
+        relatedData = cachedScraperData.relatedData;
     } else {
         if (redisCache.isRedisEnabled()) {
             const redisScraperData = await redisCache.getCache(`rawScraper_${id}`);
@@ -325,10 +326,9 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
             try {
                 const pScrapers = runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
-                const pRelated =
-                    styleConfig.showRelated && moviedbId
-                        ? scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig)
-                        : Promise.resolve(null);
+                const pRelated = moviedbId
+                    ? scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig)
+                    : Promise.resolve(null);
 
                 const [results, relatedRes] = await Promise.all([pScrapers, pRelated]);
                 finalResult = results.finalResult;
@@ -361,6 +361,42 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 clearTimeout(scraperTimeoutId);
                 scraperController.abort();
             }
+        }
+    }
+
+    if (styleConfig.showRelated && relatedData === undefined) {
+        log(`[Stream] Cache hit but relatedData is undefined. Fetching related data on-demand.`);
+        const metaData = await fetchMetadata(id, apiKey);
+        const moviedbId = metaData?.moviedbId;
+        if (moviedbId) {
+            const scraperController = new AbortController();
+            const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
+            const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+            try {
+                relatedData = await scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig);
+                rawScraperCache.set(id, {
+                    finalResult,
+                    bestFallback,
+                    relatedData,
+                    title,
+                    year,
+                    expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                });
+                if (redisCache.isRedisEnabled()) {
+                    redisCache.setCache(
+                        `rawScraper_${id}`,
+                        { finalResult, bestFallback, relatedData, title, year },
+                        Math.floor(CACHE_TTL_SUCCESS / 1000)
+                    );
+                }
+            } catch (e) {
+                relatedData = null;
+            } finally {
+                clearTimeout(scraperTimeoutId);
+                scraperController.abort();
+            }
+        } else {
+            relatedData = null;
         }
     }
 
