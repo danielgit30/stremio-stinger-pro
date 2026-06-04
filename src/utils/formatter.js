@@ -9,25 +9,25 @@ const formatMessage = (styleConfig, data) => {
     const showBloopers = styleConfig.showBloopers;
 
     if (data.source === 'Wikipedia' && !data.mid && !data.post && !data.bloopers) {
-        if (isSimple) return 'Unclassified Scene';
+        if (isSimple) return 'Unclassified';
         if (isMonochrome) return '⚠ Unclassified Scene';
         return '❓ Unclassified Scene';
     }
 
     if (isSimple) {
-        if (data.mid && data.post) output.push('Mid-Credits Scene\nPost-Credits Scene');
-        else if (data.mid) output.push('Mid-Credits Scene');
-        else if (data.post) output.push('Post-Credits Scene');
+        if (data.mid && data.post) output.push('Mid & Post');
+        else if (data.mid) output.push('Mid Only');
+        else if (data.post) output.push('Post Only');
         else if (!data.bloopers || !showBloopers) {
-            output.push(data.no || (data.bloopers && !showBloopers) ? 'No Bonus Scenes' : 'No Stingers Found');
+            output.push(data.no || (data.bloopers && !showBloopers) ? 'None' : 'No Stingers');
         }
     } else if (isMonochrome) {
-        if (data.mid && data.post) output.push('⤷ Mid-Credits Scene\n⤵︎ Post-Credits Scene');
+        if (data.mid && data.post) output.push('⤹⤷ Mid & Post-Credits Scenes');
         else if (data.mid) output.push('⤷ Mid-Credits Scene');
         else if (data.post) output.push('⤵︎ Post-Credits Scene');
         else if (!data.bloopers || !showBloopers) {
             output.push(
-                data.no || (data.bloopers && !showBloopers) ? '⍈ Nothing But Credits' : "✖ Couldn't Find Stingers"
+                data.no || (data.bloopers && !showBloopers) ? '𐦂 Nothing But Credits' : "⊘ Couldn't Find Stingers"
             );
         }
     } else {
