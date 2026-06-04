@@ -209,29 +209,23 @@ function installAddon() {
 
 function copyLink() {
     const copyBtn = document.querySelector('.copy-btn');
+    if (!currentHttpsUrl) return;
+
+    // navigator.clipboard is available in all modern browsers over HTTPS.
+    // The execCommand('copy') API is deprecated and removed in modern engines —
+    // we fall back to a user-visible prompt instead of a silently broken dead code path.
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(currentHttpsUrl).then(() => {
             const ogText = copyBtn.innerText;
             copyBtn.innerText = 'Copied! ✓';
             setTimeout(() => (copyBtn.innerText = ogText), 2000);
+        }).catch(() => {
+            // Clipboard write was blocked (e.g., permissions denied); surface the URL to the user.
+            window.prompt('Copy the URL below:', currentHttpsUrl);
         });
     } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = currentHttpsUrl;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            const ogText = copyBtn.innerText;
-            copyBtn.innerText = 'Copied! ✓';
-            setTimeout(() => (copyBtn.innerText = ogText), 2000);
-        } catch (err) {
-            console.error('Fallback copy failed', err);
-        }
-        document.body.removeChild(textArea);
+        // Non-HTTPS or very old browser: surface the URL directly.
+        window.prompt('Copy the URL below:', currentHttpsUrl);
     }
 }
 

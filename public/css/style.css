@@ -454,3 +454,46 @@ button:active {
     margin-top: 6px;
     display: none;
 }
+
+/* Inline style migrations — previously scattered in index.html */
+
+/* Checkbox groups whose label stacks vertically (sequel/related options) */
+.checkbox-group--top-align {
+    align-items: flex-start;
+}
+
+.checkbox-group--top-align input[type='checkbox'] {
+    margin-top: 3px;
+}
+
+/* API key visibility toggle button */
+.api-key-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    margin: 0;
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    color: var(--text-muted);
+    box-shadow: none;
+}
+
+/* API key input — leave room for the toggle button */
+.api-key-input-wrapper {
+    position: relative;
+}
+
+.api-key-input-wrapper input {
+    padding-right: 40px;
+}
+
+/* Footer link */
+.footer-link {
+    color: var(--primary-accent);
+    text-decoration: none;
+}
+

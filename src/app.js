@@ -118,10 +118,10 @@ app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: 
 
 // Routes
 app.get('/health', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
         status: 'ok',
         uptime: process.uptime(),
-        memory: process.memoryUsage(),
         redisConnected: isRedisEnabled(),
     });
 });

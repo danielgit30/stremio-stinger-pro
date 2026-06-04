@@ -1,8 +1,22 @@
-const axios = require('axios');
+const { axiosInstance, isCancel } = require('../utils/network');
 const { DEFAULT_TMDB_KEY } = require('../config');
 const { getResultObj } = require('../utils/formatter');
 const { sanitizeError } = require('../utils/network');
 const { log, error } = require('../utils/logger');
+
+/**
+ * Shared helper: resolve a numeric TMDB ID from an IMDb ID via the TMDB /find endpoint.
+ * Extracted from both checkTmdb and getRelatedMovies to eliminate code duplication.
+ */
+async function resolveTmdbIdFromImdb(imdbId, key, reqConfig) {
+    if (!imdbId) return null;
+    const findRes = await axiosInstance.get(
+        `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
+        reqConfig
+    );
+    const movieMatch = findRes.data.movie_results?.[0];
+    return movieMatch ? Number(movieMatch.id) : null;
+}
 
 async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
     log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);
@@ -14,18 +28,8 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
     try {
         let tmdbId = tmdbIdRaw;
 
-        const resolveTmdbId = async () => {
-            if (!imdbId) return null;
-            const findRes = await axios.get(
-                `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
-                reqConfig
-            );
-            const movieMatch = findRes.data.movie_results?.[0];
-            return movieMatch ? Number(movieMatch.id) : null;
-        };
-
         if (!tmdbId) {
-            tmdbId = await resolveTmdbId();
+            tmdbId = await resolveTmdbIdFromImdb(imdbId, key, reqConfig);
             if (!tmdbId) {
                 log(`[TMDB] No match found.`);
                 return null;
@@ -34,17 +38,17 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
 
         let kwRes;
         try {
-            kwRes = await axios.get(
+            kwRes = await axiosInstance.get(
                 `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`,
                 reqConfig
             );
         } catch (err) {
             if (tmdbIdRaw && err.response && err.response.status === 404 && imdbId) {
                 log(`[TMDB] 404 using tmdbIdRaw ${tmdbIdRaw}. Attempting to resolve correct TMDB ID via IMDb ID...`);
-                tmdbId = await resolveTmdbId();
+                tmdbId = await resolveTmdbIdFromImdb(imdbId, key, reqConfig);
                 if (tmdbId) {
                     log(`[TMDB] Resolved correct TMDB ID: ${tmdbId}`);
-                    kwRes = await axios.get(
+                    kwRes = await axiosInstance.get(
                         `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/keywords?api_key=${encodeURIComponent(key)}`,
                         reqConfig
                     );
@@ -85,17 +89,12 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
             isDefinitive
         );
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             error(`[TMDB Error] ${sanitizeError(e.message)}`);
         }
         return null;
     }
 }
-
-module.exports = {
-    checkTmdb,
-    getRelatedMovies,
-};
 
 async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
     log(`\n--- [TMDB - Related] Execution Start: TMDB ID ${tmdbIdRaw} (IMDb: ${imdbId}) ---`);
@@ -108,7 +107,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
     let basedOnPromise = null;
     if (imdbId) {
         log(`[TMDB - Related] Concurrently launching basedon.media lookup...`);
-        basedOnPromise = axios
+        basedOnPromise = axiosInstance
             .get(`https://basedon.media/stream/movie/${encodeURIComponent(imdbId)}.json`, {
                 ...reqConfig,
                 timeout: 3000,
@@ -119,19 +118,9 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
     try {
         let tmdbId = tmdbIdRaw;
 
-        const resolveTmdbId = async () => {
-            if (!imdbId) return null;
-            log(`[TMDB - Related] Resolving TMDB ID from IMDb ID: ${imdbId}...`);
-            const findRes = await axios.get(
-                `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
-                reqConfig
-            );
-            const movieMatch = findRes.data.movie_results?.[0];
-            return movieMatch ? Number(movieMatch.id) : null;
-        };
-
         if (!tmdbId) {
-            tmdbId = await resolveTmdbId();
+            log(`[TMDB - Related] Resolving TMDB ID from IMDb ID: ${imdbId}...`);
+            tmdbId = await resolveTmdbIdFromImdb(imdbId, key, reqConfig);
             if (!tmdbId) {
                 log(`[TMDB - Related] No TMDB ID could be resolved.`);
                 return null;
@@ -142,7 +131,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         let movieRes;
         try {
             log(`[TMDB - Related] Fetching movie details for TMDB ID: ${tmdbId}...`);
-            movieRes = await axios.get(
+            movieRes = await axiosInstance.get(
                 `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?append_to_response=keywords&api_key=${encodeURIComponent(key)}`,
                 reqConfig
             );
@@ -151,10 +140,10 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
                 log(
                     `[TMDB - Related] 404 using tmdbIdRaw ${tmdbIdRaw}. Attempting to resolve correct TMDB ID via IMDb ID...`
                 );
-                tmdbId = await resolveTmdbId();
+                tmdbId = await resolveTmdbIdFromImdb(imdbId, key, reqConfig);
                 if (tmdbId) {
                     log(`[TMDB - Related] Resolved correct TMDB ID: ${tmdbId}. Fetching details...`);
-                    movieRes = await axios.get(
+                    movieRes = await axiosInstance.get(
                         `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?append_to_response=keywords&api_key=${encodeURIComponent(key)}`,
                         reqConfig
                     );
@@ -245,7 +234,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
             log(
                 `[TMDB - Related] Belongs to collection: "${movie.belongs_to_collection.name}" (ID: ${collectionId}). Fetching collection details...`
             );
-            const collectionRes = await axios.get(
+            const collectionRes = await axiosInstance.get(
                 `https://api.themoviedb.org/3/collection/${encodeURIComponent(collectionId)}?api_key=${encodeURIComponent(key)}`,
                 reqConfig
             );
@@ -285,7 +274,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
             collectionUrl: collectionUrl || `https://www.themoviedb.org/movie/${tmdbId}`,
         };
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             error(`[TMDB Error - Related] ${sanitizeError(e.message)}`);
         }
         return null;
@@ -379,7 +368,7 @@ async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetRelease
         }
 
         // Prequel: strictly earlier release date, sorted desc
-        const preRes = axios
+        const preRes = axiosInstance
             .get(
                 `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.lt=${targetReleaseDate}&sort_by=primary_release_date.desc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
                 reqConfig
@@ -387,7 +376,7 @@ async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetRelease
             .catch(() => null);
 
         // Sequel: strictly later release date, sorted asc
-        const seqRes = axios
+        const seqRes = axiosInstance
             .get(
                 `https://api.themoviedb.org/3/discover/movie?with_keywords=${keywordId}&primary_release_date.gt=${targetReleaseDate}&sort_by=primary_release_date.asc&page=1&vote_count.gte=100&api_key=${encodeURIComponent(apiKey)}`,
                 reqConfig
@@ -408,3 +397,8 @@ async function getFranchiseNeighbors(keywordId, apiKey, reqConfig, targetRelease
     }
     return { prequel, sequel };
 }
+
+module.exports = {
+    checkTmdb,
+    getRelatedMovies,
+};

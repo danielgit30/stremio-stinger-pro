@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { axiosInstance, isCancel } = require('../utils/network');
 const cheerio = require('cheerio');
 const {
     cleanTitle,
@@ -17,12 +17,12 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
     const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
     const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=id,title,link&per_page=10`;
-    let searchRes = await axios.get(searchUrl, reqConfig);
+    let searchRes = await axiosInstance.get(searchUrl, reqConfig);
 
     if ((!searchRes.data || searchRes.data.length === 0) && year) {
         log(`[AfterCredits] No results with year. Retrying search without year...`);
         const searchUrlNoYear = `https://aftercredits.com/wp-json/wp/v2/posts?search=${encodeURIComponent(title)}&_fields=id,title,link&per_page=10`;
-        searchRes = await axios.get(searchUrlNoYear, reqConfig);
+        searchRes = await axiosInstance.get(searchUrlNoYear, reqConfig);
     }
 
     let potentialMatches = [];
@@ -60,7 +60,7 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
     let categoryTagsArray = [];
 
     try {
-        const postRes = await axios.get(
+        const postRes = await axiosInstance.get(
             `https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content,_links,_embedded&_embed=wp:term`,
             reqConfig
         );
@@ -78,7 +78,7 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
             }
         }
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             log(`[AfterCredits Warning] Embedded fetch failed: ${sanitizeError(e.message)}. Retrying with fallback...`);
         }
     }
@@ -86,13 +86,13 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
     if (categoryTagsArray.length === 0) {
         try {
             const [postRes, catRes] = await Promise.all([
-                axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
-                axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
+                axiosInstance.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
+                axiosInstance.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
             ]);
             content = postRes.data?.content?.rendered || '';
             categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
         } catch (e) {
-            if (!axios.isCancel(e)) {
+            if (!isCancel(e)) {
                 error(`[AfterCredits Error] Page parse fallback failed: ${sanitizeError(e.message)}`);
             }
             return null;
@@ -204,7 +204,7 @@ async function checkAfterCredits(title, year, reqConfig) {
         bestMatch.url = safeUrl;
         return await parseAfterCreditsPage(bestMatch, reqConfig);
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             error(`[AfterCredits Error] ${sanitizeError(e.message)}`);
         }
         return null;

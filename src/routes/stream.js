@@ -1,16 +1,14 @@
-const axios = require('axios');
+const { axiosInstance, isCancel, sanitizeError } = require('../utils/network');
 const {
     CACHE_TTL_SUCCESS,
     CACHE_TTL_ERROR,
     METADATA_TTL,
-    axiosConfig,
     CINEMETA_TIMEOUT,
     SCRAPER_TIMEOUT,
     DEFAULT_TMDB_KEY,
 } = require('../config');
 const { streamCache, cinemetaCache, rawScraperCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
-const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
 const { formatMessage, formatRelatedMessage } = require('../utils/formatter');
 const { log, warn, error } = require('../utils/logger');
@@ -85,9 +83,9 @@ const getCachedStream = async (cacheKey) => {
 };
 
 const fetchCinemetaNetwork = async (id, signal) => {
-    const config = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal };
+    const config = { timeout: CINEMETA_TIMEOUT, signal };
     try {
-        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, config);
+        const metaRes = await axiosInstance.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, config);
         const title = metaRes.data?.meta?.name;
         const year = metaRes.data?.meta?.year;
         const moviedbId = metaRes.data?.meta?.moviedb_id;
@@ -96,7 +94,7 @@ const fetchCinemetaNetwork = async (id, signal) => {
             return { title, year, moviedbId };
         }
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
         }
     }
@@ -104,10 +102,10 @@ const fetchCinemetaNetwork = async (id, signal) => {
 };
 
 const fetchTmdbMetadataNetwork = async (imdbId, apiKey, signal) => {
-    const config = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal };
+    const config = { timeout: CINEMETA_TIMEOUT, signal };
     try {
         log(`[Stream] Attempting TMDB metadata fallback for ID: ${imdbId}`);
-        const findRes = await axios.get(
+        const findRes = await axiosInstance.get(
             `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(apiKey)}`,
             config
         );
@@ -119,7 +117,7 @@ const fetchTmdbMetadataNetwork = async (imdbId, apiKey, signal) => {
             return { title, year, moviedbId };
         }
     } catch (e) {
-        if (!axios.isCancel(e)) {
+        if (!isCancel(e)) {
             error(`[Stream Error] TMDB Metadata Fallback Failed: ${sanitizeError(e.message)}`);
         }
     }
@@ -274,6 +272,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     let relatedData;
     let title;
     let year;
+    let moviedbId;
 
     const cachedScraperData = rawScraperCache.get(id);
     if (cachedScraperData && Date.now() < cachedScraperData.expiresAt) {
@@ -283,6 +282,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         title = cachedScraperData.title;
         year = cachedScraperData.year;
         relatedData = cachedScraperData.relatedData;
+        moviedbId = cachedScraperData.moviedbId;
     } else {
         if (redisCache.isRedisEnabled()) {
             const redisScraperData = await redisCache.getCache(`rawScraper_${id}`);
@@ -293,6 +293,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 relatedData = redisScraperData.relatedData;
                 title = redisScraperData.title;
                 year = redisScraperData.year;
+                moviedbId = redisScraperData.moviedbId;
 
                 rawScraperCache.set(id, {
                     finalResult,
@@ -300,6 +301,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                     relatedData,
                     title,
                     year,
+                    moviedbId,
                     expiresAt: Date.now() + METADATA_TTL,
                 });
             }
@@ -309,7 +311,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             const metaData = await fetchMetadata(id, apiKey);
             title = metaData.title;
             year = metaData.year;
-            let moviedbId = metaData.moviedbId;
+            moviedbId = metaData.moviedbId;
 
             if (!title) {
                 log(`[Stream] Cinemeta & TMDB fallback lookup failed or timed out. Returning empty streams.`);
@@ -322,7 +324,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
             const scraperController = new AbortController();
             const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
-            const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+            const scraperConfig = { timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
 
             let relatedController = null;
             let relatedTimeoutId = null;
@@ -331,7 +333,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             if (moviedbId && styleConfig.showRelated) {
                 relatedController = new AbortController();
                 relatedTimeoutId = setTimeout(() => relatedController.abort(), SCRAPER_TIMEOUT);
-                relatedConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: relatedController.signal };
+                relatedConfig = { timeout: SCRAPER_TIMEOUT, signal: relatedController.signal };
             }
 
             try {
@@ -351,18 +353,19 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                     relatedData,
                     title,
                     year,
+                    moviedbId,
                     expiresAt: Date.now() + METADATA_TTL,
                 });
 
                 if (redisCache.isRedisEnabled()) {
                     redisCache.setCache(
                         `rawScraper_${id}`,
-                        { finalResult, bestFallback, relatedData, title, year },
+                        { finalResult, bestFallback, relatedData, title, year, moviedbId },
                         Math.floor(METADATA_TTL / 1000)
                     );
                 }
             } catch (e) {
-                if (!axios.isCancel(e)) {
+                if (!isCancel(e)) {
                     error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
                 }
                 setCacheError(cacheKey);
@@ -382,26 +385,32 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     if (styleConfig.showRelated && relatedData === undefined) {
         log(`[Stream] Cache hit but relatedData is undefined. Fetching related data on-demand.`);
-        const metaData = await fetchMetadata(id, apiKey);
-        const moviedbId = metaData?.moviedbId;
-        if (moviedbId) {
+        // moviedbId is already in function scope from whichever path populated it (memory/Redis/fresh).
+        // Only call fetchMetadata as a last resort (e.g., legacy cache entries that predate moviedbId storage).
+        let moviedbIdForRelated = moviedbId;
+        if (!moviedbIdForRelated) {
+            const metaData = await fetchMetadata(id, apiKey);
+            moviedbIdForRelated = metaData?.moviedbId;
+        }
+        if (moviedbIdForRelated) {
             const scraperController = new AbortController();
             const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
-            const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
+            const scraperConfig = { timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
             try {
-                relatedData = await scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig, id);
+                relatedData = await scrapers.getRelatedMovies(moviedbIdForRelated, apiKey, scraperConfig, id);
                 rawScraperCache.set(id, {
                     finalResult,
                     bestFallback,
                     relatedData,
                     title,
                     year,
+                    moviedbId: moviedbIdForRelated,
                     expiresAt: Date.now() + METADATA_TTL,
                 });
                 if (redisCache.isRedisEnabled()) {
                     redisCache.setCache(
                         `rawScraper_${id}`,
-                        { finalResult, bestFallback, relatedData, title, year },
+                        { finalResult, bestFallback, relatedData, title, year, moviedbId: moviedbIdForRelated },
                         Math.floor(METADATA_TTL / 1000)
                     );
                 }
@@ -526,6 +535,8 @@ const streamHandler = async (req, res) => {
     } catch {
         sendJson(res, [], true);
     } finally {
+        // Strict reference equality: guards against an LRU eviction + re-insertion race where
+        // a new promise could be stored under the same cacheKey before this cleanup runs.
         if (activeRequests.get(cacheKey) === scrapePromise) {
             activeRequests.delete(cacheKey);
         }

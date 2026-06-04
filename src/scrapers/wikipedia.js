@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { axiosInstance, isCancel } = require('../utils/network');
 const cheerio = require('cheerio');
 const { WIKI_TTL } = require('../config');
 const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
@@ -41,21 +41,19 @@ async function buildWikiIndex(options = {}) {
                 return;
             }
 
-            const { axiosConfig } = require('../config');
-            // Isolate the global index build from request-specific abort signals
+            // axiosInstance already carries the base headers and agents from axiosConfig.
+            // Only pass per-request overrides: timeout, any extra headers from caller, and signal.
             const controller = new AbortController();
             const timeoutMs = options.timeout || 20000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-            const mergedHeaders = { ...axiosConfig.headers, ...options.headers };
             const mergedConfig = {
-                ...axiosConfig,
                 timeout: timeoutMs,
-                headers: mergedHeaders,
+                headers: options.headers || {},
                 signal: controller.signal,
             };
             let htmlContent = '';
             try {
-                const res = await axios.get(
+                const res = await axiosInstance.get(
                     'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_films_with_post-credits_scenes&prop=text&format=json',
                     mergedConfig
                 );
@@ -107,9 +105,8 @@ async function buildWikiIndex(options = {}) {
                 });
             })();
 
-            // Explicitly clear references
+            // Explicitly clear reference (htmlContent was already cleared before the IIFE)
             extractedHtml = '';
-            htmlContent = '';
 
             wikiCache = newCache;
             wikiLastFetched = Date.now();
@@ -121,7 +118,7 @@ async function buildWikiIndex(options = {}) {
                 log(`[Wiki] Saved pre-compiled index to Redis cache.`);
             }
         } catch (e) {
-            if (!axios.isCancel(e)) {
+            if (!isCancel(e)) {
                 error(`[Wiki Error] ${sanitizeError(e.message)}`);
             }
         } finally {
