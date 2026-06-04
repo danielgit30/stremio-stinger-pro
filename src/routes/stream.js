@@ -12,11 +12,7 @@ const activeRequests = new Map();
 const setCacheError = (cacheKey) => {
     streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
     if (redisCache.isRedisEnabled()) {
-        redisCache.setCache(
-            cacheKey,
-            { isCachedWrapper: true, stream: null },
-            Math.floor(CACHE_TTL_ERROR / 1000)
-        );
+        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
     }
 };
 
