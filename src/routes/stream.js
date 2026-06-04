@@ -20,7 +20,7 @@ const parseRequestConfig = (req) => {
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey =
         req.params.apiKey ||
-        (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful')
+        (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') && !req.params.p1.includes('monochrome')
             ? req.params.p1
             : null);
 

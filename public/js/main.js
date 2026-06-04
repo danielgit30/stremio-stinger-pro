@@ -58,35 +58,53 @@ function updatePreview() {
     let lines = [];
 
     if (isWiki && !isMid && !isPost) {
-        lines.push(style === 'simple' ? 'Unclassified Scene' : '❓ Unclassified Scene');
+        if (style === 'simple') lines.push('Unclassified Scene');
+        else if (style === 'monochrome') lines.push('⚠ Unclassified Scene');
+        else lines.push('❓ Unclassified Scene');
     } else {
         if (isMid && isPost) {
             if (style === 'simple') {
                 lines.push('Mid-Credits Scene');
                 lines.push('Post-Credits Scene');
+            } else if (style === 'monochrome') {
+                lines.push('⤷ Mid-Credits Scene');
+                lines.push('⤵︎ Post-Credits Scene');
             } else {
                 lines.push('🍿 Mid & Post-Credits Scenes');
             }
-        } else if (isMid) lines.push(style === 'simple' ? 'Mid-Credits Scene' : '⏳ Mid-Credits Scene');
-        else if (isPost) lines.push(style === 'simple' ? 'Post-Credits Scene' : '🎬 Post-Credits Scene');
-        else if (!isBloopers || !configShowBloopers)
-            lines.push(style === 'simple' ? 'No Bonus Scenes' : '🏃‍♂️ Nothing But Credits');
+        } else if (isMid) {
+            if (style === 'simple') lines.push('Mid-Credits Scene');
+            else if (style === 'monochrome') lines.push('⤷ Mid-Credits Scene');
+            else lines.push('⏳ Mid-Credits Scene');
+        } else if (isPost) {
+            if (style === 'simple') lines.push('Post-Credits Scene');
+            else if (style === 'monochrome') lines.push('⤵︎ Post-Credits Scene');
+            else lines.push('🎬 Post-Credits Scene');
+        } else if (!isBloopers || !configShowBloopers) {
+            if (style === 'simple') lines.push('No Bonus Scenes');
+            else if (style === 'monochrome') lines.push('⍈ Nothing But Credits');
+            else lines.push('🏃‍♂️ Nothing But Credits');
+        }
     }
 
     if (configShowBloopers && isBloopers) {
-        lines.push(style === 'simple' ? 'Outtakes' : '🎭 Outtakes');
+        if (style === 'simple') lines.push('Outtakes');
+        else if (style === 'monochrome') lines.push('☄ Outtakes');
+        else lines.push('🎭 Outtakes');
     }
 
     if (configShowSequel && isSequel) {
-        lines.push(style === 'simple' ? 'Sequel Setup' : '🔮 Sets Up For A Sequel');
+        if (style === 'simple') lines.push('Sequel Setup');
+        else if (style === 'monochrome') lines.push('📽 Sets Up For A Sequel');
+        else lines.push('🔮 Sets Up For A Sequel');
     }
 
     if (configShowSource) {
         let mockSource = isWiki
             ? 'Wikipedia'
             : isMid || isPost || isBloopers || isSequel
-              ? 'AfterCredits'
-              : 'Aggregated';
+                ? 'AfterCredits'
+                : 'Aggregated';
         lines.push(`Source: ${mockSource}`);
     }
 
