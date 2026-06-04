@@ -12,6 +12,19 @@ const { getResultObj } = require('../utils/formatter');
 
 let wikiCache = new Map();
 let wikiLastFetched = 0;
+async function loadWikiCacheFromRedis() {
+    if (!redisCache.isRedisEnabled()) return false;
+
+    const cachedData = await redisCache.getCache('wiki_index_cache');
+    if (cachedData && typeof cachedData === 'object') {
+        wikiCache = new Map(Object.entries(cachedData));
+        wikiLastFetched = Date.now();
+        log(`[Wiki] Loaded ${wikiCache.size} entries from Redis cache.`);
+        return true;
+    }
+    return false;
+}
+
 let wikiFetchPromise = null;
 
 async function buildWikiIndex() {
@@ -22,14 +35,8 @@ async function buildWikiIndex() {
         try {
             log(`[Wiki] Building index...`);
 
-            if (redisCache.isRedisEnabled()) {
-                const cachedData = await redisCache.getCache('wiki_index_cache');
-                if (cachedData && typeof cachedData === 'object') {
-                    wikiCache = new Map(Object.entries(cachedData));
-                    wikiLastFetched = Date.now();
-                    log(`[Wiki] Loaded ${wikiCache.size} entries from Redis cache.`);
-                    return;
-                }
+            if (await loadWikiCacheFromRedis()) {
+                return;
             }
 
             const { axiosConfig } = require('../config');
