@@ -5,9 +5,9 @@ const { log } = require('../utils/logger');
 let redisClient;
 let useRedis = false;
 
-// Initialize Redis if URL is provided
-if (process.env.REDIS_URL) {
-    redisClient = createClient({ 
+// Initialize Redis if URL is provided and not in a test environment
+if (process.env.REDIS_URL && process.env.NODE_ENV !== 'test') {
+    redisClient = createClient({
         url: process.env.REDIS_URL,
         socket: {
             reconnectStrategy: (retries) => {
@@ -17,24 +17,54 @@ if (process.env.REDIS_URL) {
                     return new Error('Redis reconnect limits reached');
                 }
                 return Math.min(retries * 50, 2000);
-            }
+            },
+        },
+    });
+    redisClient.on('error', (err) => {
+        if (redisClient.isOpen) {
+            console.error('Redis Client Error', sanitizeError(err.message || err));
         }
     });
-    redisClient.on('error', (err) => console.error('Redis Client Error', sanitizeError(err.message || err)));
 
     redisClient
         .connect()
         .then(() => {
-            log('[System] Redis distributed cache connected.');
-            useRedis = true;
+            if (redisClient.isOpen) {
+                log('[System] Redis distributed cache connected.');
+                useRedis = true;
+            }
         })
-        .catch((err) => console.error('Failed to connect to Redis', sanitizeError(err.message || err)));
+        .catch((err) => {
+            if (redisClient.isOpen) {
+                console.error('Failed to connect to Redis', sanitizeError(err.message || err));
+            }
+        });
 }
+
+const withTimeout = (promise, timeoutMs = 500) => {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Redis operation timed out')), timeoutMs);
+    });
+    return Promise.race([
+        promise.then(
+            (val) => {
+                clearTimeout(timeoutId);
+                return val;
+            },
+            (err) => {
+                clearTimeout(timeoutId);
+                throw err;
+            }
+        ),
+        timeoutPromise,
+    ]);
+};
 
 const getCache = async (key) => {
     if (useRedis) {
         try {
-            const data = await redisClient.get(key);
+            const data = await withTimeout(redisClient.get(key), 500);
             return data ? JSON.parse(data) : null;
         } catch (e) {
             console.error('Redis get error', sanitizeError(e.message || e));
@@ -48,7 +78,7 @@ const getCache = async (key) => {
 const setCache = async (key, value, ttlSeconds) => {
     if (useRedis) {
         try {
-            await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
+            await withTimeout(redisClient.setEx(key, ttlSeconds, JSON.stringify(value)), 500);
         } catch (e) {
             console.error('Redis set error', sanitizeError(e.message || e));
         }
@@ -56,12 +86,14 @@ const setCache = async (key, value, ttlSeconds) => {
 };
 
 const quitRedis = async () => {
-    if (useRedis && redisClient) {
+    if (redisClient) {
         try {
-            await redisClient.quit();
-            log('[System] Redis client disconnected gracefully.');
+            await withTimeout(redisClient.disconnect(), 1000);
+            log('[System] Redis client disconnected.');
         } catch (e) {
-            console.error('Redis quit error', sanitizeError(e.message || e));
+            console.error('Redis disconnect error', sanitizeError(e.message || e));
+        } finally {
+            useRedis = false;
         }
     }
 };
@@ -78,10 +110,13 @@ const incrementRateLimit = async (key, ttlSeconds) => {
                 end
                 return {current, pttl}
             `;
-            const results = await redisClient.eval(luaScript, {
-                keys: [key],
-                arguments: [String(ttlSeconds)],
-            });
+            const results = await withTimeout(
+                redisClient.eval(luaScript, {
+                    keys: [key],
+                    arguments: [String(ttlSeconds)],
+                }),
+                500
+            );
 
             const count = results[0];
             const pttl = results[1];

@@ -8,7 +8,7 @@ const RE_WIKI_PARENS = /\s*\([^)]*\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
 const RE_FOUR_DIGITS = /^\d{4}$/;
 
-const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel)\b/;
+const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel|behind-the-scenes)\b/;
 const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
 const STINGER_EXCEPTION_REGEX = /(extra shot|audio|voice|laugh|but|however)/;
 const AC_BLOOPER_TAGS = new Set(['outtake', 'musical', 'blooper', 'humorous credit']);
@@ -46,26 +46,32 @@ const safeTokens = new Set([
     'film',
 ]);
 
+const normalizeDiacritics = (str) => {
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
 const cleanTitle = (str) => {
     if (!str) return '';
+    const normalized = normalizeDiacritics(str);
     let i = 0;
-    let len = str.length;
+    let len = normalized.length;
     let wordStart = -1;
     let words = [];
 
     for (; i < len; i++) {
-        let code = str.charCodeAt(i);
+        let code = normalized.charCodeAt(i);
         if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 95) {
             if (wordStart === -1) wordStart = i;
         } else {
             if (wordStart !== -1) {
-                words.push(str.substring(wordStart, i));
+                words.push(normalized.substring(wordStart, i));
                 wordStart = -1;
             }
         }
     }
     if (wordStart !== -1) {
-        words.push(str.substring(wordStart, len));
+        words.push(normalized.substring(wordStart, len));
     }
 
     if (words.length === 0) return '';
@@ -151,7 +157,7 @@ const HTML_ENTITIES = {
     quot: '"',
     lt: '<',
     gt: '>',
-    nbsp: ' '
+    nbsp: ' ',
 };
 
 const RE_ENTITY = /&(#(?:x[0-9a-fA-F]+|[0-9]+)|[a-zA-Z]+);/g;

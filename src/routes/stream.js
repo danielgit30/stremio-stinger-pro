@@ -1,10 +1,17 @@
 const axios = require('axios');
-const { CACHE_TTL_SUCCESS, CACHE_TTL_ERROR, axiosConfig, CINEMETA_TIMEOUT, SCRAPER_TIMEOUT } = require('../config');
+const {
+    CACHE_TTL_SUCCESS,
+    CACHE_TTL_ERROR,
+    METADATA_TTL,
+    axiosConfig,
+    CINEMETA_TIMEOUT,
+    SCRAPER_TIMEOUT,
+} = require('../config');
 const { streamCache, cinemetaCache, rawScraperCache } = require('../cache/memory');
 const redisCache = require('../cache/redis');
 const { sanitizeError } = require('../utils/network');
 const scrapers = require('../scrapers');
-const { formatMessage } = require('../utils/formatter');
+const { formatMessage, formatRelatedMessage } = require('../utils/formatter');
 const { log } = require('../utils/logger');
 
 const { LRUCache } = require('lru-cache');
@@ -24,18 +31,22 @@ const parseRequestConfig = (req) => {
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey =
         req.params.apiKey ||
-        (req.params.p1 && !req.params.p1.includes('simple') && !req.params.p1.includes('colorful') && !req.params.p1.includes('monochrome')
+        (req.params.p1 &&
+        !req.params.p1.includes('simple') &&
+        !req.params.p1.includes('colorful') &&
+        !req.params.p1.includes('monochrome')
             ? req.params.p1
             : null);
 
     if (rawStyle.length > 50) rawStyle = 'colorful';
-    if (apiKey && apiKey.length > 100) apiKey = null;
+    if (apiKey && (apiKey.length > 100 || !/^[a-f0-9]{32}$/i.test(apiKey))) apiKey = null;
 
     const styleConfig = {
-        style: rawStyle.replace(/-nosource|-bloopers|-sequel/g, ''),
+        style: rawStyle.replace(/-nosource|-bloopers|-sequel|-related/g, ''),
         showSource: !rawStyle.includes('-nosource'),
         showBloopers: rawStyle.includes('-bloopers'),
         showSequel: rawStyle.includes('-sequel'),
+        showRelated: rawStyle.includes('-related'),
     };
 
     return { rawStyle, apiKey, styleConfig };
@@ -72,43 +83,15 @@ const getCachedStream = async (cacheKey) => {
     return { hit: false };
 };
 
-const fetchCinemeta = async (id, cinemetaConfig) => {
-    const cachedCinemeta = cinemetaCache.get(id);
-    if (cachedCinemeta && Date.now() < cachedCinemeta.expiresAt) {
-        log(`[Stream] Cinemeta Cache HIT (Memory) for ID: ${id}`);
-        return { title: cachedCinemeta.title, year: cachedCinemeta.year, moviedbId: cachedCinemeta.moviedbId };
-    }
-
-    if (redisCache.isRedisEnabled()) {
-        const redisCinemeta = await redisCache.getCache(`cinemeta_${id}`);
-        if (redisCinemeta !== null) {
-            log(`[Stream] Cinemeta Cache HIT (Redis) for ID: ${id}`);
-            cinemetaCache.set(id, {
-                title: redisCinemeta.title,
-                year: redisCinemeta.year,
-                moviedbId: redisCinemeta.moviedbId,
-                expiresAt: Date.now() + CACHE_TTL_SUCCESS,
-            });
-            return { title: redisCinemeta.title, year: redisCinemeta.year, moviedbId: redisCinemeta.moviedbId };
-        }
-    }
-
+const fetchCinemetaNetwork = async (id, signal) => {
+    const config = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal };
     try {
-        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, cinemetaConfig);
+        const metaRes = await axios.get(`https://v3-cinemeta.strem.io/meta/movie/${id}.json`, config);
         const title = metaRes.data?.meta?.name;
         const year = metaRes.data?.meta?.year;
         const moviedbId = metaRes.data?.meta?.moviedb_id;
 
         if (title) {
-            cinemetaCache.set(id, {
-                title,
-                year,
-                moviedbId,
-                expiresAt: Date.now() + CACHE_TTL_SUCCESS,
-            });
-            if (redisCache.isRedisEnabled()) {
-                redisCache.setCache(`cinemeta_${id}`, { title, year, moviedbId }, Math.floor(CACHE_TTL_SUCCESS / 1000));
-            }
             return { title, year, moviedbId };
         }
     } catch (e) {
@@ -116,21 +99,15 @@ const fetchCinemeta = async (id, cinemetaConfig) => {
             console.error(`[Stream Error] Cinemeta Lookup Failed: ${sanitizeError(e.message)}`);
         }
     }
-    return { title: null, year: null, moviedbId: null };
+    return null;
 };
 
-const fetchTmdbMetadata = async (imdbId, apiKey, config) => {
-    const { DEFAULT_TMDB_KEY } = require('../config');
-    const key = apiKey || DEFAULT_TMDB_KEY;
-    if (!key) {
-        log(`[Stream] Skipping TMDB metadata fallback: No API key provided.`);
-        return null;
-    }
-
+const fetchTmdbMetadataNetwork = async (imdbId, apiKey, signal) => {
+    const config = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal };
     try {
         log(`[Stream] Attempting TMDB metadata fallback for ID: ${imdbId}`);
         const findRes = await axios.get(
-            `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
+            `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(apiKey)}`,
             config
         );
         const movieMatch = findRes.data.movie_results?.[0];
@@ -146,6 +123,95 @@ const fetchTmdbMetadata = async (imdbId, apiKey, config) => {
         }
     }
     return null;
+};
+
+const raceMetadataSources = (id, apiKey) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CINEMETA_TIMEOUT);
+
+    const pCinemeta = fetchCinemetaNetwork(id, controller.signal);
+    const pTmdb = fetchTmdbMetadataNetwork(id, apiKey, controller.signal);
+
+    return new Promise((resolve) => {
+        let completed = 0;
+        let resolved = false;
+
+        const handleResult = (val) => {
+            if (resolved) return;
+            if (val && val.title) {
+                resolved = true;
+                clearTimeout(timeoutId);
+                controller.abort(); // Cancel the other request
+                resolve(val);
+            } else {
+                completed++;
+                if (completed === 2) {
+                    clearTimeout(timeoutId);
+                    controller.abort();
+                    resolve(null);
+                }
+            }
+        };
+
+        pCinemeta.then(handleResult).catch(() => handleResult(null));
+        pTmdb.then(handleResult).catch(() => handleResult(null));
+    });
+};
+
+const fetchMetadata = async (id, apiKey) => {
+    const cachedCinemeta = cinemetaCache.get(id);
+    if (cachedCinemeta && Date.now() < cachedCinemeta.expiresAt) {
+        log(`[Stream] Cinemeta Cache HIT (Memory) for ID: ${id}`);
+        return { title: cachedCinemeta.title, year: cachedCinemeta.year, moviedbId: cachedCinemeta.moviedbId };
+    }
+
+    if (redisCache.isRedisEnabled()) {
+        const redisCinemeta = await redisCache.getCache(`cinemeta_${id}`);
+        if (redisCinemeta !== null) {
+            log(`[Stream] Cinemeta Cache HIT (Redis) for ID: ${id}`);
+            cinemetaCache.set(id, {
+                title: redisCinemeta.title,
+                year: redisCinemeta.year,
+                moviedbId: redisCinemeta.moviedbId,
+                expiresAt: Date.now() + METADATA_TTL,
+            });
+            return { title: redisCinemeta.title, year: redisCinemeta.year, moviedbId: redisCinemeta.moviedbId };
+        }
+    }
+
+    const { DEFAULT_TMDB_KEY } = require('../config');
+    const key = apiKey || DEFAULT_TMDB_KEY;
+    let result;
+
+    if (key) {
+        log(`[Stream] Cache MISS. Racing Cinemeta and TMDB fallback for ID: ${id}`);
+        result = await raceMetadataSources(id, key);
+    } else {
+        log(`[Stream] Cache MISS. Fetching Cinemeta for ID: ${id}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CINEMETA_TIMEOUT);
+        result = await fetchCinemetaNetwork(id, controller.signal);
+        clearTimeout(timeoutId);
+    }
+
+    if (result && result.title) {
+        cinemetaCache.set(id, {
+            title: result.title,
+            year: result.year,
+            moviedbId: result.moviedbId,
+            expiresAt: Date.now() + METADATA_TTL,
+        });
+        if (redisCache.isRedisEnabled()) {
+            redisCache.setCache(
+                `cinemeta_${id}`,
+                { title: result.title, year: result.year, moviedbId: result.moviedbId },
+                Math.floor(METADATA_TTL / 1000)
+            );
+        }
+        return result;
+    }
+
+    return { title: null, year: null, moviedbId: null };
 };
 
 const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, scraperController) => {
@@ -195,10 +261,8 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
     if (finalResult) {
         const definitiveName = finalResult._sourceName || 'Unknown';
         delete finalResult._sourceName;
-        log(
-            `[Stream] Definitive state found by ${definitiveName}.${definitiveName !== 'Wikipedia' ? ' Aborting others...' : ''}`
-        );
-        if (definitiveName !== 'Wikipedia') scraperController.abort();
+        log(`[Stream] Definitive state found by ${definitiveName}. Aborting others...`);
+        scraperController.abort();
     }
 
     return { finalResult, bestFallback };
@@ -207,6 +271,7 @@ const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, sc
 const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     let finalResult;
     let bestFallback;
+    let relatedData;
     let title;
     let year;
 
@@ -224,12 +289,14 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 log(`[Stream] Raw Scraper Cache HIT (Redis). Bypassing duplicate network requests.`);
                 finalResult = redisScraperData.finalResult;
                 bestFallback = redisScraperData.bestFallback;
+                relatedData = redisScraperData.relatedData;
                 title = redisScraperData.title;
                 year = redisScraperData.year;
 
                 rawScraperCache.set(id, {
                     finalResult,
                     bestFallback,
+                    relatedData,
                     title,
                     year,
                     expiresAt: Date.now() + CACHE_TTL_SUCCESS,
@@ -238,42 +305,10 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         }
 
         if (!title) {
-            const cinemetaController = new AbortController();
-            const cinemetaTimeoutId = setTimeout(() => cinemetaController.abort(), CINEMETA_TIMEOUT);
-            const cinemetaConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: cinemetaController.signal };
-
-            const cinemetaData = await fetchCinemeta(id, cinemetaConfig);
-            title = cinemetaData.title;
-            year = cinemetaData.year;
-            let moviedbId = cinemetaData.moviedbId;
-
-            clearTimeout(cinemetaTimeoutId);
-
-            if (!title) {
-                log(`[Stream] Cinemeta lookup failed or timed out. Trying TMDB fallback...`);
-                const tmdbController = new AbortController();
-                const tmdbTimeoutId = setTimeout(() => tmdbController.abort(), CINEMETA_TIMEOUT);
-                const tmdbConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: tmdbController.signal };
-
-                const tmdbData = await fetchTmdbMetadata(id, apiKey, tmdbConfig);
-                clearTimeout(tmdbTimeoutId);
-
-                if (tmdbData) {
-                    title = tmdbData.title;
-                    year = tmdbData.year;
-                    moviedbId = tmdbData.moviedbId;
-
-                    cinemetaCache.set(id, {
-                        title,
-                        year,
-                        moviedbId,
-                        expiresAt: Date.now() + CACHE_TTL_SUCCESS,
-                    });
-                    if (redisCache.isRedisEnabled()) {
-                        redisCache.setCache(`cinemeta_${id}`, { title, year, moviedbId }, Math.floor(CACHE_TTL_SUCCESS / 1000));
-                    }
-                }
-            }
+            const metaData = await fetchMetadata(id, apiKey);
+            title = metaData.title;
+            year = metaData.year;
+            let moviedbId = metaData.moviedbId;
 
             if (!title) {
                 log(`[Stream] Cinemeta & TMDB fallback lookup failed or timed out. Returning empty streams.`);
@@ -289,13 +324,21 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             const scraperConfig = { ...axiosConfig, timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
 
             try {
-                const results = await runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
+                const pScrapers = runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
+                const pRelated =
+                    styleConfig.showRelated && moviedbId
+                        ? scrapers.getRelatedMovies(moviedbId, apiKey, scraperConfig)
+                        : Promise.resolve(null);
+
+                const [results, relatedRes] = await Promise.all([pScrapers, pRelated]);
                 finalResult = results.finalResult;
                 bestFallback = results.bestFallback;
+                relatedData = relatedRes;
 
                 rawScraperCache.set(id, {
                     finalResult,
                     bestFallback,
+                    relatedData,
                     title,
                     year,
                     expiresAt: Date.now() + CACHE_TTL_SUCCESS,
@@ -304,7 +347,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 if (redisCache.isRedisEnabled()) {
                     redisCache.setCache(
                         `rawScraper_${id}`,
-                        { finalResult, bestFallback, title, year },
+                        { finalResult, bestFallback, relatedData, title, year },
                         Math.floor(CACHE_TTL_SUCCESS / 1000)
                     );
                 }
@@ -334,13 +377,25 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
 
-    const stream = {
+    const streamObj = {
         name: 'After-Credits Scenes',
         title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `\nSource: ${resolvedResult.source}` : ''}`,
         url:
             resolvedResult.url ||
             `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
     };
+
+    let streamsToReturn = [streamObj];
+
+    if (styleConfig.showRelated && relatedData) {
+        streamsToReturn.push({
+            name: 'Part of a Collection',
+            title: formatRelatedMessage(styleConfig, relatedData),
+            url: relatedData.collectionUrl,
+        });
+    }
+
+    const stream = streamsToReturn;
 
     const cacheDuration = CACHE_TTL_SUCCESS;
     streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
@@ -353,13 +408,24 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     return stream;
 };
 
-const streamHandler = async (req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+const sendJson = (res, streams, isError) => {
+    if (isError) {
+        res.setHeader('Cache-Control', 'public, max-age=60');
+    } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+    }
+    res.json({ streams: streams || [] });
+};
 
+const streamHandler = async (req, res) => {
     const { type, id } = req.params;
-    if (type !== 'movie') return res.json({ streams: [] });
+    if (type !== 'movie') {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.json({ streams: [] });
+    }
     if (!id || !/^tt\d+$/.test(id)) {
         console.warn(`[Stream] Invalid ID format: ${sanitizeError(id)}`);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
         return res.json({ streams: [] });
     }
 
@@ -372,7 +438,14 @@ const streamHandler = async (req, res) => {
 
     const cachedResult = await getCachedStream(cacheKey);
     if (cachedResult.hit) {
-        return res.json({ streams: cachedResult.stream ? [cachedResult.stream] : [] });
+        const isError = !cachedResult.stream;
+        const streams = cachedResult.stream
+            ? Array.isArray(cachedResult.stream)
+                ? cachedResult.stream
+                : [cachedResult.stream]
+            : [];
+        sendJson(res, streams, isError);
+        return;
     }
 
     if (activeRequests.has(cacheKey)) {
@@ -380,9 +453,13 @@ const streamHandler = async (req, res) => {
         const p = activeRequests.get(cacheKey);
         try {
             const stream = await p;
-            return res.json({ streams: stream ? [stream] : [] });
+            const isError = !stream;
+            const streams = stream ? (Array.isArray(stream) ? stream : [stream]) : [];
+            sendJson(res, streams, isError);
+            return;
         } catch {
-            return res.json({ streams: [] });
+            sendJson(res, [], true);
+            return;
         }
     }
 
@@ -391,9 +468,11 @@ const streamHandler = async (req, res) => {
 
     try {
         const stream = await scrapePromise;
-        return res.json({ streams: stream ? [stream] : [] });
+        const isError = !stream;
+        const streams = stream ? (Array.isArray(stream) ? stream : [stream]) : [];
+        sendJson(res, streams, isError);
     } catch {
-        return res.json({ streams: [] });
+        sendJson(res, [], true);
     } finally {
         if (activeRequests.get(cacheKey) === scrapePromise) {
             activeRequests.delete(cacheKey);

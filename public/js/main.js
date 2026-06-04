@@ -44,15 +44,18 @@ function updatePreview() {
     const configShowSource = document.getElementById('showSource').checked;
     const configShowBloopers = document.getElementById('showBloopers').checked;
     const configShowSequel = document.getElementById('showSequel').checked;
+    const configShowRelated = document.getElementById('showRelated').checked;
 
     document.getElementById('testBloopersContainer').style.display = configShowBloopers ? 'flex' : 'none';
     document.getElementById('testSequelContainer').style.display = configShowSequel ? 'flex' : 'none';
+    document.getElementById('testRelatedContainer').style.display = configShowRelated ? 'flex' : 'none';
 
     const isWiki = document.getElementById('testWiki').checked;
     const isMid = document.getElementById('testMid').checked;
     const isPost = document.getElementById('testPost').checked;
     const isBloopers = document.getElementById('testBloopers').checked;
     const isSequel = document.getElementById('testSequel').checked;
+    const isRelated = document.getElementById('testRelated').checked;
 
     const previewText = document.getElementById('streamPreviewText');
     let lines = [];
@@ -101,8 +104,8 @@ function updatePreview() {
         let mockSource = isWiki
             ? 'Wikipedia'
             : isMid || isPost || isBloopers || isSequel
-                ? 'AfterCredits'
-                : 'Aggregated';
+              ? 'AfterCredits'
+              : 'Aggregated';
         lines.push(`Source: ${mockSource}`);
     }
 
@@ -113,6 +116,34 @@ function updatePreview() {
             previewText.appendChild(document.createElement('br'));
         }
     });
+
+    const relatedBox = document.getElementById('streamPreviewRelatedBox');
+    const relatedText = document.getElementById('streamPreviewRelatedText');
+    if (configShowRelated && isRelated) {
+        relatedBox.style.display = 'block';
+        relatedText.textContent = '';
+        if (style === 'simple') {
+            relatedText.appendChild(document.createTextNode('Based on Novel'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('Prequel: Sample Movie 1'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('Sequel: Sample Movie 2'));
+        } else if (style === 'monochrome') {
+            relatedText.appendChild(document.createTextNode('✐ Based on Novel'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('◂ Sample Movie 1'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('▸ Sample Movie 2'));
+        } else {
+            relatedText.appendChild(document.createTextNode('📖 Based on Novel'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('⏪ Sample Movie 1'));
+            relatedText.appendChild(document.createElement('br'));
+            relatedText.appendChild(document.createTextNode('⏩ Sample Movie 2'));
+        }
+    } else {
+        relatedBox.style.display = 'none';
+    }
 }
 
 function validateApiKey() {
@@ -152,6 +183,7 @@ function installAddon() {
     if (!document.getElementById('showSource').checked) style += '-nosource';
     if (document.getElementById('showBloopers').checked) style += '-bloopers';
     if (document.getElementById('showSequel').checked) style += '-sequel';
+    if (document.getElementById('showRelated').checked) style += '-related';
 
     const host = window.location.host;
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
@@ -189,34 +221,86 @@ function initCustomSelect() {
 
     if (!container || !trigger || !hiddenSelect) return;
 
+    let focusedOptionIndex = -1;
+
+    const openDropdown = () => {
+        container.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+        focusedOptionIndex = Array.from(options).findIndex((opt) => opt.classList.contains('selected'));
+        if (focusedOptionIndex === -1) focusedOptionIndex = 0;
+        options[focusedOptionIndex].focus();
+    };
+
+    const closeDropdown = () => {
+        container.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+        focusedOptionIndex = -1;
+    };
+
+    const selectOption = (index) => {
+        const option = options[index];
+        const value = option.getAttribute('data-value');
+        const text = option.textContent;
+
+        options.forEach((opt) => opt.classList.remove('selected'));
+        option.classList.add('selected');
+
+        selectValueSpan.textContent = text;
+        hiddenSelect.value = value;
+        updatePreview();
+
+        closeDropdown();
+        trigger.focus();
+    };
+
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();
         const isOpen = container.classList.contains('open');
-        container.classList.toggle('open');
-        trigger.setAttribute('aria-expanded', !isOpen);
+        if (isOpen) {
+            closeDropdown();
+        } else {
+            openDropdown();
+        }
     });
 
-    options.forEach((option) => {
+    options.forEach((option, index) => {
+        option.setAttribute('tabindex', '-1');
         option.addEventListener('click', (e) => {
             e.stopPropagation();
-            const value = option.getAttribute('data-value');
-            const text = option.textContent;
+            selectOption(index);
+        });
 
-            options.forEach((opt) => opt.classList.remove('selected'));
-            option.classList.add('selected');
-
-            selectValueSpan.textContent = text;
-            hiddenSelect.value = value;
-            updatePreview();
-
-            container.classList.remove('open');
-            trigger.setAttribute('aria-expanded', 'false');
+        option.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                focusedOptionIndex = (index + 1) % options.length;
+                options[focusedOptionIndex].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                focusedOptionIndex = (index - 1 + options.length) % options.length;
+                options[focusedOptionIndex].focus();
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectOption(index);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeDropdown();
+                trigger.focus();
+            } else if (e.key === 'Tab') {
+                closeDropdown();
+            }
         });
     });
 
+    trigger.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDropdown();
+        }
+    });
+
     document.addEventListener('click', () => {
-        container.classList.remove('open');
-        trigger.setAttribute('aria-expanded', 'false');
+        closeDropdown();
     });
 }
 

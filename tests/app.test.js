@@ -1,7 +1,11 @@
 const request = require('supertest');
 const app = require('../src/app');
+const { quitRedis } = require('../src/cache/redis');
 
 describe('Stremio Stinger Pro E2E', () => {
+    afterAll(async () => {
+        await quitRedis();
+    });
     it('should return manifest.json', async () => {
         const res = await request(app).get('/manifest.json');
         expect(res.statusCode).toEqual(200);

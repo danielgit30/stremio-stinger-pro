@@ -21,4 +21,10 @@ describe('isTitleMatch and isSafeSuffix', () => {
         expect(isTitleMatch('The Matrix invalid', 'matrix')).toBe(false);
         expect(isTitleMatch('The Matrix 1999a', 'matrix')).toBe(false);
     });
+
+    it('should match titles with accented characters (diacritics)', () => {
+        expect(isTitleMatch('Amélie', 'amelie')).toBe(true);
+        expect(isTitleMatch('Wall·E', 'wall e')).toBe(true);
+        expect(isTitleMatch('Mëll', 'mell')).toBe(true);
+    });
 });

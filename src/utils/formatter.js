@@ -56,7 +56,37 @@ const formatMessage = (styleConfig, data) => {
     return output.join('\n');
 };
 
+const formatRelatedMessage = (styleConfig, data) => {
+    let output = [];
+    const isSimple = styleConfig.style === 'simple';
+    const isMonochrome = styleConfig.style === 'monochrome';
+
+    const prequelStr = data.prequel
+        ? `${data.prequel.title} (${data.prequel.release_date ? data.prequel.release_date.split('-')[0] : 'N/A'})`
+        : '';
+    const sequelStr = data.sequel
+        ? `${data.sequel.title} (${data.sequel.release_date ? data.sequel.release_date.split('-')[0] : 'N/A'})`
+        : '';
+
+    if (isSimple) {
+        if (data.sourceMaterial) output.push(`Based on ${data.sourceMaterial}`);
+        if (prequelStr) output.push(`Prequel: ${prequelStr}`);
+        if (sequelStr) output.push(`Sequel: ${sequelStr}`);
+    } else if (isMonochrome) {
+        if (data.sourceMaterial) output.push(`✐ Based on ${data.sourceMaterial}`);
+        if (prequelStr) output.push(`◂ ${prequelStr}`);
+        if (sequelStr) output.push(`▸ ${sequelStr}`);
+    } else {
+        if (data.sourceMaterial) output.push(`📖 Based on ${data.sourceMaterial}`);
+        if (prequelStr) output.push(`⏪ ${prequelStr}`);
+        if (sequelStr) output.push(`⏩ ${sequelStr}`);
+    }
+
+    return output.join('\n');
+};
+
 module.exports = {
     getResultObj,
     formatMessage,
+    formatRelatedMessage,
 };

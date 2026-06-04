@@ -1,6 +1,6 @@
 # Stremio Stinger Pro
 
-## Version 2.5.0
+## Version 3.0.0
 
 ![logo](/icon.png)
 
@@ -25,7 +25,7 @@ Stremio Stinger Pro is a high-speed, high-fidelity Stremio addon that detects mi
 - [🌍 Configuration and Installation](#-configuration-and-installation)
 - [🚀 Development](#-development)
 
-[Latest Release: v2.5.0](#release-v250)
+[Latest Release: v3.0.0](#release-v300)
 > [!TIP]
 > This release introduces massive server-side optimization including compression and memory guards!
 
@@ -114,9 +114,11 @@ Executes all scrapers concurrently to drastically reduce tail latency. If a high
 
 ---
 
-## Release: v2.5.0
+## Release: v3.0.0
 
-- **Feature:** Massive server-side architecture optimization.
+- **Feature:** Introduced Extended Metadata support, providing details on prequels, sequels, and source material (e.g., "Based on Novel").
+- **Feature:** Added a new "Monochrome" display style for users who prefer a minimalist, black-and-white icon aesthetic.
+- **Feature:** Massive server-side architecture optimization across all data pipelines.
 - **Performance:** Implemented bounded LRU caching (max size 5000) and request coalescing to prevent OOM crashes and resolve concurrent request spikes.
 - **Performance:** Added `compression` middleware, aggressive `Cache-Control` headers (`stale-while-revalidate`), and HTTP keep-alive agents to drastically reduce network egress and latency.
 - **Maintenance:** Conducted a definitive codebase sanitization, completely removing legacy/dead code and minimizing redundant operations.
