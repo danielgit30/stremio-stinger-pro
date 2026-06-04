@@ -22,12 +22,7 @@
                 Find out if a movie has mid and post-credits scenes before you watch it -
                 <em>right from your stream list!</em>
             </p>
-            <form
-                onsubmit="
-                    event.preventDefault();
-                    installAddon();
-                "
-            >
+            <form id="installForm">
                 <div class="input-group">
                     <label for="customSelectTrigger">Choose your style:</label>
                     <div class="custom-select-container">
@@ -65,15 +60,15 @@
                     </select>
 
                     <div class="checkbox-group">
-                        <input type="checkbox" id="showSource" checked onchange="updatePreview()" />
+                        <input type="checkbox" id="showSource" checked />
                         <label for="showSource">Show Source</label>
                     </div>
                     <div class="checkbox-group">
-                        <input type="checkbox" id="showBloopers" onchange="updatePreview()" />
+                        <input type="checkbox" id="showBloopers" />
                         <label for="showBloopers">Include Outtakes</label>
                     </div>
                     <div class="checkbox-group" style="align-items: flex-start">
-                        <input type="checkbox" id="showSequel" onchange="updatePreview()" style="margin-top: 3px" />
+                        <input type="checkbox" id="showSequel" style="margin-top: 3px" />
                         <label for="showSequel" style="flex-direction: column; align-items: flex-start">
                             Show Sequel Setup
                             <span class="optional-text" style="margin-top: 2px"
@@ -87,17 +82,17 @@
 
                         <div class="test-controls" role="group" aria-labelledby="preview-heading">
                             <label id="lblTestMid"
-                                ><input type="checkbox" id="testMid" checked onchange="updatePreview()" /> Mid</label
+                                ><input type="checkbox" id="testMid" checked /> Mid</label
                             >
                             <label id="lblTestPost"
-                                ><input type="checkbox" id="testPost" checked onchange="updatePreview()" /> Post</label
+                                ><input type="checkbox" id="testPost" checked /> Post</label
                             >
-                            <label><input type="checkbox" id="testWiki" onchange="updatePreview()" /> Wiki</label>
+                            <label><input type="checkbox" id="testWiki" /> Wiki</label>
                             <label id="testBloopersContainer" style="display: none"
-                                ><input type="checkbox" id="testBloopers" onchange="updatePreview()" /> Bloopers</label
+                                ><input type="checkbox" id="testBloopers" /> Bloopers</label
                             >
                             <label id="testSequelContainer" style="display: none"
-                                ><input type="checkbox" id="testSequel" onchange="updatePreview()" /> Sequel</label
+                                ><input type="checkbox" id="testSequel" /> Sequel</label
                             >
                         </div>
 
@@ -118,13 +113,11 @@
                             aria-invalid="false"
                             placeholder="Enter key or leave blank"
                             style="padding-right: 40px"
-                            oninput="validateApiKey()"
                         />
                         <button
                             type="button"
                             id="toggleApiKeyBtn"
                             aria-label="Show API Key"
-                            onclick="toggleApiKeyVisibility()"
                             title="Show API Key"
                             style="
                                 position: absolute;
@@ -179,7 +172,7 @@
                     Addon URL generated! Copy it manually below:
                 </p>
                 <div class="code-box" id="install-link"></div>
-                <button class="copy-btn" id="copyBtn" onclick="copyLink()" aria-live="polite">Copy Manifest URL</button>
+                <button class="copy-btn" id="copyBtn" aria-live="polite">Copy Manifest URL</button>
             </div>
 
             <div class="footer">
