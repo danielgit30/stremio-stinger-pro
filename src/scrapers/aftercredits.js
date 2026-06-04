@@ -54,7 +54,8 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
         axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
     ]);
     const content = postRes.data?.content?.rendered || '';
-    const categoryTags = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
+    const categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
+    const categoryTags = new Set(categoryTagsArray);
 
     const $$ = cheerio.load(content);
     let hasMid = false,
@@ -62,33 +63,33 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
         bloopers = false,
         sequel = false;
 
-    log(`[AfterCredits] Categories Found: [${categoryTags.join(', ')}]`);
+    log(`[AfterCredits] Categories Found: [${categoryTagsArray.join(', ')}]`);
 
-    if (categoryTags.includes('non-stingers')) {
+    if (categoryTags.has('non-stingers')) {
         log(`[AfterCredits] 'non-stingers' category detected. Forcing definitive negative state.`);
         return getResultObj(false, false, true, url, 'AfterCredits', false, true);
     }
 
-    if (categoryTags.includes('unknown')) {
+    if (categoryTags.has('unknown')) {
         log(`[AfterCredits] 'unknown' category detected. Forcing non-definitive negative state.`);
         return null;
     }
 
-    if (categoryTags.length > 0) {
-        if (categoryTags.includes('both during & after credits')) {
+    if (categoryTags.size > 0) {
+        if (categoryTags.has('both during & after credits')) {
             hasMid = true;
             hasPost = true;
         }
-        if (categoryTags.includes('during credits')) {
+        if (categoryTags.has('during credits')) {
             hasMid = true;
         }
-        if (categoryTags.includes('after credits')) {
+        if (categoryTags.has('after credits')) {
             hasPost = true;
         }
-        if (categoryTags.some((t) => AC_BLOOPER_TAGS.has(t))) {
+        if (categoryTagsArray.some((t) => AC_BLOOPER_TAGS.has(t))) {
             bloopers = true;
         }
-        if (categoryTags.includes('sequel setup')) {
+        if (categoryTags.has('sequel setup')) {
             sequel = true;
         }
     }
