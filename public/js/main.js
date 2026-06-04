@@ -207,11 +207,34 @@ function initCustomSelect() {
 window.onload = () => {
     initCustomSelect();
     updatePreview();
-};
 
-// Expose functions to the global window object for HTML inline event handlers
-window.toggleApiKeyVisibility = toggleApiKeyVisibility;
-window.updatePreview = updatePreview;
-window.validateApiKey = validateApiKey;
-window.installAddon = installAddon;
-window.copyLink = copyLink;
+    // Attach event listeners dynamically
+    const installForm = document.getElementById('installForm');
+    if (installForm) {
+        installForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            installAddon();
+        });
+    }
+
+    const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
+    if (toggleApiKeyBtn) {
+        toggleApiKeyBtn.addEventListener('click', toggleApiKeyVisibility);
+    }
+
+    const apiKeyInput = document.getElementById('apiKey');
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('input', validateApiKey);
+    }
+
+    const copyBtn = document.getElementById('copyBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', copyLink);
+    }
+
+    // Attach updatePreview to all checkboxes
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', updatePreview);
+    });
+};
