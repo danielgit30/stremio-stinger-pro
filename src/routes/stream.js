@@ -9,6 +9,17 @@ const { log } = require('../utils/logger');
 
 const activeRequests = new Map();
 
+const setCacheError = (cacheKey) => {
+    streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
+    if (redisCache.isRedisEnabled()) {
+        redisCache.setCache(
+            cacheKey,
+            { isCachedWrapper: true, stream: null },
+            Math.floor(CACHE_TTL_ERROR / 1000)
+        );
+    }
+};
+
 const parseRequestConfig = (req) => {
     let rawStyle = req.params.style || req.params.p1 || 'colorful';
     let apiKey =
@@ -175,14 +186,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         if (!title) {
             log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
             log(`=================================\n`);
-            streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
-            if (redisCache.isRedisEnabled()) {
-                redisCache.setCache(
-                    cacheKey,
-                    { isCachedWrapper: true, stream: null },
-                    Math.floor(CACHE_TTL_ERROR / 1000)
-                );
-            }
+            setCacheError(cacheKey);
             return null;
         }
 
@@ -208,14 +212,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             if (e.name !== 'CanceledError' && e.message !== 'canceled') {
                 console.error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
             }
-            streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
-            if (redisCache.isRedisEnabled()) {
-                redisCache.setCache(
-                    cacheKey,
-                    { isCachedWrapper: true, stream: null },
-                    Math.floor(CACHE_TTL_ERROR / 1000)
-                );
-            }
+            setCacheError(cacheKey);
             return null;
         } finally {
             clearTimeout(scraperTimeoutId);
