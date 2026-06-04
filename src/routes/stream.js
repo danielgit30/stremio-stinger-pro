@@ -119,6 +119,35 @@ const fetchCinemeta = async (id, cinemetaConfig) => {
     return { title: null, year: null, moviedbId: null };
 };
 
+const fetchTmdbMetadata = async (imdbId, apiKey, config) => {
+    const { DEFAULT_TMDB_KEY } = require('../config');
+    const key = apiKey || DEFAULT_TMDB_KEY;
+    if (!key) {
+        log(`[Stream] Skipping TMDB metadata fallback: No API key provided.`);
+        return null;
+    }
+
+    try {
+        log(`[Stream] Attempting TMDB metadata fallback for ID: ${imdbId}`);
+        const findRes = await axios.get(
+            `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
+            config
+        );
+        const movieMatch = findRes.data.movie_results?.[0];
+        if (movieMatch) {
+            const title = movieMatch.title || movieMatch.original_title;
+            const year = movieMatch.release_date ? new Date(movieMatch.release_date).getFullYear() : null;
+            const moviedbId = Number(movieMatch.id);
+            return { title, year, moviedbId };
+        }
+    } catch (e) {
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            console.error(`[Stream Error] TMDB Metadata Fallback Failed: ${sanitizeError(e.message)}`);
+        }
+    }
+    return null;
+};
+
 const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, scraperController) => {
     let finalResult = null;
     let bestFallback = null;
@@ -216,12 +245,38 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             const cinemetaData = await fetchCinemeta(id, cinemetaConfig);
             title = cinemetaData.title;
             year = cinemetaData.year;
-            const moviedbId = cinemetaData.moviedbId;
+            let moviedbId = cinemetaData.moviedbId;
 
             clearTimeout(cinemetaTimeoutId);
 
             if (!title) {
-                log(`[Stream] Cinemeta lookup failed or timed out. Returning empty streams.`);
+                log(`[Stream] Cinemeta lookup failed or timed out. Trying TMDB fallback...`);
+                const tmdbController = new AbortController();
+                const tmdbTimeoutId = setTimeout(() => tmdbController.abort(), CINEMETA_TIMEOUT);
+                const tmdbConfig = { ...axiosConfig, timeout: CINEMETA_TIMEOUT, signal: tmdbController.signal };
+
+                const tmdbData = await fetchTmdbMetadata(id, apiKey, tmdbConfig);
+                clearTimeout(tmdbTimeoutId);
+
+                if (tmdbData) {
+                    title = tmdbData.title;
+                    year = tmdbData.year;
+                    moviedbId = tmdbData.moviedbId;
+
+                    cinemetaCache.set(id, {
+                        title,
+                        year,
+                        moviedbId,
+                        expiresAt: Date.now() + CACHE_TTL_SUCCESS,
+                    });
+                    if (redisCache.isRedisEnabled()) {
+                        redisCache.setCache(`cinemeta_${id}`, { title, year, moviedbId }, Math.floor(CACHE_TTL_SUCCESS / 1000));
+                    }
+                }
+            }
+
+            if (!title) {
+                log(`[Stream] Cinemeta & TMDB fallback lookup failed or timed out. Returning empty streams.`);
                 log(`=================================\n`);
                 setCacheError(cacheKey);
                 return null;

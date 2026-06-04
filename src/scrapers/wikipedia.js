@@ -92,6 +92,9 @@ async function buildWikiIndex() {
                 redisCache.setCache('wiki_index_cache', flatData, Math.floor(WIKI_TTL / 1000));
                 log(`[Wiki] Saved pre-compiled index to Redis cache.`);
             }
+
+            // Free large allocations
+            $ = null;
         } catch (e) {
             if (e.name !== 'CanceledError' && e.message !== 'canceled') {
                 console.error(`[Wiki Error] ${sanitizeError(e.message)}`);

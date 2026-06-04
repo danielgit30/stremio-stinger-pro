@@ -7,7 +7,19 @@ let useRedis = false;
 
 // Initialize Redis if URL is provided
 if (process.env.REDIS_URL) {
-    redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient = createClient({ 
+        url: process.env.REDIS_URL,
+        socket: {
+            reconnectStrategy: (retries) => {
+                if (retries > 10) {
+                    console.warn('[System] Redis reconnect limits reached. Falling back to memory cache entirely.');
+                    useRedis = false;
+                    return new Error('Redis reconnect limits reached');
+                }
+                return Math.min(retries * 50, 2000);
+            }
+        }
+    });
     redisClient.on('error', (err) => console.error('Redis Client Error', sanitizeError(err.message || err)));
 
     redisClient
@@ -57,20 +69,22 @@ const quitRedis = async () => {
 const incrementRateLimit = async (key, ttlSeconds) => {
     if (useRedis) {
         try {
-            const multi = redisClient.multi();
-            multi.incr(key);
-            multi.pttl(key);
-            const results = await multi.exec();
+            const luaScript = `
+                local current = redis.call('INCR', KEYS[1])
+                local pttl = redis.call('PTTL', KEYS[1])
+                if pttl < 0 then
+                    redis.call('EXPIRE', KEYS[1], ARGV[1])
+                    pttl = tonumber(ARGV[1]) * 1000
+                end
+                return {current, pttl}
+            `;
+            const results = await redisClient.eval(luaScript, {
+                keys: [key],
+                arguments: [String(ttlSeconds)],
+            });
 
             const count = results[0];
-            let pttl = results[1];
-
-            // If key has no expiration (-1) or didn't exist (-2) before incr
-            // set the expiration
-            if (pttl === -1 || pttl === -2) {
-                await redisClient.expire(key, ttlSeconds);
-                pttl = ttlSeconds * 1000;
-            }
+            const pttl = results[1];
 
             return { count, pttl };
         } catch (e) {

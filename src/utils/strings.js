@@ -4,7 +4,7 @@ const RE_HTML_TAGS = /<[^>]*>?/gm;
 const RE_YEAR = /\(\d{4}\)/g;
 const RE_ARTICLE_START = /^(the|a|an)\s+/i;
 const RE_WIKI_ARTICLE_END = /,\s*(the|a|an)$/i;
-const RE_WIKI_PARENS = /\s*\(.*?\)\s*/g;
+const RE_WIKI_PARENS = /\s*\([^)]*\)\s*/g;
 const RE_WIKI_NON_ALNUM = /[^a-z0-9]/g;
 const RE_FOUR_DIGITS = /^\d{4}$/;
 
@@ -146,77 +146,30 @@ const wikiNormalize = (title) => {
         .trim();
 };
 
+const HTML_ENTITIES = {
+    amp: '&',
+    quot: '"',
+    lt: '<',
+    gt: '>',
+    nbsp: ' '
+};
+
+const RE_ENTITY = /&(#(?:x[0-9a-fA-F]+|[0-9]+)|[a-zA-Z]+);/g;
+
 const decodeHtmlString = (html) => {
     if (!html) return '';
     let text = html.replace(RE_HTML_TAGS, '');
     if (text.indexOf('&') === -1) return text;
 
-    let result = '';
-    let lastIndex = 0;
-
-    for (let i = 0; i < text.length; i++) {
-        if (text[i] === '&') {
-            const semicolonIndex = text.indexOf(';', i + 1);
-            if (semicolonIndex !== -1 && semicolonIndex - i <= 10) {
-                const entity = text.substring(i + 1, semicolonIndex);
-                let replacement = null;
-
-                if (entity[0] === '#') {
-                    if (entity[1] === 'x' || entity[1] === 'X') {
-                        let valid = true;
-                        for (let j = 2; j < entity.length; j++) {
-                            const c = entity.charCodeAt(j);
-                            if (!((c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70))) {
-                                valid = false;
-                                break;
-                            }
-                        }
-                        if (valid && entity.length > 2) {
-                            replacement = String.fromCharCode(parseInt(entity.substring(2), 16));
-                        }
-                    } else {
-                        let valid = true;
-                        for (let j = 1; j < entity.length; j++) {
-                            const c = entity.charCodeAt(j);
-                            if (!(c >= 48 && c <= 57)) {
-                                valid = false;
-                                break;
-                            }
-                        }
-                        if (valid && entity.length > 1) {
-                            replacement = String.fromCharCode(parseInt(entity.substring(1), 10));
-                        }
-                    }
-                } else {
-                    switch (entity) {
-                        case 'amp':
-                            replacement = '&';
-                            break;
-                        case 'quot':
-                            replacement = '"';
-                            break;
-                        case 'lt':
-                            replacement = '<';
-                            break;
-                        case 'gt':
-                            replacement = '>';
-                            break;
-                        case 'nbsp':
-                            replacement = ' ';
-                            break;
-                    }
-                }
-
-                if (replacement !== null) {
-                    result += text.substring(lastIndex, i) + replacement;
-                    lastIndex = semicolonIndex + 1;
-                    i = semicolonIndex;
-                }
-            }
+    return text.replace(RE_ENTITY, (match, entity) => {
+        if (entity[0] === '#') {
+            const isHex = entity[1] === 'x' || entity[1] === 'X';
+            const numStr = entity.substring(isHex ? 2 : 1);
+            const num = parseInt(numStr, isHex ? 16 : 10);
+            return isNaN(num) ? match : String.fromCharCode(num);
         }
-    }
-
-    return result + text.substring(lastIndex);
+        return HTML_ENTITIES[entity] || match;
+    });
 };
 
 module.exports = {

@@ -49,7 +49,7 @@ Write-Host "[OK] Validation tests completed successfully." -ForegroundColor Gree
 
 # 5. Clean up package-lock changes to keep the working tree clean
 Write-Host "Cleaning up package-lock changes..." -ForegroundColor Yellow
-git reset --hard HEAD
+git checkout HEAD -- package-lock.json
 Write-Host "[OK] Working tree package-lock changes reverted." -ForegroundColor Green
 
 Write-Host "=========================================" -ForegroundColor Cyan

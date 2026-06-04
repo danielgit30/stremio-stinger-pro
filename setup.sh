@@ -41,7 +41,7 @@ echo "[OK] Validation tests completed successfully."
 
 # 5. Clean up package-lock changes to keep the working tree clean
 echo "Cleaning up package-lock changes..."
-git reset --hard HEAD
+git checkout HEAD -- package-lock.json
 echo "[OK] Working tree package-lock changes reverted."
 
 echo "========================================="

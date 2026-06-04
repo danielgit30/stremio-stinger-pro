@@ -13,8 +13,6 @@ const app = express();
 
 app.use(compression());
 app.use(cors());
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Security Headers Middleware
 app.use((req, res, next) => {
@@ -116,6 +114,7 @@ app.get(['/icon.png', '/favicon.ico'], (req, res) => {
 app.use(express.static(path.join(__dirname, '../public'), { maxAge: '1d', etag: true, lastModified: true }));
 
 // Routes
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok', uptime: process.uptime() }));
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
 
@@ -134,6 +133,13 @@ app.use((err, req, res, next) => {
         `[System Error] ${sanitizeError(err.message)}`,
         err.stack ? `\nStack: ${sanitizeError(err.stack)}` : ''
     );
+    
+    // Add Retry-After for upstream timeouts or rate limits bubbling up
+    if (err.message && (err.message.includes('timeout') || err.message.includes('ETIMEDOUT'))) {
+        res.setHeader('Retry-After', 30);
+        return res.status(504).json({ error: 'Gateway Timeout', message: 'Upstream request timed out.' });
+    }
+    
     res.status(500).json({ error: 'Internal Server Error', message: 'An unexpected error occurred.' });
 });
 

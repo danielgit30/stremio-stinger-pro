@@ -49,12 +49,49 @@ async function searchAfterCreditsMatch(title, year, reqConfig) {
 async function parseAfterCreditsPage(bestMatch, reqConfig) {
     const { id, url } = bestMatch;
 
-    const [postRes, catRes] = await Promise.all([
-        axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
-        axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
-    ]);
-    const content = postRes.data?.content?.rendered || '';
-    const categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
+    let content = '';
+    let categoryTagsArray = [];
+
+    try {
+        const postRes = await axios.get(
+            `https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content,_links,_embedded&_embed=wp:term`,
+            reqConfig
+        );
+        content = postRes.data?.content?.rendered || '';
+
+        if (postRes.data?._embedded && postRes.data._embedded['wp:term']) {
+            for (const taxonomy of postRes.data._embedded['wp:term']) {
+                if (Array.isArray(taxonomy)) {
+                    for (const term of taxonomy) {
+                        if (term && term.name) {
+                            categoryTagsArray.push(decodeHtmlString(term.name).toLowerCase().trim());
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            log(`[AfterCredits Warning] Embedded fetch failed: ${sanitizeError(e.message)}. Retrying with fallback...`);
+        }
+    }
+
+    if (categoryTagsArray.length === 0) {
+        try {
+            const [postRes, catRes] = await Promise.all([
+                axios.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),
+                axios.get(`https://aftercredits.com/wp-json/wp/v2/categories?post=${id}&_fields=name`, reqConfig),
+            ]);
+            content = postRes.data?.content?.rendered || '';
+            categoryTagsArray = (catRes.data || []).map((c) => decodeHtmlString(c.name).toLowerCase().trim());
+        } catch (e) {
+            if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+                console.error(`[AfterCredits Error] Page parse fallback failed: ${sanitizeError(e.message)}`);
+            }
+            return null;
+        }
+    }
+
     const categoryTags = new Set(categoryTagsArray);
 
     const $$ = cheerio.load(content);

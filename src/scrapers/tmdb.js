@@ -7,6 +7,10 @@ const { log } = require('../utils/logger');
 async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
     log(`\n--- [TMDB] Execution Start: ID ${imdbId} (TMDB: ${tmdbIdRaw}) ---`);
     const key = apiKey || DEFAULT_TMDB_KEY;
+    if (!key) {
+        log(`[TMDB] Skipping: No API key provided.`);
+        return null;
+    }
     try {
         let tmdbId = tmdbIdRaw;
 
