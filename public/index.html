@@ -1,296 +1,410 @@
 <!doctype html>
 <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="Configure Stremio Stinger Pro addon to seamlessly check for mid and post-credits scenes, outtakes, and sequel setups in Stremio."
+        />
+        <title>Configure Stremio Stinger Pro</title>
+        <link
+            rel="icon"
+            type="image/png"
+            href="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/css/style.css?v=3.0.7" />
+    </head>
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description"
-        content="Configure Stremio Stinger Pro addon to seamlessly check for mid and post-credits scenes, outtakes, and sequel setups in Stremio." />
-    <title>Configure Stremio Stinger Pro</title>
-    <link rel="icon" type="image/png"
-        href="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="/css/style.css?v=3.0.7" />
-</head>
-
-<body>
-    <div class="glass-bg-glows" aria-hidden="true">
-        <div class="glow-1"></div>
-        <div class="glow-2"></div>
-    </div>
-
-    <main class="card">
-        <!-- Sidebar toggle button on the right edge -->
-        <button type="button" id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle Test Bench"
-            title="Toggle Test Bench">
-            <span class="toggle-text">TEST BENCH</span>
-            <svg class="toggle-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-        </button>
-
-        <div class="grid-container">
-            <!-- Left Panel: Configurations -->
-            <div class="config-panel">
-                <header class="brand-header">
-                    <img src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
-                        alt="Stremio Stinger Pro Logo" class="brand-logo" width="52" height="52" />
-                    <h1 class="brand-title">Stremio Stinger <span class="pro-tag">PRO</span></h1>
-                </header>
-
-                <p class="description">
-                    Instantly detect mid/post-credits scenes, outtakes, and sequel setups before credits roll.
-                    Overlaid directly inside your Stremio client.
-                </p>
-
-                <form id="installForm">
-                    <div class="input-group">
-                        <label for="customSelectTrigger">Choose Display Style</label>
-                        <div class="custom-select-container">
-                            <button type="button" class="custom-select-trigger" id="customSelectTrigger"
-                                aria-haspopup="listbox" aria-expanded="false" aria-controls="customSelectOptions">
-                                <span id="customSelectValue">Colorful</span>
-                                <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="6 9 12 15 18 9"></polyline>
-                                </svg>
-                            </button>
-                            <div class="custom-select-options" id="customSelectOptions" role="listbox">
-                                <div class="custom-option selected" data-value="colorful" role="option">
-                                    Colorful
-                                </div>
-                                <div class="custom-option" data-value="monochrome" role="option">Monochrome</div>
-                                <div class="custom-option" data-value="simple" role="option">Simple</div>
-                            </div>
-                        </div>
-                        <select id="displayStyle" style="display: none">
-                            <option value="colorful">Colorful</option>
-                            <option value="monochrome">Monochrome</option>
-                            <option value="simple">Simple</option>
-                        </select>
-
-                        <div class="checkboxes-wrapper">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="showBloopers" />
-                                <label for="showBloopers">Include Outtakes & Bloopers</label>
-                            </div>
-                            <div class="checkbox-group checkbox-group--top-align">
-                                <input type="checkbox" id="showSequel" />
-                                <label for="showSequel">
-                                    Show Sequel Setup
-                                    <span class="optional-text">(Only displays when the source is AfterCredits)</span>
-                                </label>
-                            </div>
-                            <div class="checkbox-group checkbox-group--top-align">
-                                <input type="checkbox" id="showRelated" />
-                                <label for="showRelated">
-                                    Show Extended Metadata
-                                    <span class="optional-text">(Displays prequels, sequels, and source material)</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="apiKey">TMDB v3 API Key (Optional)</label>
-                        <div class="api-key-input-wrapper">
-                            <input type="password" id="apiKey" aria-describedby="apiKeyHelp apiKeyError"
-                                aria-invalid="false" placeholder="Enter your personal key or leave blank" />
-                            <button type="button" id="toggleApiKeyBtn" class="api-key-toggle" aria-label="Show API Key"
-                                title="Show API Key">
-                                <svg id="eyeIcon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="18"
-                                    height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                            </button>
-                        </div>
-                        <span class="error-text" id="apiKeyError" aria-live="polite">TMDB v3 API Key must be a
-                            32-character hexadecimal string.</span>
-                        <span class="optional-text" id="apiKeyHelp">If blank, the addon will fallback to the default
-                            community key.</span>
-                    </div>
-
-                    <button type="submit" class="primary-btn">Generate Install Link</button>
-                </form>
-
-                <div id="result-container" aria-live="polite">
-                    <p class="success-message">Addon generated successfully! Open in Stremio or copy below:</p>
-                    <div class="code-box" id="install-link"></div>
-                    <button class="copy-btn" id="copyBtn" aria-live="polite">Copy Manifest URL</button>
-                </div>
-            </div>
-
-            <!-- Right Panel: Emulator & Interactive Test Bench -->
-            <div class="emulator-panel">
-                <!-- Test Bench Section -->
-                <div class="test-bench">
-                    <span class="preview-label">INTERACTIVE TEST BENCH</span>
-
-                    <div class="search-row">
-                        <div class="search-input-wrapper">
-                            <input type="text" id="movieNameInput" placeholder="Enter movie name (e.g. Iron Man)"
-                                aria-label="Movie Name Search" />
-                            <button type="button" id="btnClearSearch" class="clear-search-btn" aria-label="Clear search"
-                                style="display: none">
-                                &times;
-                            </button>
-                        </div>
-                        <button type="button" id="btnTestLookup" class="search-btn">Test Lookup</button>
-                    </div>
-
-                    <div id="lookupStatus" class="lookup-status"></div>
-
-                    <!-- Manual Fallback Toggles (For custom mocking without ID) -->
-                    <div class="manual-toggles-section">
-                        <span class="small-title">Simulate Flags (Manual Mode):</span>
-                        <div class="test-controls" role="group" aria-label="Manual preview settings">
-                            <label id="lblTestMid"><input type="checkbox" id="testMid" checked /> Mid</label>
-                            <label id="lblTestPost"><input type="checkbox" id="testPost" checked /> Post</label>
-                            <label><input type="checkbox" id="testWiki" /> Wiki</label>
-                            <label id="testBloopersContainer" style="display: none"><input type="checkbox"
-                                    id="testBloopers" /> Bloopers</label>
-                            <label id="testSequelContainer" style="display: none"><input type="checkbox"
-                                    id="testSequel" /> Sequel</label>
-                            <label id="testRelatedContainer" style="display: none"><input type="checkbox"
-                                    id="testRelated" /> Collection</label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Stremio Emulator Mockup -->
-                <div class="stremio-emulator">
-                    <div class="emulator-header">
-                        <div class="emulator-dots">
-                            <span class="dot red"></span>
-                            <span class="dot yellow"></span>
-                            <span class="dot green"></span>
-                        </div>
-                        <span class="emulator-title">Stremio Streams Sidebar</span>
-                    </div>
-
-                    <div class="emulator-body">
-                        <div class="streams-header">STREAMS</div>
-
-                        <div class="streams-list">
-                            <!-- Stinger Addon Streams -->
-                            <div class="stream-box stinger-stream" id="previewStingerBox">
-                                <div class="stream-details">
-                                    <div class="stream-title">After-Credits Scenes</div>
-                                    <div class="stream-desc" id="streamPreviewText"></div>
-                                </div>
-                                <img src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
-                                    class="stream-addon-logo" alt="Stinger Pro Logo" width="24" height="24" />
-                            </div>
-
-                            <div class="stream-box stinger-stream" id="streamPreviewRelatedBox" style="display: none">
-                                <div class="stream-details">
-                                    <div class="stream-title" id="streamPreviewRelatedTitle">
-                                        Part of Marvel Cinematic Universe (MCU)
-                                    </div>
-                                    <div class="stream-desc" id="streamPreviewRelatedText"></div>
-                                </div>
-                                <img src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
-                                    class="stream-addon-logo" alt="Stinger Pro Logo" width="24" height="24" />
-                            </div>
-
-                            <!-- Dummy video streams to mimic Stremio -->
-                            <div class="stream-box dummy-stream">
-                                <div class="stream-details">
-                                    <div class="dummy-stream-meta">
-                                        <span class="source-name">Torrentio RD+</span>
-                                        <span class="resolution">4K</span>
-                                    </div>
-                                    <div class="dummy-stream-filename">
-                                        Iron.Man.2008.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-FGT (52.4 GB)
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="stream-box dummy-stream">
-                                <div class="stream-details">
-                                    <div class="dummy-stream-meta">
-                                        <span class="source-name">CyberFlix</span>
-                                        <span class="resolution">1080p</span>
-                                    </div>
-                                    <div class="dummy-stream-filename">
-                                        Iron.Man.2008.1080p.BrRip.x264.YIFY (1.8 GB)
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <body>
+        <div class="glass-bg-glows" aria-hidden="true">
+            <div class="glow-1"></div>
+            <div class="glow-2"></div>
         </div>
 
-        <footer class="footer">
-            <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank" class="footer-link">Release
-                v3.0.7</a>
-            | Developed by schultz911
-        </footer>
+        <main class="card">
+            <!-- Sidebar toggle button on the right edge -->
+            <button
+                type="button"
+                id="sidebarToggle"
+                class="sidebar-toggle"
+                aria-label="Toggle Test Bench"
+                title="Toggle Test Bench"
+            >
+                <span class="toggle-text">TEST BENCH</span>
+                <svg
+                    class="toggle-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
 
-        <div class="powered-by-section">
-            <div class="powered-by-logos">
-                <a href="https://aftercredits.com" target="_blank" class="powered-by-item" title="AfterCredits">
-                    <svg class="logo-aftercredits" viewBox="0 0 130 20" width="91" height="14"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <text x="5" y="14" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="10"
-                            fill="#a78bfa" letter-spacing="0.5">
-                            AFTER
-                        </text>
-                        <text x="45" y="14" font-family="'Space Grotesk', sans-serif" font-weight="400" font-size="10"
-                            fill="#9ca3af" letter-spacing="0.5">
-                            CREDITS
-                        </text>
-                        <rect x="100" y="3" width="25" height="14" rx="3" fill="#a78bfa" opacity="0.15" />
-                        <text x="112.5" y="13" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="8"
-                            fill="#a78bfa" text-anchor="middle">
-                            .COM
-                        </text>
-                    </svg>
-                </a>
-                <a href="https://www.themoviedb.org" target="_blank" class="powered-by-item"
-                    title="The Movie Database (TMDb)">
-                    <svg class="logo-tmdb" viewBox="0 0 100 20" width="70" height="14"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="tmdbGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#90cea1" />
-                                <stop offset="50%" stop-color="#3cbec9" />
-                                <stop offset="100%" stop-color="#00b4e4" />
-                            </linearGradient>
-                        </defs>
-                        <rect width="100" height="20" rx="4" fill="url(#tmdbGrad)" />
-                        <text x="50" y="14" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="900"
-                            font-size="10" fill="#0d253f" text-anchor="middle" letter-spacing="1">
-                            TMDB
-                        </text>
-                    </svg>
-                </a>
-                <a href="https://wikipedia.org" target="_blank" class="powered-by-item" title="Wikipedia">
-                    <svg class="logo-wikipedia" viewBox="0 0 100 20" width="70" height="14"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10" cy="10" r="8" fill="none" stroke="#9ca3af" stroke-width="1.5" />
-                        <text x="10" y="13" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="10"
-                            fill="#9ca3af" text-anchor="middle">
-                            W
-                        </text>
-                        <text x="24" y="14" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500"
-                            font-size="10" fill="#f3f4f6" letter-spacing="0.5">
-                            WIKIPEDIA
-                        </text>
-                    </svg>
-                </a>
+            <div class="grid-container">
+                <!-- Left Panel: Configurations -->
+                <div class="config-panel">
+                    <header class="brand-header">
+                        <img
+                            src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
+                            alt="Stremio Stinger Pro Logo"
+                            class="brand-logo"
+                            width="52"
+                            height="52"
+                        />
+                        <h1 class="brand-title">Stremio Stinger <span class="pro-tag">PRO</span></h1>
+                    </header>
+
+                    <p class="description">
+                        Instantly detect mid/post-credits scenes, outtakes, and sequel setups before credits roll.
+                        Overlaid directly inside your Stremio client.
+                    </p>
+
+                    <form id="installForm">
+                        <div class="input-group">
+                            <label for="customSelectTrigger">Choose Display Style</label>
+                            <div class="custom-select-container">
+                                <button
+                                    type="button"
+                                    class="custom-select-trigger"
+                                    id="customSelectTrigger"
+                                    aria-haspopup="listbox"
+                                    aria-expanded="false"
+                                    aria-controls="customSelectOptions"
+                                >
+                                    <span id="customSelectValue">Colorful</span>
+                                    <svg
+                                        class="chevron"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                <div class="custom-select-options" id="customSelectOptions" role="listbox">
+                                    <div class="custom-option selected" data-value="colorful" role="option">
+                                        Colorful
+                                    </div>
+                                    <div class="custom-option" data-value="monochrome" role="option">Monochrome</div>
+                                    <div class="custom-option" data-value="simple" role="option">Simple</div>
+                                </div>
+                            </div>
+                            <select id="displayStyle" style="display: none">
+                                <option value="colorful">Colorful</option>
+                                <option value="monochrome">Monochrome</option>
+                                <option value="simple">Simple</option>
+                            </select>
+
+                            <div class="checkboxes-wrapper">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="showBloopers" />
+                                    <label for="showBloopers">Include Outtakes & Bloopers</label>
+                                </div>
+                                <div class="checkbox-group checkbox-group--top-align">
+                                    <input type="checkbox" id="showSequel" />
+                                    <label for="showSequel">
+                                        Show Sequel Setup
+                                        <span class="optional-text"
+                                            >(Only displays when the source is AfterCredits)</span
+                                        >
+                                    </label>
+                                </div>
+                                <div class="checkbox-group checkbox-group--top-align">
+                                    <input type="checkbox" id="showRelated" />
+                                    <label for="showRelated">
+                                        Show Extended Metadata
+                                        <span class="optional-text"
+                                            >(Displays prequels, sequels, and source material)</span
+                                        >
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="apiKey">TMDB v3 API Key (Optional)</label>
+                            <div class="api-key-input-wrapper">
+                                <input
+                                    type="password"
+                                    id="apiKey"
+                                    aria-describedby="apiKeyHelp apiKeyError"
+                                    aria-invalid="false"
+                                    placeholder="Enter your personal key or leave blank"
+                                />
+                                <button
+                                    type="button"
+                                    id="toggleApiKeyBtn"
+                                    class="api-key-toggle"
+                                    aria-label="Show API Key"
+                                    title="Show API Key"
+                                >
+                                    <svg
+                                        id="eyeIcon"
+                                        aria-hidden="true"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
+                            <span class="error-text" id="apiKeyError" aria-live="polite"
+                                >TMDB v3 API Key must be a 32-character hexadecimal string.</span
+                            >
+                            <span class="optional-text" id="apiKeyHelp"
+                                >If blank, the addon will fallback to the default community key.</span
+                            >
+                        </div>
+
+                        <button type="submit" class="primary-btn">Generate Install Link</button>
+                    </form>
+
+                    <div id="result-container" aria-live="polite">
+                        <p class="success-message">Addon generated successfully! Open in Stremio or copy below:</p>
+                        <div class="code-box" id="install-link"></div>
+                        <button class="copy-btn" id="copyBtn" aria-live="polite">Copy Manifest URL</button>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Emulator & Interactive Test Bench -->
+                <div class="emulator-panel">
+                    <!-- Test Bench Section -->
+                    <div class="test-bench">
+                        <span class="preview-label">INTERACTIVE TEST BENCH</span>
+
+                        <div class="search-row">
+                            <div class="search-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="movieNameInput"
+                                    placeholder="Enter movie name (e.g. Iron Man)"
+                                    aria-label="Movie Name Search"
+                                />
+                                <button
+                                    type="button"
+                                    id="btnClearSearch"
+                                    class="clear-search-btn"
+                                    aria-label="Clear search"
+                                    style="display: none"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                            <button type="button" id="btnTestLookup" class="search-btn">Test Lookup</button>
+                        </div>
+
+                        <div id="lookupStatus" class="lookup-status"></div>
+
+                        <!-- Manual Fallback Toggles (For custom mocking without ID) -->
+                        <div class="manual-toggles-section">
+                            <span class="small-title">Simulate Flags (Manual Mode):</span>
+                            <div class="test-controls" role="group" aria-label="Manual preview settings">
+                                <label id="lblTestMid"><input type="checkbox" id="testMid" checked /> Mid</label>
+                                <label id="lblTestPost"><input type="checkbox" id="testPost" checked /> Post</label>
+                                <label><input type="checkbox" id="testWiki" /> Wiki</label>
+                                <label id="testBloopersContainer" style="display: none"
+                                    ><input type="checkbox" id="testBloopers" /> Bloopers</label
+                                >
+                                <label id="testSequelContainer" style="display: none"
+                                    ><input type="checkbox" id="testSequel" /> Sequel</label
+                                >
+                                <label id="testRelatedContainer" style="display: none"
+                                    ><input type="checkbox" id="testRelated" /> Collection</label
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stremio Emulator Mockup -->
+                    <div class="stremio-emulator">
+                        <div class="emulator-header">
+                            <div class="emulator-dots">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                            </div>
+                            <span class="emulator-title">Stremio Streams Sidebar</span>
+                        </div>
+
+                        <div class="emulator-body">
+                            <div class="streams-header">STREAMS</div>
+
+                            <div class="streams-list">
+                                <!-- Stinger Addon Streams -->
+                                <div class="stream-box stinger-stream" id="previewStingerBox">
+                                    <div class="stream-details">
+                                        <div class="stream-title">After-Credits Scenes</div>
+                                        <div class="stream-desc" id="streamPreviewText"></div>
+                                    </div>
+                                    <img
+                                        src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
+                                        class="stream-addon-logo"
+                                        alt="Stinger Pro Logo"
+                                        width="24"
+                                        height="24"
+                                    />
+                                </div>
+
+                                <div
+                                    class="stream-box stinger-stream"
+                                    id="streamPreviewRelatedBox"
+                                    style="display: none"
+                                >
+                                    <div class="stream-details">
+                                        <div class="stream-title" id="streamPreviewRelatedTitle">
+                                            Part of Marvel Cinematic Universe (MCU)
+                                        </div>
+                                        <div class="stream-desc" id="streamPreviewRelatedText"></div>
+                                    </div>
+                                    <img
+                                        src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.7"
+                                        class="stream-addon-logo"
+                                        alt="Stinger Pro Logo"
+                                        width="24"
+                                        height="24"
+                                    />
+                                </div>
+
+                                <!-- Dummy video streams to mimic Stremio -->
+                                <div class="stream-box dummy-stream">
+                                    <div class="stream-details">
+                                        <div class="dummy-stream-meta">
+                                            <span class="source-name">Torrentio RD+</span>
+                                            <span class="resolution">4K</span>
+                                        </div>
+                                        <div class="dummy-stream-filename">
+                                            Iron.Man.2008.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-FGT (52.4 GB)
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stream-box dummy-stream">
+                                    <div class="stream-details">
+                                        <div class="dummy-stream-meta">
+                                            <span class="source-name">CyberFlix</span>
+                                            <span class="resolution">1080p</span>
+                                        </div>
+                                        <div class="dummy-stream-filename">
+                                            Iron.Man.2008.1080p.BrRip.x264.YIFY (1.8 GB)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </main>
 
-    <script src="/js/main.js?v=3.0.7"></script>
-</body>
+            <footer class="footer">
+                <a href="https://github.com/schultz911/stremio-stinger-pro" target="_blank" class="footer-link"
+                    >Release v3.0.7</a
+                >
+                | Developed by schultz911
+            </footer>
 
+            <div class="powered-by-section">
+                <span class="powered-by-label">Powered by</span>
+                <div class="powered-by-logos">
+                    <a href="https://aftercredits.com" target="_blank" class="powered-by-item" title="AfterCredits">
+                        <img class="logo-aftercredits" src="/aftercredits.png" alt="AfterCredits" />
+                    </a>
+                    <a
+                        href="https://www.themoviedb.org"
+                        target="_blank"
+                        class="powered-by-item"
+                        title="The Movie Database (TMDb)"
+                    >
+                        <svg
+                            class="logo-tmdb"
+                            viewBox="0 0 100 20"
+                            width="70"
+                            height="14"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <defs>
+                                <linearGradient id="tmdbGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#90cea1" />
+                                    <stop offset="50%" stop-color="#3cbec9" />
+                                    <stop offset="100%" stop-color="#00b4e4" />
+                                </linearGradient>
+                            </defs>
+                            <rect width="100" height="20" rx="4" fill="url(#tmdbGrad)" />
+                            <text
+                                x="50"
+                                y="14"
+                                font-family="'Plus Jakarta Sans', Arial, sans-serif"
+                                font-weight="900"
+                                font-size="10"
+                                fill="#0d253f"
+                                text-anchor="middle"
+                                letter-spacing="1"
+                            >
+                                TMDB
+                            </text>
+                        </svg>
+                    </a>
+                    <a href="https://wikipedia.org" target="_blank" class="powered-by-item" title="Wikipedia">
+                        <svg
+                            class="logo-wikipedia"
+                            viewBox="0 0 100 20"
+                            width="70"
+                            height="14"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <circle cx="10" cy="10" r="8" fill="none" stroke="#9ca3af" stroke-width="1.5" />
+                            <text
+                                x="10"
+                                y="13"
+                                font-family="'Space Grotesk', sans-serif"
+                                font-weight="700"
+                                font-size="10"
+                                fill="#9ca3af"
+                                text-anchor="middle"
+                            >
+                                W
+                            </text>
+                            <text
+                                x="24"
+                                y="14"
+                                font-family="'Plus Jakarta Sans', sans-serif"
+                                font-weight="500"
+                                font-size="10"
+                                fill="#f3f4f6"
+                                letter-spacing="0.5"
+                            >
+                                WIKIPEDIA
+                            </text>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <script src="/js/main.js?v=3.0.7"></script>
+    </body>
 </html>

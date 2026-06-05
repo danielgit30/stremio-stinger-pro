@@ -989,25 +989,26 @@ input[type='text']:focus {
 .powered-by-section {
     margin-top: 24px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 12px;
-    flex-wrap: wrap;
 }
 
 .powered-by-label {
     font-family: var(--font-heading);
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 700;
     color: var(--text-muted);
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
+    opacity: 0.5;
 }
 
 .powered-by-logos {
     display: flex;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
+    gap: 20px;
 }
 
 .powered-by-item {
@@ -1024,6 +1025,20 @@ input[type='text']:focus {
     transform: translateY(-1px);
 }
 
-.powered-by-item svg {
+.powered-by-item svg,
+.powered-by-item img {
     display: block;
+}
+
+.logo-aftercredits {
+    height: 18px;
+    width: auto;
+}
+
+.logo-tmdb {
+    height: 12px;
+}
+
+.logo-wikipedia {
+    height: 12px;
 }
