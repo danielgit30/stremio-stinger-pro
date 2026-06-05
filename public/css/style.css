@@ -956,69 +956,59 @@ input[type='text']:focus {
     margin-top: 3px;
 }
 
-/* Attributions Section */
-.attributions-section {
+/* Powered by Section */
+.powered-by-section {
     margin-top: 24px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.attribution-label {
+.powered-by-label {
     font-family: var(--font-heading);
     font-size: 11px;
     font-weight: 700;
     color: var(--text-muted);
-    letter-spacing: 1.2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
-    display: block;
-    margin-bottom: 16px;
 }
 
-.attributions-logos {
+.powered-by-logos {
     display: flex;
-    justify-content: center;
     align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.attribution-item {
+.powered-by-item {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 10px 20px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border-color);
+    opacity: 0.65;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     text-decoration: none;
 }
 
-.attribution-item:hover {
-    background: rgba(139, 92, 246, 0.08);
-    border-color: var(--primary-accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.12);
+.powered-by-item:hover {
+    opacity: 1;
+    transform: translateY(-1px);
 }
 
 .logo-img {
     display: block;
     width: auto;
-    opacity: 0.65;
-    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.attribution-item:hover .logo-img {
-    opacity: 1;
+    max-height: 24px;
 }
 
 .logo-aftercredits {
-    height: 14px;
+    height: 18px;
 }
 
 .logo-tmdb {
-    height: 16px;
+    height: 24px;
 }
 
 .logo-wikipedia {
-    height: 18px;
+    height: 24px;
 }
