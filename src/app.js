@@ -2,13 +2,15 @@ const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
+const { LRUCache } = require('lru-cache');
 const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config');
 const { sanitizeError } = require('./utils/network');
 const { incrementRateLimit, isRedisEnabled } = require('./cache/redis');
 const { manifestHandler } = require('./routes/manifest');
 const { streamHandler } = require('./routes/stream');
 const { serveConfig } = require('./routes/ui');
-const { warn, error } = require('./utils/logger');
+const { warn, error, asyncLocalStorage } = require('./utils/logger');
 
 const app = express();
 
@@ -22,7 +24,7 @@ const SECURITY_HEADERS = {
     'X-XSS-Protection': '1; mode=block',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Content-Security-Policy':
-        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'",
+        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors 'none';",
 };
 
 app.use((req, res, next) => {
@@ -32,7 +34,13 @@ app.use((req, res, next) => {
 
 app.set('trust proxy', 1);
 
-const { LRUCache } = require('lru-cache');
+// Request Tracing Middleware
+app.use((req, res, next) => {
+    const reqId = crypto.randomUUID().substring(0, 8);
+    asyncLocalStorage.run(reqId, () => {
+        next();
+    });
+});
 
 // Rate Limiting
 const rateLimitMap = new LRUCache({

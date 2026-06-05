@@ -54,7 +54,7 @@ async function buildWikiIndex(options = {}) {
             let htmlContent = '';
             try {
                 const res = await axiosInstance.get(
-                    'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_films_with_post-credits_scenes&prop=text&format=json',
+                    'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_films_with_post-credits_scenes&prop=text&format=json&utf8=1',
                     mergedConfig
                 );
                 htmlContent = res.data?.parse?.text?.['*'] || '';
@@ -64,49 +64,51 @@ async function buildWikiIndex(options = {}) {
 
             const newCache = new Map();
 
-            // Optimize memory by extracting only wikitable blocks before handing off to Cheerio
-            const tableRegex = /<table[^>]*class\s*=\s*["'][^"']*wikitable[^"']*["'][^>]*>[\s\S]*?<\/table>/gi;
-            let match;
-            let extractedHtml = '';
-            while ((match = tableRegex.exec(htmlContent)) !== null) {
-                extractedHtml += match[0] + '\n';
+            // Optimize CPU and memory by parsing DOM iteratively inside the chunk extraction loop.
+            let currentIndex = 0;
+            while (true) {
+                const tableStart = htmlContent.indexOf('<table', currentIndex);
+                if (tableStart === -1) break;
+                
+                const tableEnd = htmlContent.indexOf('</table>', tableStart);
+                if (tableEnd === -1) break;
+
+                const tableChunk = htmlContent.substring(tableStart, tableEnd + 8);
+                if (tableChunk.includes('wikitable')) {
+                    // Tight scope for Cheerio to ensure immediate garbage collection per chunk
+                    const $ = cheerio.load(tableChunk);
+                    $('tr').each((i, el) => {
+                        const $el = $(el);
+                        let titleText = '';
+
+                        const $iNode = $el.find('i').first();
+                        if ($iNode.length > 0) {
+                            titleText = $iNode.text();
+                        } else {
+                            const $tds = $el.find('td');
+                            if ($tds.length > 1) {
+                                titleText = $tds.eq(1).text();
+                            }
+                        }
+
+                        if (!titleText) return;
+
+                        const cleanTitle = wikiNormalize(titleText);
+                        const rowText = $el.text().toLowerCase();
+
+                        let hasMid = WIKI_MID_REGEX.test(rowText);
+                        let hasPost = WIKI_POST_REGEX.test(rowText);
+                        let hasBloopers = BLOOPER_REGEX.test(rowText);
+
+                        newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
+                    });
+                }
+                
+                currentIndex = tableEnd + 8;
             }
 
-            // Explicitly clear original huge payload before DOM parse
+            // Explicitly clear original huge payload before continuing
             htmlContent = '';
-
-            // Tight scope for Cheerio to ensure immediate garbage collection
-            (() => {
-                const $ = cheerio.load(extractedHtml);
-                $('table tr').each((i, el) => {
-                    const $el = $(el);
-                    let titleText = '';
-
-                    const $iNode = $el.find('i').first();
-                    if ($iNode.length > 0) {
-                        titleText = $iNode.text();
-                    } else {
-                        const $tds = $el.find('td');
-                        if ($tds.length > 1) {
-                            titleText = $tds.eq(1).text();
-                        }
-                    }
-
-                    if (!titleText) return;
-
-                    const cleanTitle = wikiNormalize(titleText);
-                    const rowText = $el.text().toLowerCase();
-
-                    let hasMid = WIKI_MID_REGEX.test(rowText);
-                    let hasPost = WIKI_POST_REGEX.test(rowText);
-                    let hasBloopers = BLOOPER_REGEX.test(rowText);
-
-                    newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
-                });
-            })();
-
-            // Explicitly clear reference (htmlContent was already cleared before the IIFE)
-            extractedHtml = '';
 
             wikiCache = newCache;
             wikiLastFetched = Date.now();

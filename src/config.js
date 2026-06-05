@@ -49,8 +49,8 @@ const axiosConfig = {
         'Accept-Encoding': 'gzip, deflate, br',
     },
     timeout: 15000, // 15 seconds
-    httpAgent: new http.Agent({ keepAlive: true }),
-    httpsAgent: new https.Agent({ keepAlive: true }),
+    httpAgent: new http.Agent({ keepAlive: true, family: 4 }),
+    httpsAgent: new https.Agent({ keepAlive: true, family: 4 }),
 };
 
 module.exports = {

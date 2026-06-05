@@ -22,7 +22,7 @@ const activeRequests = new LRUCache({
 const setCacheError = (cacheKey) => {
     streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_ERROR, stream: null });
     if (redisCache.isRedisEnabled()) {
-        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000));
+        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: null }, Math.floor(CACHE_TTL_ERROR / 1000)).catch(err => error(`Redis Cache Error: ${err.message}`));
     }
 };
 
@@ -204,7 +204,7 @@ const fetchMetadata = async (id, apiKey) => {
                 `cinemeta_${id}`,
                 { title: result.title, year: result.year, moviedbId: result.moviedbId },
                 Math.floor(METADATA_TTL / 1000)
-            );
+            ).catch(err => error(`Redis Cache Error: ${err.message}`));
         }
         return result;
     }
@@ -358,12 +358,12 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 });
 
                 if (redisCache.isRedisEnabled()) {
-                    redisCache.setCache(
-                        `rawScraper_${id}`,
-                        { finalResult, bestFallback, relatedData, title, year, moviedbId },
-                        Math.floor(METADATA_TTL / 1000)
-                    );
-                }
+            redisCache.setCache(
+                `rawScraper_${id}`,
+                { finalResult, bestFallback, relatedData, title, year, moviedbId },
+                Math.floor(METADATA_TTL / 1000)
+            ).catch(err => error(`Redis Cache Error: ${err.message}`));
+        }
             } catch (e) {
                 if (!isCancel(e)) {
                     error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
@@ -412,7 +412,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                         `rawScraper_${id}`,
                         { finalResult, bestFallback, relatedData, title, year, moviedbId: moviedbIdForRelated },
                         Math.floor(METADATA_TTL / 1000)
-                    );
+                    ).catch(err => error(`Redis Cache Error: ${err.message}`));
                 }
             } catch {
                 relatedData = null;
@@ -456,17 +456,15 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         });
     }
 
-    const stream = streamsToReturn;
-
     const cacheDuration = CACHE_TTL_SUCCESS;
-    streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream });
+    streamCache.set(cacheKey, { expiresAt: Date.now() + cacheDuration, stream: streamsToReturn });
     if (redisCache.isRedisEnabled()) {
-        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream }, Math.floor(CACHE_TTL_SUCCESS / 1000));
+        redisCache.setCache(cacheKey, { isCachedWrapper: true, stream: streamsToReturn }, Math.floor(CACHE_TTL_SUCCESS / 1000)).catch(err => error(`Redis Cache Error: ${err.message}`));
     }
 
     log(`[Stream] Payload generated and cached. Sequence complete.`);
     log(`=================================\n`);
-    return stream;
+    return streamsToReturn;
 };
 
 const sendJson = (res, streams, isError) => {
