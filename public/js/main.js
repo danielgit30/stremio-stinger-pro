@@ -134,7 +134,7 @@ function updatePreview() {
     const relatedText = document.getElementById('streamPreviewRelatedText');
 
     if (configShowRelated && isRelated) {
-        relatedBox.style.display = 'block';
+        relatedBox.style.display = 'flex';
         relatedText.textContent = '';
 
         let prequelStr = '';
