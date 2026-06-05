@@ -258,7 +258,7 @@ p.description {
 /* Inputs & Form Groups */
 .input-group {
     text-align: left;
-    margin-bottom: 28px; /* Improved spacing */
+    margin-bottom: 32px; /* Improved spacing */
 }
 
 label {
