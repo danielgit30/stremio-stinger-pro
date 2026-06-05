@@ -6,7 +6,7 @@ const manifestHandler = (req, res) => {
         name: 'Stremio Stinger Pro',
         description:
             'Detects mid/post-credit scenes and optionally bloopers/outtakes and sequel setups. Powered by a multi-tiered scraping system including AfterCredits, TMDB, and Wikipedia.',
-        logo: 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png',
+        logo: 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/logo.png?v=3.0.5',
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
