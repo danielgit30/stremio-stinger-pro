@@ -620,16 +620,75 @@ const streamHandler = async (req, res) => {
     }
 };
 
+const searchMovieIdByName = async (query, apiKey) => {
+    const key = apiKey || DEFAULT_TMDB_KEY;
+    const config = { timeout: CINEMETA_TIMEOUT };
+
+    if (key) {
+        try {
+            log(`[Preview Search] Searching TMDB for: "${query}"`);
+            const searchRes = await axiosInstance.get(
+                `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&api_key=${encodeURIComponent(key)}`,
+                config
+            );
+            const tmdbMovie = searchRes.data?.results?.[0];
+            if (tmdbMovie && tmdbMovie.id) {
+                const tmdbId = tmdbMovie.id;
+                log(`[Preview Search] Found TMDB Movie: "${tmdbMovie.title}" (ID: ${tmdbId}). Fetching external IDs...`);
+                const extRes = await axiosInstance.get(
+                    `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/external_ids?api_key=${encodeURIComponent(key)}`,
+                    config
+                );
+                const imdbId = extRes.data?.imdb_id;
+                if (imdbId && /^tt\d+$/.test(imdbId)) {
+                    log(`[Preview Search] Resolved IMDb ID from TMDB: ${imdbId}`);
+                    return imdbId;
+                }
+            }
+        } catch (e) {
+            error(`[Preview Search Error] TMDB search failed: ${sanitizeError(e.message)}`);
+        }
+    }
+
+    // Fallback to Cinemeta Search
+    try {
+        log(`[Preview Search] Falling back/searching Cinemeta for: "${query}"`);
+        const cinemetaSearchUrl = `https://v3-cinemeta.strem.io/catalog/movie/top/search=${encodeURIComponent(query)}.json`;
+        const searchRes = await axiosInstance.get(cinemetaSearchUrl, config);
+        const metas = searchRes.data?.metas || [];
+        const match = metas.find((m) => m.id && /^tt\d+$/.test(m.id));
+        if (match) {
+            log(`[Preview Search] Found Cinemeta Movie: "${match.name}" (IMDb: ${match.id})`);
+            return match.id;
+        }
+    } catch (e) {
+        error(`[Preview Search Error] Cinemeta search failed: ${sanitizeError(e.message)}`);
+    }
+
+    return null;
+};
+
 const previewHandler = async (req, res) => {
     const { id } = req.params;
-    if (!id || !/^tt\d+$/.test(id)) {
+    if (!id) {
         res.setHeader('Cache-Control', 'public, max-age=86400');
-        return res.status(400).json({ error: 'Invalid IMDb ID format.' });
+        return res.status(400).json({ error: 'Movie name or IMDb ID is required.' });
     }
 
     try {
-        log(`[Preview] Request for ID: ${id}`);
+        log(`[Preview] Request for query/ID: ${id}`);
         const apiKey = req.query.apiKey || null;
+
+        let imdbId = id;
+        if (!/^tt\d+$/.test(imdbId)) {
+            // Not a valid IMDb ID format, search by name
+            imdbId = await searchMovieIdByName(id, apiKey);
+            if (!imdbId) {
+                res.setHeader('Cache-Control', 'public, max-age=60');
+                return res.status(404).json({ error: `Movie "${id}" not found.` });
+            }
+        }
+
         const styleConfig = {
             style: 'colorful',
             showSource: true,
@@ -637,11 +696,11 @@ const previewHandler = async (req, res) => {
             showSequel: true,
             showRelated: true,
         };
-        const dummyCacheKey = `${id}_preview_colorful`;
+        const dummyCacheKey = `${imdbId}_preview_colorful`;
 
-        await processScrapingSequence(id, apiKey, dummyCacheKey, styleConfig);
+        await processScrapingSequence(imdbId, apiKey, dummyCacheKey, styleConfig);
 
-        const cached = rawScraperCache.get(id);
+        const cached = rawScraperCache.get(imdbId);
         if (cached) {
             return res.json({
                 title: cached.title,
@@ -658,7 +717,7 @@ const previewHandler = async (req, res) => {
         }
         return res.status(404).json({ error: 'Failed to retrieve stinger data.' });
     } catch (e) {
-        error(`[Preview Error] Failed for ID ${id}: ${e.message}`);
+        error(`[Preview Error] Failed for ID/Query ${id}: ${e.message}`);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 };

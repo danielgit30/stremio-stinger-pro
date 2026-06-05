@@ -442,35 +442,32 @@ function loadConfigFromLocalStorage() {
 
 function initTestLookup() {
     const btnLookup = document.getElementById('btnTestLookup');
-    const inputImdb = document.getElementById('imdbIdInput');
+    const inputQuery = document.getElementById('movieNameInput');
     const statusDiv = document.getElementById('lookupStatus');
 
-    if (!btnLookup || !inputImdb) return;
+    if (!btnLookup || !inputQuery) return;
 
     const performLookup = async () => {
-        const imdbId = inputImdb.value.trim().toLowerCase();
-        if (!imdbId) {
-            statusDiv.textContent = 'Please enter an IMDb ID.';
-            statusDiv.className = 'lookup-status error';
-            statusDiv.style.display = 'block';
+        const query = inputQuery.value.trim();
+        if (!query) {
+            if (statusDiv) {
+                statusDiv.textContent = 'Please enter a movie name.';
+                statusDiv.className = 'lookup-status error';
+                statusDiv.style.display = 'block';
+            }
             return;
         }
 
-        if (!/^tt\d+$/.test(imdbId)) {
-            statusDiv.textContent = 'Invalid IMDb ID format (must start with "tt" followed by digits).';
-            statusDiv.className = 'lookup-status error';
+        if (statusDiv) {
+            statusDiv.textContent = 'Searching stinger metadata...';
+            statusDiv.className = 'lookup-status';
             statusDiv.style.display = 'block';
-            return;
         }
-
-        statusDiv.textContent = 'Searching stinger metadata...';
-        statusDiv.className = 'lookup-status';
-        statusDiv.style.display = 'block';
         btnLookup.disabled = true;
-        inputImdb.disabled = true;
+        inputQuery.disabled = true;
 
         const apiKey = document.getElementById('apiKey')?.value.trim() || '';
-        let url = `/preview/${imdbId}`;
+        let url = `/preview/${encodeURIComponent(query)}`;
         if (apiKey) {
             url += `?apiKey=${encodeURIComponent(apiKey)}`;
         }
@@ -484,8 +481,10 @@ function initTestLookup() {
             const data = await res.json();
             activeTestData = data;
 
-            statusDiv.textContent = `Showing results for: "${data.title}" (${data.year || 'N/A'})`;
-            statusDiv.className = 'lookup-status success';
+            if (statusDiv) {
+                statusDiv.textContent = `Showing results for: "${data.title}" (${data.year || 'N/A'})`;
+                statusDiv.className = 'lookup-status success';
+            }
 
             // Sync manual test toggles for visual feedback
             document.getElementById('testMid').checked = data.mid;
@@ -497,17 +496,19 @@ function initTestLookup() {
 
             updatePreview();
         } catch (e) {
-            statusDiv.textContent = `Lookup failed: ${e.message}`;
-            statusDiv.className = 'lookup-status error';
+            if (statusDiv) {
+                statusDiv.textContent = `Lookup failed: ${e.message}`;
+                statusDiv.className = 'lookup-status error';
+            }
             activeTestData = null;
         } finally {
             btnLookup.disabled = false;
-            inputImdb.disabled = false;
+            inputQuery.disabled = false;
         }
     };
 
     btnLookup.addEventListener('click', performLookup);
-    inputImdb.addEventListener('keydown', (e) => {
+    inputQuery.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             performLookup();

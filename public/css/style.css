@@ -122,35 +122,38 @@ body {
     gap: 0;
 }
 
-/* Sidebar Toggle Button */
 .sidebar-toggle {
     position: absolute;
-    right: 24px;
-    top: 24px;
+    right: -18px; /* Overlay in the middle of the right edge */
+    top: 50%;
+    transform: translateY(-50%);
     width: 36px;
     height: 36px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
+    background: rgba(139, 92, 246, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-muted);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 10;
+    color: #c084fc;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);
 }
 
 .sidebar-toggle:hover {
-    background: rgba(139, 92, 246, 0.12);
+    background: rgba(139, 92, 246, 0.3);
     border-color: var(--primary-accent);
-    color: var(--text-main);
-    box-shadow: 0 0 12px rgba(139, 92, 246, 0.25);
-    transform: translateY(-1px);
+    color: #ffffff;
+    box-shadow: 0 0 18px rgba(139, 92, 246, 0.5);
+    transform: translateY(-50%) scale(1.08);
 }
 
 .sidebar-toggle:active {
-    transform: translateY(0) scale(0.95);
+    transform: translateY(-50%) scale(0.95);
 }
 
 .sidebar-toggle .toggle-icon {
@@ -184,7 +187,7 @@ body {
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 20px; /* Improved spacing */
 }
 
 .brand-logo {
@@ -227,14 +230,14 @@ p.description {
     font-size: 14px;
     color: var(--text-muted);
     line-height: 1.6;
-    margin-bottom: 28px;
+    margin-bottom: 32px; /* Improved spacing */
     text-align: left;
 }
 
 /* Inputs & Form Groups */
 .input-group {
     text-align: left;
-    margin-bottom: 24px;
+    margin-bottom: 28px; /* Improved spacing */
 }
 
 label {
@@ -359,7 +362,7 @@ input[type='text']:focus {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 16px; /* Improved spacing */
 }
 
 .checkbox-group {
@@ -420,7 +423,7 @@ input[type='text']:focus {
     font-size: 11px;
     color: var(--text-muted);
     display: block;
-    margin-top: 4px;
+    margin-top: 6px; /* Improved spacing */
     font-weight: 400;
 }
 
@@ -769,6 +772,7 @@ input[type='text']:focus {
     gap: 8px;
     max-height: 280px;
     overflow-y: auto;
+    overflow-x: hidden; /* Prevent horizontal scrollbar on hover */
     padding-right: 2px;
 }
 
@@ -814,11 +818,10 @@ input[type='text']:focus {
 .stream-addon-logo {
     width: 24px;
     height: 24px;
-    border-radius: 6px;
     flex-shrink: 0;
-    box-shadow: 0 4px 10px rgba(139, 92, 246, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    align-self: flex-start; /* Align logo to top of stream box */
+    margin-top: 2px; /* Slight offset to align with title text */
 }
 
 .stream-box:hover .stream-addon-logo {
@@ -835,7 +838,7 @@ input[type='text']:focus {
 .stream-desc {
     color: #b3b3b9;
     font-size: 11px;
-    line-height: 1.5;
+    line-height: 1.65; /* Improved line spacing between sections of text */
     word-break: break-word;
     font-family: var(--font-body);
 }

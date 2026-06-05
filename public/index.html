@@ -204,12 +204,14 @@
                         <div class="search-row">
                             <input
                                 type="text"
-                                id="imdbIdInput"
-                                placeholder="Enter IMDb ID (e.g. tt0848228)"
-                                aria-label="IMDb ID Search"
+                                id="movieNameInput"
+                                placeholder="Enter movie name (e.g. Iron Man)"
+                                aria-label="Movie Name Search"
                             />
                             <button type="button" id="btnTestLookup" class="search-btn">Test Lookup</button>
                         </div>
+
+                        <div id="lookupStatus" class="lookup-status"></div>
 
                         <!-- Manual Fallback Toggles (For custom mocking without ID) -->
                         <div class="manual-toggles-section">

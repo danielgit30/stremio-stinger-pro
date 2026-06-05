@@ -81,4 +81,13 @@ describe('Stremio Stinger Pro E2E', () => {
         expect(res2.body).toHaveProperty('streams');
         expect(res1.body.streams).toEqual(res2.body.streams);
     }, 30000);
+
+    it('should return preview data for a movie name lookup (The Avengers)', async () => {
+        const res = await request(app).get('/preview/The%20Avengers');
+        expect(res.statusCode).toEqual(200);
+        expect(res.body).toHaveProperty('title');
+        expect(res.body.title.toLowerCase()).toContain('avengers');
+        expect(res.body).toHaveProperty('mid');
+        expect(res.body).toHaveProperty('post');
+    }, 30000);
 });
