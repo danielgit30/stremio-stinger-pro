@@ -8,7 +8,7 @@ const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config');
 const { sanitizeError } = require('./utils/network');
 const { incrementRateLimit, isRedisEnabled } = require('./cache/redis');
 const { manifestHandler } = require('./routes/manifest');
-const { streamHandler } = require('./routes/stream');
+const { streamHandler, previewHandler } = require('./routes/stream');
 const { serveConfig } = require('./routes/ui');
 const { warn, error, asyncLocalStorage } = require('./utils/logger');
 
@@ -145,6 +145,7 @@ app.get('/:style/:apiKey/manifest.json', manifestHandler);
 app.get('/stream/:type/:id.json', rateLimiter, streamHandler);
 app.get('/:p1/stream/:type/:id.json', rateLimiter, streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', rateLimiter, streamHandler);
+app.get('/preview/:id', rateLimiter, previewHandler);
 
 // Global Error Boundary
 // eslint-disable-next-line no-unused-vars

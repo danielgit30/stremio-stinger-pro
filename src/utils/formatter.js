@@ -1,5 +1,15 @@
-const getResultObj = (mid, post, no, url, source, bloopers = false, definitive = false, sequel = false) => {
-    return { mid, post, no, url, source, bloopers, definitive, sequel };
+const getResultObj = (
+    mid,
+    post,
+    no,
+    url,
+    source,
+    bloopers = false,
+    definitive = false,
+    sequel = false,
+    audioOnly = false
+) => {
+    return { mid, post, no, url, source, bloopers, definitive, sequel, audioOnly };
 };
 
 const formatMessage = (styleConfig, data) => {
@@ -15,25 +25,27 @@ const formatMessage = (styleConfig, data) => {
     }
 
     if (isSimple) {
-        if (data.mid && data.post) output.push('Mid & Post');
-        else if (data.mid) output.push('Mid Only');
-        else if (data.post) output.push('Post Only');
+        if (data.mid && data.post) output.push(data.audioOnly ? 'Mid & Post (Audio)' : 'Mid & Post');
+        else if (data.mid) output.push(data.audioOnly ? 'Mid Audio' : 'Mid Only');
+        else if (data.post) output.push(data.audioOnly ? 'Post Audio' : 'Post Only');
         else if (!data.bloopers || !showBloopers) {
             output.push(data.no || (data.bloopers && !showBloopers) ? 'None' : 'No Stingers');
         }
     } else if (isMonochrome) {
-        if (data.mid && data.post) output.push('⤹⤷ Mid & Post-Credits Scenes');
-        else if (data.mid) output.push('⤷ Mid-Credits Scene');
-        else if (data.post) output.push('⤵︎ Post-Credits Scene');
+        if (data.mid && data.post)
+            output.push(data.audioOnly ? '⤹⤷ Mid & Post-Credits Scenes (Audio Only)' : '⤹⤷ Mid & Post-Credits Scenes');
+        else if (data.mid) output.push(data.audioOnly ? '🕪 Mid-Credits Audio Cue' : '⤷ Mid-Credits Scene');
+        else if (data.post) output.push(data.audioOnly ? '🕪 Post-Credits Audio Cue' : '⤵︎ Post-Credits Scene');
         else if (!data.bloopers || !showBloopers) {
             output.push(
                 data.no || (data.bloopers && !showBloopers) ? '𐦂 Nothing But Credits' : "⊘ Couldn't Find Stingers"
             );
         }
     } else {
-        if (data.mid && data.post) output.push('🍿 Mid & Post-Credits Scenes');
-        else if (data.mid) output.push('⏳ Mid-Credits Scene');
-        else if (data.post) output.push('🎬 Post-Credits Scene');
+        if (data.mid && data.post)
+            output.push(data.audioOnly ? '🍿 Mid & Post-Credits Scenes (Audio Only)' : '🍿 Mid & Post-Credits Scenes');
+        else if (data.mid) output.push(data.audioOnly ? '🔊 Mid-Credits Audio Cue' : '⏳ Mid-Credits Scene');
+        else if (data.post) output.push(data.audioOnly ? '🔊 Post-Credits Audio Cue' : '🎬 Post-Credits Scene');
         else if (!data.bloopers || !showBloopers) {
             output.push(
                 data.no || (data.bloopers && !showBloopers) ? '🏃‍♂️ Nothing But Credits' : "🕵️‍♂️ Couldn't Find Stingers"

@@ -8,6 +8,7 @@ const {
     NEGATIVE_REGEX,
     STINGER_EXCEPTION_REGEX,
     AC_BLOOPER_TAGS,
+    AUDIO_ONLY_REGEX,
 } = require('../utils/strings');
 const { getResultObj } = require('../utils/formatter');
 const { validateUrl, sanitizeError } = require('../utils/network');
@@ -153,6 +154,8 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
     };
 
     let hasStingerInfo = false;
+    let detectedStingers = 0;
+    let audioStingers = 0;
 
     $$('.spoiler-wrap').each((i, el) => {
         const $el = $$(el);
@@ -174,8 +177,20 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
             if (isPost) {
                 hasPost = hasPost || updateStingerState(isBlooper, isNegative, hasPost, 'POST');
             }
+
+            const isMidStinger = isMid && !isBlooper && !isNegative;
+            const isPostStinger = isPost && !isBlooper && !isNegative;
+
+            if (isMidStinger || isPostStinger) {
+                detectedStingers++;
+                if (AUDIO_ONLY_REGEX.test(blockText)) {
+                    audioStingers++;
+                }
+            }
         }
     });
+
+    const audioOnly = detectedStingers > 0 && audioStingers === detectedStingers;
 
     let isDefinitive = false;
     if (hasMid || hasPost || bloopers || sequel || hasStingerInfo) {
@@ -185,9 +200,9 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
     const isNegative = !hasMid && !hasPost && !bloopers;
 
     log(
-        `[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}`
+        `[AfterCredits] Result -> Mid: ${hasMid}, Post: ${hasPost}, Negative: ${isNegative}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, Sequel: ${sequel}, AudioOnly: ${audioOnly}`
     );
-    return getResultObj(hasMid, hasPost, isNegative, url, 'AfterCredits', bloopers, isDefinitive, sequel);
+    return getResultObj(hasMid, hasPost, isNegative, url, 'AfterCredits', bloopers, isDefinitive, sequel, audioOnly);
 }
 
 async function checkAfterCredits(title, year, reqConfig) {

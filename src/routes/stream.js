@@ -216,60 +216,6 @@ const fetchMetadata = async (id, apiKey) => {
     return { title: null, year: null, moviedbId: null };
 };
 
-const runScrapers = async (title, year, id, moviedbId, apiKey, scraperConfig, scraperController) => {
-    let finalResult = null;
-    let bestFallback = null;
-
-    const updateFallback = (resObj) => {
-        if (!resObj) return;
-        if (resObj.no && (!bestFallback || !bestFallback.no)) {
-            bestFallback = resObj;
-        } else if (!bestFallback) {
-            bestFallback = resObj;
-        }
-    };
-
-    log(`[Stream] Firing Tier 0 scraper (AfterCredits)...`);
-
-    const pAc = scrapers.checkAfterCredits(title, year, scraperConfig).catch(() => null);
-
-    const checkDefinitive = (promise, name) =>
-        promise.then((res) => {
-            updateFallback(res);
-            if (res && res.definitive) {
-                res._sourceName = name; // attach source name for logging
-                return res;
-            }
-            throw new Error('Not definitive');
-        });
-
-    try {
-        // Tier 0
-        finalResult = await checkDefinitive(pAc, 'AfterCredits');
-    } catch {
-        // Tier 1 - wait for the first definitive result
-        log(`[Stream] Tier 0 missed. Firing Tier 1 scrapers (TMDB, Wikipedia)...`);
-        const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, scraperConfig).catch(() => null);
-        const pWiki = scrapers.checkWikipedia(title).catch(() => null);
-
-        try {
-            finalResult = await Promise.any([checkDefinitive(pTmdb, 'TMDB'), checkDefinitive(pWiki, 'Wikipedia')]);
-        } catch {
-            // AggregateError: All promises were rejected (meaning no definitive result)
-            // finalResult remains what it was initialized/set to (null)
-        }
-    }
-
-    if (finalResult) {
-        const definitiveName = finalResult._sourceName || 'Unknown';
-        delete finalResult._sourceName;
-        log(`[Stream] Definitive state found by ${definitiveName}. Aborting others...`);
-        scraperController.abort();
-    }
-
-    return { finalResult, bestFallback };
-};
-
 const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
     let finalResult;
     let bestFallback;
@@ -310,89 +256,205 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 });
             }
         }
+    }
+
+    if (!title) {
+        const metaData = await fetchMetadata(id, apiKey);
+        title = metaData.title;
+        year = metaData.year;
+        moviedbId = metaData.moviedbId;
 
         if (!title) {
-            const metaData = await fetchMetadata(id, apiKey);
-            title = metaData.title;
-            year = metaData.year;
-            moviedbId = metaData.moviedbId;
+            log(`[Stream] Cinemeta & TMDB fallback lookup failed or timed out. Returning empty streams.`);
+            log(`=================================\n`);
+            setCacheError(cacheKey);
+            return null;
+        }
 
-            if (!title) {
-                log(`[Stream] Cinemeta & TMDB fallback lookup failed or timed out. Returning empty streams.`);
-                log(`=================================\n`);
-                setCacheError(cacheKey);
-                return null;
+        log(`[Stream] Target: "${title}" (${year})`);
+
+        // Trigger related data fetch concurrently if enabled
+        let pRelated = Promise.resolve(undefined);
+        if (moviedbId && styleConfig.showRelated) {
+            const relatedController = new AbortController();
+            const relatedTimeoutId = setTimeout(() => relatedController.abort(), SCRAPER_TIMEOUT);
+            pRelated = scrapers
+                .getRelatedMovies(moviedbId, apiKey, { timeout: SCRAPER_TIMEOUT, signal: relatedController.signal }, id)
+                .finally(() => clearTimeout(relatedTimeoutId));
+        }
+
+        // Fire all scrapers concurrently
+        log(`[Stream] Firing all scrapers (AfterCredits, TMDB, Wikipedia) concurrently...`);
+        const pAc = scrapers.checkAfterCredits(title, year, { timeout: SCRAPER_TIMEOUT }).catch(() => null);
+        const pTmdb = scrapers.checkTmdb(id, moviedbId, apiKey, { timeout: SCRAPER_TIMEOUT }).catch(() => null);
+        const pWiki = scrapers.checkWikipedia(title).catch(() => null);
+
+        // Fast-path racing logic
+        let resolvedFastPath = false;
+        let fastPathResolve;
+        const fastPathPromise = new Promise((resolve) => {
+            fastPathResolve = resolve;
+        });
+
+        const handleScraperResolution = (res, sourceName) => {
+            if (res && res.definitive) {
+                if (!resolvedFastPath) {
+                    resolvedFastPath = true;
+                    fastPathResolve({ result: res, source: sourceName });
+                }
             }
+        };
 
-            log(`[Stream] Target: "${title}" (${year})`);
+        pAc.then((res) => handleScraperResolution(res, 'AfterCredits'));
+        pTmdb.then((res) => handleScraperResolution(res, 'TMDB'));
+        pWiki.then((res) => handleScraperResolution(res, 'Wikipedia'));
 
-            const scraperController = new AbortController();
-            const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
-            const scraperConfig = { timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
-
-            let relatedController = null;
-            let relatedTimeoutId = null;
-            let relatedConfig = null;
-
-            if (moviedbId && styleConfig.showRelated) {
-                relatedController = new AbortController();
-                relatedTimeoutId = setTimeout(() => relatedController.abort(), SCRAPER_TIMEOUT);
-                relatedConfig = { timeout: SCRAPER_TIMEOUT, signal: relatedController.signal };
+        // Handle fallback case if no scraper returns a definitive result
+        Promise.all([pAc, pTmdb, pWiki]).then((allResults) => {
+            if (!resolvedFastPath) {
+                resolvedFastPath = true;
+                const best = allResults.find((r) => r && !r.no) || allResults.find((r) => r) || null;
+                fastPathResolve({ result: best, source: 'Aggregated' });
             }
+        });
 
-            try {
-                const pScrapers = runScrapers(title, year, id, moviedbId, apiKey, scraperConfig, scraperController);
-                const pRelated = relatedConfig
-                    ? scrapers.getRelatedMovies(moviedbId, apiKey, relatedConfig, id)
-                    : Promise.resolve(undefined);
+        const fastResultObj = await fastPathPromise;
+        const fastResult = fastResultObj.result || {
+            mid: false,
+            post: false,
+            no: false,
+            bloopers: false,
+            sequel: false,
+            audioOnly: false,
+            url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+            source: 'Aggregated',
+        };
 
-                const [results, relatedRes] = await Promise.all([pScrapers, pRelated]);
-                finalResult = results.finalResult;
-                bestFallback = results.bestFallback;
-                relatedData = relatedRes;
+        log(`[Stream] Fast-path Resolution -> Source: ${fastResultObj.source || 'Aggregated'}`);
 
-                rawScraperCache.set(id, {
-                    finalResult,
-                    bestFallback,
+        // Await related data (if triggered)
+        relatedData = await pRelated.catch(() => null);
+
+        // Save initial fast path result to cache immediately to keep request latency low
+        rawScraperCache.set(id, {
+            finalResult: fastResult,
+            bestFallback: null,
+            relatedData,
+            title,
+            year,
+            moviedbId,
+            expiresAt: Date.now() + METADATA_TTL,
+        });
+
+        // Launch background merging and cache enrichment worker (non-blocking)
+        Promise.all([pAc, pTmdb, pWiki])
+            .then(async (allResults) => {
+                log(`[Stream Background] All scrapers completed. Processing merged results for ID: ${id}...`);
+                const merged = {
+                    mid: false,
+                    post: false,
+                    bloopers: false,
+                    sequel: false,
+                    audioOnly: false,
+                    no: false,
+                    definitive: false,
+                    url: '',
+                    sources: [],
+                };
+
+                for (const r of allResults) {
+                    if (!r) continue;
+                    if (r.mid) merged.mid = true;
+                    if (r.post) merged.post = true;
+                    if (r.bloopers) merged.bloopers = true;
+                    if (r.sequel) merged.sequel = true;
+                    if (r.audioOnly) merged.audioOnly = true;
+                    if (r.definitive) merged.definitive = true;
+                    if (r.url && !merged.url) merged.url = r.url;
+                    if (r.source && !merged.sources.includes(r.source)) {
+                        merged.sources.push(r.source);
+                    }
+                }
+
+                merged.no = !merged.mid && !merged.post && !merged.bloopers;
+                merged.source = merged.sources.length > 0 ? merged.sources.join(' & ') : 'Aggregated';
+                delete merged.sources;
+
+                if (!merged.url) {
+                    merged.url = `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`;
+                }
+
+                log(
+                    `[Stream Background] Merged Result -> Mid: ${merged.mid}, Post: ${merged.post}, Bloopers: ${merged.bloopers}, AudioOnly: ${merged.audioOnly}, Source: ${merged.source}`
+                );
+
+                // Overwrite caches with fully merged results
+                const finalScraperData = {
+                    finalResult: merged,
+                    bestFallback: null,
                     relatedData,
                     title,
                     year,
                     moviedbId,
                     expiresAt: Date.now() + METADATA_TTL,
-                });
+                };
+                rawScraperCache.set(id, finalScraperData);
 
                 if (redisCache.isRedisEnabled()) {
-                    redisCache
+                    await redisCache
                         .setCache(
                             `rawScraper_${id}`,
-                            { finalResult, bestFallback, relatedData, title, year, moviedbId },
+                            {
+                                finalResult: merged,
+                                bestFallback: null,
+                                relatedData,
+                                title,
+                                year,
+                                moviedbId,
+                            },
                             Math.floor(METADATA_TTL / 1000)
                         )
-                        .catch((err) => error(`Redis Cache Error: ${err.message}`));
+                        .catch((e) => error(`Redis Cache Error: ${e.message}`));
                 }
-            } catch (e) {
-                if (!isCancel(e)) {
-                    error(`[Stream Error] Scrapers block failed: ${sanitizeError(e.message)}`);
+
+                // Enrich style-specific cache
+                const enrichedStream = {
+                    name: 'After-Credits Scenes',
+                    title: `${formatMessage(styleConfig, merged)}${styleConfig.showSource ? `\nSource: ${merged.source}` : ''}`,
+                    url: merged.url,
+                };
+                let enrichedStreams = [enrichedStream];
+                if (styleConfig.showRelated && relatedData) {
+                    enrichedStreams.push({
+                        name: relatedData.collectionName
+                            ? `Part of ${relatedData.collectionName}`
+                            : 'Not Part of a Collection',
+                        title: formatRelatedMessage(styleConfig, relatedData),
+                        url: relatedData.collectionUrl,
+                    });
                 }
-                setCacheError(cacheKey);
-                return null;
-            } finally {
-                clearTimeout(scraperTimeoutId);
-                scraperController.abort();
-                if (relatedTimeoutId) {
-                    clearTimeout(relatedTimeoutId);
+                streamCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_SUCCESS, stream: enrichedStreams });
+                if (redisCache.isRedisEnabled()) {
+                    await redisCache
+                        .setCache(
+                            cacheKey,
+                            { isCachedWrapper: true, stream: enrichedStreams },
+                            Math.floor(CACHE_TTL_SUCCESS / 1000)
+                        )
+                        .catch(() => {});
                 }
-                if (relatedController) {
-                    relatedController.abort();
-                }
-            }
-        }
+                log(`[Stream Background] Cache enriched for key: ${cacheKey}`);
+            })
+            .catch((e) => {
+                error(`[Stream Background Error] Failed to enrich cache: ${e.message}`);
+            });
+
+        // Set local finalResult to fastResult to return to client immediately
+        finalResult = fastResult;
     }
 
     if (styleConfig.showRelated && relatedData === undefined) {
         log(`[Stream] Cache hit but relatedData is undefined. Fetching related data on-demand.`);
-        // moviedbId is already in function scope from whichever path populated it (memory/Redis/fresh).
-        // Only call fetchMetadata as a last resort (e.g., legacy cache entries that predate moviedbId storage).
         let moviedbIdForRelated = moviedbId;
         if (!moviedbIdForRelated) {
             const metaData = await fetchMetadata(id, apiKey);
@@ -401,9 +463,13 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
         if (moviedbIdForRelated) {
             const scraperController = new AbortController();
             const scraperTimeoutId = setTimeout(() => scraperController.abort(), SCRAPER_TIMEOUT);
-            const scraperConfig = { timeout: SCRAPER_TIMEOUT, signal: scraperController.signal };
             try {
-                relatedData = await scrapers.getRelatedMovies(moviedbIdForRelated, apiKey, scraperConfig, id);
+                relatedData = await scrapers.getRelatedMovies(
+                    moviedbIdForRelated,
+                    apiKey,
+                    { timeout: SCRAPER_TIMEOUT, signal: scraperController.signal },
+                    id
+                );
                 rawScraperCache.set(id, {
                     finalResult,
                     bestFallback,
@@ -440,6 +506,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
             no: false,
             bloopers: false,
             sequel: false,
+            audioOnly: false,
             url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
             source: 'Aggregated',
         };
@@ -547,12 +614,53 @@ const streamHandler = async (req, res) => {
     } catch {
         sendJson(res, [], true);
     } finally {
-        // Strict reference equality: guards against an LRU eviction + re-insertion race where
-        // a new promise could be stored under the same cacheKey before this cleanup runs.
         if (activeRequests.get(cacheKey) === scrapePromise) {
             activeRequests.delete(cacheKey);
         }
     }
 };
 
-module.exports = { streamHandler };
+const previewHandler = async (req, res) => {
+    const { id } = req.params;
+    if (!id || !/^tt\d+$/.test(id)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.status(400).json({ error: 'Invalid IMDb ID format.' });
+    }
+
+    try {
+        log(`[Preview] Request for ID: ${id}`);
+        const apiKey = req.query.apiKey || null;
+        const styleConfig = {
+            style: 'colorful',
+            showSource: true,
+            showBloopers: true,
+            showSequel: true,
+            showRelated: true,
+        };
+        const dummyCacheKey = `${id}_preview_colorful`;
+
+        await processScrapingSequence(id, apiKey, dummyCacheKey, styleConfig);
+
+        const cached = rawScraperCache.get(id);
+        if (cached) {
+            return res.json({
+                title: cached.title,
+                year: cached.year,
+                mid: cached.finalResult?.mid || false,
+                post: cached.finalResult?.post || false,
+                bloopers: cached.finalResult?.bloopers || false,
+                sequel: cached.finalResult?.sequel || false,
+                audioOnly: cached.finalResult?.audioOnly || false,
+                source: cached.finalResult?.source || 'Aggregated',
+                url: cached.finalResult?.url || '',
+                relatedData: cached.relatedData || null,
+            });
+        }
+        return res.status(404).json({ error: 'Failed to retrieve stinger data.' });
+    } catch (e) {
+        error(`[Preview Error] Failed for ID ${id}: ${e.message}`);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+module.exports = { streamHandler, previewHandler };

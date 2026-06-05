@@ -1,4 +1,5 @@
 let currentHttpsUrl = '';
+let activeTestData = null;
 
 function toggleApiKeyVisibility() {
     const apiKeyInput = document.getElementById('apiKey');
@@ -50,37 +51,54 @@ function updatePreview() {
     document.getElementById('testSequelContainer').style.display = configShowSequel ? 'flex' : 'none';
     document.getElementById('testRelatedContainer').style.display = configShowRelated ? 'flex' : 'none';
 
-    const isWiki = document.getElementById('testWiki').checked;
-    const isMid = document.getElementById('testMid').checked;
-    const isPost = document.getElementById('testPost').checked;
-    const isBloopers = document.getElementById('testBloopers').checked;
-    const isSequel = document.getElementById('testSequel').checked;
-    const isRelated = document.getElementById('testRelated').checked;
+    let isWiki, isMid, isPost, isBloopers, isSequel, isRelated, isAudioOnly, actualSource;
+
+    if (activeTestData) {
+        isMid = activeTestData.mid;
+        isPost = activeTestData.post;
+        isWiki = activeTestData.source === 'Wikipedia';
+        isBloopers = activeTestData.bloopers;
+        isSequel = activeTestData.sequel;
+        isRelated = !!activeTestData.relatedData;
+        isAudioOnly = activeTestData.audioOnly;
+        actualSource = activeTestData.source;
+    } else {
+        isMid = document.getElementById('testMid').checked;
+        isPost = document.getElementById('testPost').checked;
+        isWiki = document.getElementById('testWiki').checked;
+        isBloopers = document.getElementById('testBloopers').checked;
+        isSequel = document.getElementById('testSequel').checked;
+        isRelated = document.getElementById('testRelated').checked;
+        isAudioOnly = false;
+        actualSource = isWiki ? 'Wikipedia' : isMid || isPost || isBloopers || isSequel ? 'AfterCredits' : 'Aggregated';
+    }
 
     const previewText = document.getElementById('streamPreviewText');
     let lines = [];
 
-    if (isWiki && !isMid && !isPost) {
+    if (isWiki && !isMid && !isPost && !isBloopers) {
         if (style === 'simple') lines.push('Unclassified');
         else if (style === 'monochrome') lines.push('⚠ Unclassified Scene');
         else lines.push('❓ Unclassified Scene');
     } else {
         if (isMid && isPost) {
             if (style === 'simple') {
-                lines.push('Mid & Post');
+                lines.push(isAudioOnly ? 'Mid & Post (Audio)' : 'Mid & Post');
             } else if (style === 'monochrome') {
-                lines.push('⤹⤷ Mid & Post-Credits Scenes');
+                lines.push(isAudioOnly ? '⤹⤷ Mid & Post-Credits Scenes (Audio Only)' : '⤹⤷ Mid & Post-Credits Scenes');
             } else {
-                lines.push('🍿 Mid & Post-Credits Scenes');
+                lines.push(isAudioOnly ? '🍿 Mid & Post-Credits Scenes (Audio Only)' : '🍿 Mid & Post-Credits Scenes');
             }
         } else if (isMid) {
-            if (style === 'simple') lines.push('Mid Only');
-            else if (style === 'monochrome') lines.push('⤷ Mid-Credits Scene');
-            else lines.push('⏳ Mid-Credits Scene');
+            if (style === 'simple') lines.push(isAudioOnly ? 'Mid Audio' : 'Mid Only');
+            else if (style === 'monochrome')
+                lines.push(isAudioOnly ? '🕪 Mid-Credits Audio Cue' : '⤷ Mid-Credits Scene');
+            else lines.push(isAudioOnly ? '🔊 Mid-Credits Audio Cue' : '⏳ Mid-Credits Scene');
         } else if (isPost) {
-            if (style === 'simple') lines.push('Post Only');
-            else if (style === 'monochrome') lines.push('⤵︎ Post-Credits Scene');
-            else lines.push('🎬 Post-Credits Scene');
+            if (style === 'simple') lines.push(isAudioOnly ? 'Post Audio' : 'Post Only');
+            else if (style === 'monochrome')
+                lines.push(isAudioOnly ? '🕪 Post-Credits Audio Cue' : '⤵︎ Post-Credits Scene');
+            else lines.push(isAudioOnly ? '🔊 Post-Credits Audio Cue' : '🎬 Post-Credits Scene');
         } else if (!isBloopers || !configShowBloopers) {
             if (style === 'simple') lines.push('None');
             else if (style === 'monochrome') lines.push('𐦂 Nothing But Credits');
@@ -94,19 +112,14 @@ function updatePreview() {
         else lines.push('🎭 Outtakes');
     }
 
-    if (configShowSequel && isSequel) {
+    if (configShowSequel && isSequel && (!activeTestData || actualSource.includes('AfterCredits'))) {
         if (style === 'simple') lines.push('Sequel Setup');
         else if (style === 'monochrome') lines.push('⛶ Sets Up For A Sequel');
         else lines.push('🔮 Sets Up For A Sequel');
     }
 
     if (configShowSource) {
-        let mockSource = isWiki
-            ? 'Wikipedia'
-            : isMid || isPost || isBloopers || isSequel
-              ? 'AfterCredits'
-              : 'Aggregated';
-        lines.push(`Source: ${mockSource}`);
+        lines.push(`Source: ${actualSource}`);
     }
 
     previewText.textContent = '';
@@ -119,28 +132,59 @@ function updatePreview() {
 
     const relatedBox = document.getElementById('streamPreviewRelatedBox');
     const relatedText = document.getElementById('streamPreviewRelatedText');
+
     if (configShowRelated && isRelated) {
         relatedBox.style.display = 'block';
         relatedText.textContent = '';
-        if (style === 'simple') {
-            relatedText.appendChild(document.createTextNode('Based on Iron Man (1968) (Comic)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('Prequel: Incredible Hulk (2008)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('Sequel: Thor (2011)'));
-        } else if (style === 'monochrome') {
-            relatedText.appendChild(document.createTextNode('✐ Based on Iron Man (1968) (Comic)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('◂ Incredible Hulk (2008)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('▸ Thor (2011)'));
+
+        let prequelStr = '';
+        let sequelStr = '';
+        let sourceMaterial = '';
+        let collectionName = '';
+
+        if (activeTestData && activeTestData.relatedData) {
+            const rData = activeTestData.relatedData;
+            collectionName = rData.collectionName || '';
+            sourceMaterial = rData.sourceMaterial || '';
+            if (rData.prequel) {
+                prequelStr = `${rData.prequel.title} (${rData.prequel.release_date ? rData.prequel.release_date.split('-')[0] : 'N/A'})`;
+            }
+            if (rData.sequel) {
+                sequelStr = `${rData.sequel.title} (${rData.sequel.release_date ? rData.sequel.release_date.split('-')[0] : 'N/A'})`;
+            }
         } else {
-            relatedText.appendChild(document.createTextNode('📖 Based on Iron Man (1968) (Comic)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('⏪ Incredible Hulk (2008)'));
-            relatedText.appendChild(document.createElement('br'));
-            relatedText.appendChild(document.createTextNode('⏩ Thor (2011)'));
+            collectionName = 'Marvel Cinematic Universe (MCU)';
+            sourceMaterial = 'Iron Man (1968) (Comic)';
+            prequelStr = 'Incredible Hulk (2008)';
+            sequelStr = 'Thor (2011)';
         }
+
+        const relatedTitleSpan = document.getElementById('streamPreviewRelatedTitle');
+        if (relatedTitleSpan) {
+            relatedTitleSpan.textContent = collectionName ? `Part of ${collectionName}` : 'Extended Metadata';
+        }
+
+        let rLines = [];
+        if (style === 'simple') {
+            if (sourceMaterial) rLines.push(`Based on ${sourceMaterial}`);
+            if (prequelStr) rLines.push(`Prequel: ${prequelStr}`);
+            if (sequelStr) rLines.push(`Sequel: ${sequelStr}`);
+        } else if (style === 'monochrome') {
+            if (sourceMaterial) rLines.push(`✐ Based on ${sourceMaterial}`);
+            if (prequelStr) rLines.push(`◂ ${prequelStr}`);
+            if (sequelStr) rLines.push(`▸ ${sequelStr}`);
+        } else {
+            if (sourceMaterial) rLines.push(`📖 Based on ${sourceMaterial}`);
+            if (prequelStr) rLines.push(`⏪ ${prequelStr}`);
+            if (sequelStr) rLines.push(`⏩ ${sequelStr}`);
+        }
+
+        rLines.forEach((line, index) => {
+            relatedText.appendChild(document.createTextNode(line));
+            if (index < rLines.length - 1) {
+                relatedText.appendChild(document.createElement('br'));
+            }
+        });
     } else {
         relatedBox.style.display = 'none';
     }
@@ -211,9 +255,6 @@ function copyLink() {
     const copyBtn = document.querySelector('.copy-btn');
     if (!currentHttpsUrl) return;
 
-    // navigator.clipboard is available in all modern browsers over HTTPS.
-    // The execCommand('copy') API is deprecated and removed in modern engines —
-    // we fall back to a user-visible prompt instead of a silently broken dead code path.
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard
             .writeText(currentHttpsUrl)
@@ -223,11 +264,9 @@ function copyLink() {
                 setTimeout(() => (copyBtn.innerText = ogText), 2000);
             })
             .catch(() => {
-                // Clipboard write was blocked (e.g., permissions denied); surface the URL to the user.
                 window.prompt('Copy the URL below:', currentHttpsUrl);
             });
     } else {
-        // Non-HTTPS or very old browser: surface the URL directly.
         window.prompt('Copy the URL below:', currentHttpsUrl);
     }
 }
@@ -401,13 +440,100 @@ function loadConfigFromLocalStorage() {
     }
 }
 
+function initTestLookup() {
+    const btnLookup = document.getElementById('btnTestLookup');
+    const inputImdb = document.getElementById('imdbIdInput');
+    const statusDiv = document.getElementById('lookupStatus');
+
+    if (!btnLookup || !inputImdb) return;
+
+    const performLookup = async () => {
+        const imdbId = inputImdb.value.trim().toLowerCase();
+        if (!imdbId) {
+            statusDiv.textContent = 'Please enter an IMDb ID.';
+            statusDiv.className = 'lookup-status error';
+            statusDiv.style.display = 'block';
+            return;
+        }
+
+        if (!/^tt\d+$/.test(imdbId)) {
+            statusDiv.textContent = 'Invalid IMDb ID format (must start with "tt" followed by digits).';
+            statusDiv.className = 'lookup-status error';
+            statusDiv.style.display = 'block';
+            return;
+        }
+
+        statusDiv.textContent = 'Searching stinger metadata...';
+        statusDiv.className = 'lookup-status';
+        statusDiv.style.display = 'block';
+        btnLookup.disabled = true;
+        inputImdb.disabled = true;
+
+        const apiKey = document.getElementById('apiKey')?.value.trim() || '';
+        let url = `/preview/${imdbId}`;
+        if (apiKey) {
+            url += `?apiKey=${encodeURIComponent(apiKey)}`;
+        }
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `HTTP error ${res.status}`);
+            }
+            const data = await res.json();
+            activeTestData = data;
+
+            statusDiv.textContent = `Showing results for: "${data.title}" (${data.year || 'N/A'})`;
+            statusDiv.className = 'lookup-status success';
+
+            // Sync manual test toggles for visual feedback
+            document.getElementById('testMid').checked = data.mid;
+            document.getElementById('testPost').checked = data.post;
+            document.getElementById('testWiki').checked = data.source === 'Wikipedia';
+            document.getElementById('testBloopers').checked = data.bloopers;
+            document.getElementById('testSequel').checked = data.sequel;
+            document.getElementById('testRelated').checked = !!data.relatedData;
+
+            updatePreview();
+        } catch (e) {
+            statusDiv.textContent = `Lookup failed: ${e.message}`;
+            statusDiv.className = 'lookup-status error';
+            activeTestData = null;
+        } finally {
+            btnLookup.disabled = false;
+            inputImdb.disabled = false;
+        }
+    };
+
+    btnLookup.addEventListener('click', performLookup);
+    inputImdb.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performLookup();
+        }
+    });
+
+    // Clear active test data if user clicks on any manual simulation checkbox
+    const testCheckboxes = document.querySelectorAll('.test-controls input[type="checkbox"]');
+    testCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+            if (activeTestData) {
+                activeTestData = null;
+                statusDiv.style.display = 'none';
+                updatePreview();
+            }
+        });
+    });
+}
+
 window.onload = () => {
     initCustomSelect();
     loadConfigFromLocalStorage();
     validateApiKey();
+    initTestLookup();
     updatePreview();
 
-    // Attach event listeners dynamically
     const installForm = document.getElementById('installForm');
     if (installForm) {
         installForm.addEventListener('submit', (event) => {
@@ -431,9 +557,10 @@ window.onload = () => {
         copyBtn.addEventListener('click', copyLink);
     }
 
-    // Attach updatePreview to all checkboxes
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach((checkbox) => {
-        checkbox.addEventListener('change', updatePreview);
+        if (!checkbox.closest('.test-controls')) {
+            checkbox.addEventListener('change', updatePreview);
+        }
     });
 };

@@ -13,6 +13,8 @@ const BLOOPER_REGEX = /\b(bloopers?|outtakes?|gags?|gag reel|behind-the-scenes)\
 const NEGATIVE_REGEX = /(no extra|no stinger|nothing|are no|no scene)/;
 const STINGER_EXCEPTION_REGEX = /(extra shot|audio|voice|laugh|but|however)/;
 const AC_BLOOPER_TAGS = new Set(['outtake', 'musical', 'blooper', 'humorous credit']);
+const AUDIO_ONLY_REGEX =
+    /\b(audio-only|audio stinger|audio cue|audio clip|voice-over only|voice only|dialogue only|only audio|only hear|sound of|clanging sound)\b/;
 
 const safeTokens = new Set([
     'blooper',
@@ -189,4 +191,5 @@ module.exports = {
     NEGATIVE_REGEX,
     STINGER_EXCEPTION_REGEX,
     AC_BLOOPER_TAGS,
+    AUDIO_ONLY_REGEX,
 };

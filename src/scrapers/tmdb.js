@@ -64,13 +64,22 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
 
         let hasMid = false,
             hasPost = false,
-            bloopers = false;
+            bloopers = false,
+            audioOnly = false;
         for (const k of keywords) {
-            const name = k.name;
+            const name = k.name.toLowerCase();
             if (!hasMid && name.includes('duringcreditsstinger')) hasMid = true;
             if (!hasPost && name.includes('aftercreditsstinger')) hasPost = true;
             if (!bloopers && (name.includes('blooper') || name.includes('outtake'))) bloopers = true;
-            if (hasMid && hasPost && bloopers) break;
+            if (
+                !audioOnly &&
+                (name.includes('audio stinger') ||
+                    name.includes('audio-only stinger') ||
+                    name.includes('voiceover stinger'))
+            ) {
+                audioOnly = true;
+            }
+            if (hasMid && hasPost && bloopers && audioOnly) break;
         }
 
         if (!hasMid && !hasPost && !bloopers) {
@@ -79,7 +88,9 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
         }
 
         let isDefinitive = true;
-        log(`[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}`);
+        log(
+            `[TMDB] Match -> Mid: ${hasMid}, Post: ${hasPost}, Bloopers: ${bloopers}, Definitive: ${isDefinitive}, AudioOnly: ${audioOnly}`
+        );
         return getResultObj(
             hasMid,
             hasPost,
@@ -87,7 +98,9 @@ async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
             `https://www.themoviedb.org/movie/${tmdbId}`,
             'TMDB',
             bloopers,
-            isDefinitive
+            isDefinitive,
+            false,
+            audioOnly
         );
     } catch (e) {
         if (!isCancel(e)) {
@@ -199,20 +212,21 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         // Check if movie belongs to any collection or keywords in a mega-collection
         let franchiseMatch = null;
         const belongsId = movie.belongs_to_collection?.id;
-        
+
         for (const mc of MEGA_COLLECTIONS) {
             // Match by collection ID
             if (belongsId && mc.collectionIds && mc.collectionIds.includes(Number(belongsId))) {
                 franchiseMatch = mc;
                 break;
             }
-            
+
             // Match by keyword ID or keyword name
             if (movie.keywords && movie.keywords.keywords) {
-                const hasKw = movie.keywords.keywords.some(kw => 
-                    (mc.keywordIds && mc.keywordIds.includes(Number(kw.id))) ||
-                    (mc.keywordId === Number(kw.id)) ||
-                    (kw.name.toLowerCase() === mc.name.toLowerCase())
+                const hasKw = movie.keywords.keywords.some(
+                    (kw) =>
+                        (mc.keywordIds && mc.keywordIds.includes(Number(kw.id))) ||
+                        mc.keywordId === Number(kw.id) ||
+                        kw.name.toLowerCase() === mc.name.toLowerCase()
                 );
                 if (hasKw) {
                     franchiseMatch = mc;
@@ -238,7 +252,13 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
             if (franchiseMatch.keywordId) {
                 // Keyword-based franchise (MCU, DCU, etc.)
                 const targetDate = movie.release_date;
-                const neighbors = await getFranchiseNeighbors(franchiseMatch.keywordId, key, reqConfig, targetDate, tmdbId);
+                const neighbors = await getFranchiseNeighbors(
+                    franchiseMatch.keywordId,
+                    key,
+                    reqConfig,
+                    targetDate,
+                    tmdbId
+                );
                 prequel = neighbors.prequel;
                 sequel = neighbors.sequel;
                 collectionUrl = `https://www.themoviedb.org/keyword/${franchiseMatch.keywordId}`;

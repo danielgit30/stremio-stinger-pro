@@ -1,7 +1,7 @@
 const { axiosInstance, isCancel } = require('../utils/network');
 const cheerio = require('cheerio');
 const { WIKI_TTL } = require('../config');
-const { wikiNormalize, BLOOPER_REGEX } = require('../utils/strings');
+const { wikiNormalize, BLOOPER_REGEX, AUDIO_ONLY_REGEX } = require('../utils/strings');
 const { sanitizeError } = require('../utils/network');
 
 const WIKI_MID_REGEX =
@@ -99,8 +99,14 @@ async function buildWikiIndex(options = {}) {
                         let hasMid = WIKI_MID_REGEX.test(rowText);
                         let hasPost = WIKI_POST_REGEX.test(rowText);
                         let hasBloopers = BLOOPER_REGEX.test(rowText);
+                        let hasAudioOnly = AUDIO_ONLY_REGEX.test(rowText);
 
-                        newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
+                        newCache.set(cleanTitle, {
+                            mid: hasMid,
+                            post: hasPost,
+                            bloopers: hasBloopers,
+                            audioOnly: hasAudioOnly,
+                        });
                     });
                 }
 
@@ -139,7 +145,7 @@ async function checkWikipedia(title) {
         const data = wikiCache.get(cleanQuery);
         let isDefinitive = true;
         log(
-            `[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}, Definitive: ${isDefinitive}`
+            `[Wikipedia] Match -> Mid: ${data.mid}, Post: ${data.post}, Bloopers: ${data.bloopers}, Definitive: ${isDefinitive}, AudioOnly: ${data.audioOnly || false}`
         );
         return getResultObj(
             data.mid,
@@ -148,7 +154,9 @@ async function checkWikipedia(title) {
             'https://en.wikipedia.org/wiki/List_of_films_with_post-credits_scenes',
             'Wikipedia',
             data.bloopers,
-            isDefinitive
+            isDefinitive,
+            false,
+            data.audioOnly || false
         );
     }
     log(`[Wikipedia] No match found.`);
