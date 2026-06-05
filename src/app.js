@@ -119,10 +119,43 @@ const rateLimiter = async (req, res, next) => {
     }
 };
 
-// Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress
-app.get(['/icon.png', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {
+// Helper to check if a request is running locally
+const isLocalRequest = (req) => {
+    if (process.env.NODE_ENV === 'test') {
+        return false;
+    }
+    const host = req.get('host') || '';
+    return host.includes('localhost') || host.includes('127.0.0.1');
+};
+
+// Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress (except during local development)
+app.get(
+    ['/icon.png', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'],
+    (req, res, next) => {
+        if (isLocalRequest(req)) {
+            return next();
+        }
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+    }
+);
+
+// Redirect AfterCredits logo to GitHub CDN in production
+app.get('/ac.png', (req, res, next) => {
+    if (isLocalRequest(req)) {
+        return next();
+    }
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+    res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/ac.png');
+});
+
+// Redirect style.css to jsDelivr CDN in production to bypass MIME sniff issues with RawGitHub
+app.get('/css/style.css', (req, res, next) => {
+    if (isLocalRequest(req)) {
+        return next();
+    }
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.redirect(301, 'https://cdn.jsdelivr.net/gh/schultz911/stremio-stinger-pro@main/public/css/style.css');
 });
 
 // Static files
