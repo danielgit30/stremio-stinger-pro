@@ -55,6 +55,23 @@ describe('Stremio Stinger Pro E2E', () => {
         expect(res.body.streams).toEqual([]);
     });
 
+    it('should cache negative metadata lookup for non-existent IMDb ID', async () => {
+        const start1 = Date.now();
+        const res1 = await request(app).get('/stream/movie/tt0000000.json');
+        const duration1 = Date.now() - start1;
+        expect(res1.statusCode).toEqual(200);
+        expect(res1.body.streams).toEqual([]);
+
+        const start2 = Date.now();
+        const res2 = await request(app).get('/stream/movie/tt0000000.json');
+        const duration2 = Date.now() - start2;
+        expect(res2.statusCode).toEqual(200);
+        expect(res2.body.streams).toEqual([]);
+
+        // The second request should be significantly faster (under 150ms) due to negative caching.
+        expect(duration2).toBeLessThan(150);
+    });
+
     // Mocks for external APIs should ideally be added here.
     // For this e2e test, we're simply verifying that the endpoint works without crashing.
     it('should return stream data for a valid movie (The Avengers)', async () => {

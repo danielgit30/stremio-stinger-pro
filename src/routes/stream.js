@@ -170,11 +170,12 @@ const fetchMetadata = async (id, apiKey) => {
         const redisCinemeta = await redisCache.getCache(`cinemeta_${id}`);
         if (redisCinemeta !== null) {
             log(`[Stream] Cinemeta Cache HIT (Redis) for ID: ${id}`);
+            const ttl = redisCinemeta.title ? METADATA_TTL : CACHE_TTL_ERROR;
             cinemetaCache.set(id, {
                 title: redisCinemeta.title,
                 year: redisCinemeta.year,
                 moviedbId: redisCinemeta.moviedbId,
-                expiresAt: Date.now() + METADATA_TTL,
+                expiresAt: Date.now() + ttl,
             });
             return { title: redisCinemeta.title, year: redisCinemeta.year, moviedbId: redisCinemeta.moviedbId };
         }
@@ -194,26 +195,26 @@ const fetchMetadata = async (id, apiKey) => {
         clearTimeout(timeoutId);
     }
 
-    if (result && result.title) {
-        cinemetaCache.set(id, {
-            title: result.title,
-            year: result.year,
-            moviedbId: result.moviedbId,
-            expiresAt: Date.now() + METADATA_TTL,
-        });
-        if (redisCache.isRedisEnabled()) {
-            redisCache
-                .setCache(
-                    `cinemeta_${id}`,
-                    { title: result.title, year: result.year, moviedbId: result.moviedbId },
-                    Math.floor(METADATA_TTL / 1000)
-                )
-                .catch((err) => error(`Redis Cache Error: ${err.message}`));
-        }
-        return result;
+    const hasTitle = !!(result && result.title);
+    const ttl = hasTitle ? METADATA_TTL : CACHE_TTL_ERROR;
+    const cacheVal = hasTitle
+        ? { title: result.title, year: result.year, moviedbId: result.moviedbId }
+        : { title: null, year: null, moviedbId: null };
+
+    cinemetaCache.set(id, {
+        title: cacheVal.title,
+        year: cacheVal.year,
+        moviedbId: cacheVal.moviedbId,
+        expiresAt: Date.now() + ttl,
+    });
+
+    if (redisCache.isRedisEnabled()) {
+        redisCache
+            .setCache(`cinemeta_${id}`, cacheVal, Math.floor(ttl / 1000))
+            .catch((err) => error(`Redis Cache Error: ${err.message}`));
     }
 
-    return { title: null, year: null, moviedbId: null };
+    return cacheVal;
 };
 
 const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
@@ -634,7 +635,9 @@ const searchMovieIdByName = async (query, apiKey) => {
             const tmdbMovie = searchRes.data?.results?.[0];
             if (tmdbMovie && tmdbMovie.id) {
                 const tmdbId = tmdbMovie.id;
-                log(`[Preview Search] Found TMDB Movie: "${tmdbMovie.title}" (ID: ${tmdbId}). Fetching external IDs...`);
+                log(
+                    `[Preview Search] Found TMDB Movie: "${tmdbMovie.title}" (ID: ${tmdbId}). Fetching external IDs...`
+                );
                 const extRes = await axiosInstance.get(
                     `https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}/external_ids?api_key=${encodeURIComponent(key)}`,
                     config
@@ -717,7 +720,7 @@ const previewHandler = async (req, res) => {
         }
         return res.status(404).json({ error: 'Failed to retrieve stinger data.' });
     } catch (e) {
-        error(`[Preview Error] Failed for ID/Query ${id}: ${e.message}`);
+        error(`[Preview Error] Failed for ID/Query ${id}: ${sanitizeError(e.message)}`);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 };

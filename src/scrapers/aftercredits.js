@@ -59,6 +59,7 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
 
     let content = '';
     let categoryTagsArray = [];
+    let firstRequestFailed = false;
 
     try {
         const postRes = await axiosInstance.get(
@@ -79,12 +80,13 @@ async function parseAfterCreditsPage(bestMatch, reqConfig) {
             }
         }
     } catch (e) {
+        firstRequestFailed = true;
         if (!isCancel(e)) {
             log(`[AfterCredits Warning] Embedded fetch failed: ${sanitizeError(e.message)}. Retrying with fallback...`);
         }
     }
 
-    if (categoryTagsArray.length === 0) {
+    if (firstRequestFailed) {
         try {
             const [postRes, catRes] = await Promise.all([
                 axiosInstance.get(`https://aftercredits.com/wp-json/wp/v2/posts/${id}?_fields=content`, reqConfig),

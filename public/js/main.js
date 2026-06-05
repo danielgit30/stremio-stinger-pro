@@ -41,7 +41,6 @@ function toggleApiKeyVisibility() {
 }
 
 function updatePreview() {
-    console.log('[Debug] updatePreview() running...');
     const style = document.getElementById('displayStyle').value;
     const configShowSource = document.getElementById('showSource').checked;
     const configShowBloopers = document.getElementById('showBloopers').checked;
@@ -530,10 +529,8 @@ function initTestLookup() {
 
     // Update preview when simulation checkboxes change
     const testCheckboxes = document.querySelectorAll('.test-controls input[type="checkbox"]');
-    console.log(`[Debug] Initializing ${testCheckboxes.length} simulation checkboxes`);
     testCheckboxes.forEach((checkbox) => {
         checkbox.addEventListener('change', () => {
-            console.log(`[Debug] Simulation checkbox ${checkbox.id} change event triggered: checked = ${checkbox.checked}`);
             updatePreview();
         });
     });

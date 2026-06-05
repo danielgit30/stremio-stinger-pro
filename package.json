@@ -10,7 +10,6 @@
     "format": "prettier --write src/ public/"
   },
   "dependencies": {
-    "@playwright/test": "^1.60.0",
     "axios": "^1.6.8",
     "cheerio": "^1.0.0-rc.12",
     "compression": "^1.8.1",
