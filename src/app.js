@@ -116,7 +116,7 @@ const rateLimiter = async (req, res, next) => {
 };
 
 // Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress
-app.get(['/icon.png', '/favicon.ico'], (req, res) => {
+app.get(['/icon.png', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
 });

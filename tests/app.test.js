@@ -27,6 +27,26 @@ describe('Stremio Stinger Pro E2E', () => {
         expect(res3.headers['content-type']).toContain('html');
     });
 
+    it('should redirect apple-touch-icons and favicon to GitHub CDN', async () => {
+        const res1 = await request(app).get('/apple-touch-icon.png');
+        expect(res1.statusCode).toEqual(301);
+        expect(res1.headers['location']).toEqual('https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+
+        const res2 = await request(app).get('/apple-touch-icon-precomposed.png');
+        expect(res2.statusCode).toEqual(301);
+        expect(res2.headers['location']).toEqual('https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+    });
+
+    it('should serve robots.txt and robotx.txt', async () => {
+        const res1 = await request(app).get('/robots.txt');
+        expect(res1.statusCode).toEqual(200);
+        expect(res1.text).toContain('User-agent: *');
+
+        const res2 = await request(app).get('/robotx.txt');
+        expect(res2.statusCode).toEqual(200);
+        expect(res2.text).toContain('User-agent: *');
+    });
+
     it('should return empty streams for non-movie type', async () => {
         const res = await request(app).get('/stream/series/tt0848228.json');
         expect(res.statusCode).toEqual(200);
