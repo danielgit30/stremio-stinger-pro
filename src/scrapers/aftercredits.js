@@ -15,13 +15,13 @@ const { log, error } = require('../utils/logger');
 
 async function searchAfterCreditsMatch(title, year, reqConfig) {
     const cleanedTitle = cleanTitle(title.toLowerCase().trim());
-    const searchQuery = encodeURIComponent(year ? `${title} ${year}` : title);
+    const searchQuery = encodeURIComponent(year ? `${cleanedTitle} ${year}` : cleanedTitle);
     const searchUrl = `https://aftercredits.com/wp-json/wp/v2/posts?search=${searchQuery}&_fields=id,title,link&per_page=10`;
     let searchRes = await axiosInstance.get(searchUrl, reqConfig);
 
     if ((!searchRes.data || searchRes.data.length === 0) && year) {
         log(`[AfterCredits] No results with year. Retrying search without year...`);
-        const searchUrlNoYear = `https://aftercredits.com/wp-json/wp/v2/posts?search=${encodeURIComponent(title)}&_fields=id,title,link&per_page=10`;
+        const searchUrlNoYear = `https://aftercredits.com/wp-json/wp/v2/posts?search=${encodeURIComponent(cleanedTitle)}&_fields=id,title,link&per_page=10`;
         searchRes = await axiosInstance.get(searchUrlNoYear, reqConfig);
     }
 

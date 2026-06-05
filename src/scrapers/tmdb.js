@@ -282,8 +282,6 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
     }
 }
 
-
-
 function isMainMovie(title) {
     return !BLACKLIST_PATTERNS.some((pattern) => pattern.test(title));
 }

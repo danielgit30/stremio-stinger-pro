@@ -69,7 +69,7 @@ async function buildWikiIndex(options = {}) {
             while (true) {
                 const tableStart = htmlContent.indexOf('<table', currentIndex);
                 if (tableStart === -1) break;
-                
+
                 const tableEnd = htmlContent.indexOf('</table>', tableStart);
                 if (tableEnd === -1) break;
 
@@ -103,7 +103,7 @@ async function buildWikiIndex(options = {}) {
                         newCache.set(cleanTitle, { mid: hasMid, post: hasPost, bloopers: hasBloopers });
                     });
                 }
-                
+
                 currentIndex = tableEnd + 8;
             }
 

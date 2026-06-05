@@ -104,8 +104,8 @@ function updatePreview() {
         let mockSource = isWiki
             ? 'Wikipedia'
             : isMid || isPost || isBloopers || isSequel
-                ? 'AfterCredits'
-                : 'Aggregated';
+              ? 'AfterCredits'
+              : 'Aggregated';
         lines.push(`Source: ${mockSource}`);
     }
 
