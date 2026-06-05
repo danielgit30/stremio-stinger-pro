@@ -40,9 +40,13 @@ npm test -- --forceExit
 echo "[OK] Validation tests completed successfully."
 
 # 5. Clean up package-lock changes to keep the working tree clean
-echo "Cleaning up package-lock changes..."
-git checkout HEAD -- package-lock.json
-echo "[OK] Working tree package-lock changes reverted."
+if command -v git &> /dev/null && git rev-parse --is-inside-work-tree &> /dev/null; then
+    echo "Cleaning up package-lock changes..."
+    git checkout HEAD -- package-lock.json node_modules/.package-lock.json || true
+    echo "[OK] Working tree package-lock changes reverted."
+else
+    echo "[Skip] Git not available or not inside a git repository; skipping package-lock cleanup."
+fi
 
 echo "========================================="
 echo "Setup completed successfully! Ready."

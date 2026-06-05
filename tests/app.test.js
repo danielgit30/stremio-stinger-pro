@@ -13,6 +13,20 @@ describe('Stremio Stinger Pro E2E', () => {
         expect(res.body.resources).toContain('stream');
     });
 
+    it('should serve configure page for different route styles', async () => {
+        const res1 = await request(app).get('/configure');
+        expect(res1.statusCode).toEqual(200);
+        expect(res1.headers['content-type']).toContain('html');
+
+        const res2 = await request(app).get('/colorful/configure');
+        expect(res2.statusCode).toEqual(200);
+        expect(res2.headers['content-type']).toContain('html');
+
+        const res3 = await request(app).get('/colorful/0287deb172a88d5d62c2ed82e863f4ee/configure');
+        expect(res3.statusCode).toEqual(200);
+        expect(res3.headers['content-type']).toContain('html');
+    });
+
     it('should return empty streams for non-movie type', async () => {
         const res = await request(app).get('/stream/series/tt0848228.json');
         expect(res.statusCode).toEqual(200);

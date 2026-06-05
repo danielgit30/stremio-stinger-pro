@@ -48,9 +48,19 @@ if ($LastExitCode -ne 0) {
 Write-Host "[OK] Validation tests completed successfully." -ForegroundColor Green
 
 # 5. Clean up package-lock changes to keep the working tree clean
-Write-Host "Cleaning up package-lock changes..." -ForegroundColor Yellow
-git checkout HEAD -- package-lock.json
-Write-Host "[OK] Working tree package-lock changes reverted." -ForegroundColor Green
+$git = Get-Command git -ErrorAction SilentlyContinue
+if ($git) {
+    git rev-parse --is-inside-work-tree 2>$null
+    if ($LastExitCode -eq 0) {
+        Write-Host "Cleaning up package-lock changes..." -ForegroundColor Yellow
+        git checkout HEAD -- package-lock.json node_modules/.package-lock.json 2>$null
+        Write-Host "[OK] Working tree package-lock changes reverted." -ForegroundColor Green
+    } else {
+        Write-Host "[Skip] Not inside a git repository; skipping package-lock cleanup." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "[Skip] Git not available; skipping package-lock cleanup." -ForegroundColor Yellow
+}
 
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Setup completed successfully! Ready." -ForegroundColor Cyan

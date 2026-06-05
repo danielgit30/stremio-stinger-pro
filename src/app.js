@@ -135,6 +135,8 @@ app.get('/health', (req, res) => {
 });
 app.get('/', serveConfig);
 app.get('/configure', serveConfig);
+app.get('/:p1/configure', serveConfig);
+app.get('/:style/:apiKey/configure', serveConfig);
 
 app.get('/manifest.json', manifestHandler);
 app.get('/:p1/manifest.json', manifestHandler);
