@@ -104,8 +104,8 @@ function updatePreview() {
         let mockSource = isWiki
             ? 'Wikipedia'
             : isMid || isPost || isBloopers || isSequel
-              ? 'AfterCredits'
-              : 'Aggregated';
+                ? 'AfterCredits'
+                : 'Aggregated';
         lines.push(`Source: ${mockSource}`);
     }
 
@@ -123,19 +123,19 @@ function updatePreview() {
         relatedBox.style.display = 'block';
         relatedText.textContent = '';
         if (style === 'simple') {
-            relatedText.appendChild(document.createTextNode('Based on Comic: Iron Man (1968)'));
+            relatedText.appendChild(document.createTextNode('Based on Iron Man (1968) (Comic)'));
             relatedText.appendChild(document.createElement('br'));
             relatedText.appendChild(document.createTextNode('Prequel: Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));
             relatedText.appendChild(document.createTextNode('Sequel: Iron Man 3 (2013)'));
         } else if (style === 'monochrome') {
-            relatedText.appendChild(document.createTextNode('✐ Based on Comic: Iron Man (1968)'));
+            relatedText.appendChild(document.createTextNode('✐ Based on Iron Man (1968) (Comic)'));
             relatedText.appendChild(document.createElement('br'));
             relatedText.appendChild(document.createTextNode('◂ Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));
             relatedText.appendChild(document.createTextNode('▸ Iron Man 3 (2013)'));
         } else {
-            relatedText.appendChild(document.createTextNode('📖 Based on Comic: Iron Man (1968)'));
+            relatedText.appendChild(document.createTextNode('📖 Based on Iron Man (1968) (Comic)'));
             relatedText.appendChild(document.createElement('br'));
             relatedText.appendChild(document.createTextNode('⏪ Iron Man (2008)'));
             relatedText.appendChild(document.createElement('br'));

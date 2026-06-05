@@ -31,9 +31,9 @@ const parseRequestConfig = (req) => {
     let apiKey =
         req.params.apiKey ||
         (req.params.p1 &&
-        !req.params.p1.includes('simple') &&
-        !req.params.p1.includes('colorful') &&
-        !req.params.p1.includes('monochrome')
+            !req.params.p1.includes('simple') &&
+            !req.params.p1.includes('colorful') &&
+            !req.params.p1.includes('monochrome')
             ? req.params.p1
             : null);
 
@@ -427,14 +427,14 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     const resolvedResult = finalResult ||
         bestFallback || {
-            mid: false,
-            post: false,
-            no: false,
-            bloopers: false,
-            sequel: false,
-            url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
-            source: 'Aggregated',
-        };
+        mid: false,
+        post: false,
+        no: false,
+        bloopers: false,
+        sequel: false,
+        url: `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,
+        source: 'Aggregated',
+    };
 
     log(`[Stream] Final Resolution -> Source Used: ${resolvedResult.source}`);
 
@@ -450,7 +450,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     if (styleConfig.showRelated && relatedData) {
         streamsToReturn.push({
-            name: relatedData.collectionName ? `Part of ${relatedData.collectionName}` : 'Part of a Collection',
+            name: relatedData.collectionName ? `Part of ${relatedData.collectionName}` : 'Not Part of a Collection',
             title: formatRelatedMessage(styleConfig, relatedData),
             url: relatedData.collectionUrl,
         });
