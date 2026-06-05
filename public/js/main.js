@@ -423,15 +423,27 @@ function loadConfigFromLocalStorage() {
         }
         if (showBloopers !== null) {
             const checkbox = document.getElementById('showBloopers');
-            if (checkbox) checkbox.checked = showBloopers === 'true';
+            if (checkbox) {
+                checkbox.checked = showBloopers === 'true';
+                const testCb = document.getElementById('testBloopers');
+                if (testCb) testCb.checked = checkbox.checked;
+            }
         }
         if (showSequel !== null) {
             const checkbox = document.getElementById('showSequel');
-            if (checkbox) checkbox.checked = showSequel === 'true';
+            if (checkbox) {
+                checkbox.checked = showSequel === 'true';
+                const testCb = document.getElementById('testSequel');
+                if (testCb) testCb.checked = checkbox.checked;
+            }
         }
         if (showRelated !== null) {
             const checkbox = document.getElementById('showRelated');
-            if (checkbox) checkbox.checked = showRelated === 'true';
+            if (checkbox) {
+                checkbox.checked = showRelated === 'true';
+                const testCb = document.getElementById('testRelated');
+                if (testCb) testCb.checked = checkbox.checked;
+            }
         }
     } catch (e) {
         console.warn('Failed to load configuration from localStorage:', e);
@@ -602,7 +614,21 @@ window.onload = () => {
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach((checkbox) => {
         if (!checkbox.closest('.test-controls')) {
-            checkbox.addEventListener('change', updatePreview);
+            checkbox.addEventListener('change', () => {
+                if (!activeTestData) {
+                    if (checkbox.id === 'showBloopers') {
+                        const testCb = document.getElementById('testBloopers');
+                        if (testCb) testCb.checked = checkbox.checked;
+                    } else if (checkbox.id === 'showSequel') {
+                        const testCb = document.getElementById('testSequel');
+                        if (testCb) testCb.checked = checkbox.checked;
+                    } else if (checkbox.id === 'showRelated') {
+                        const testCb = document.getElementById('testRelated');
+                        if (testCb) testCb.checked = checkbox.checked;
+                    }
+                }
+                updatePreview();
+            });
         }
     });
 };
