@@ -470,6 +470,15 @@ function initTestLookup() {
             return;
         }
 
+        if (query.toLowerCase().startsWith('http://') || query.toLowerCase().startsWith('https://')) {
+            if (statusDiv) {
+                statusDiv.textContent = 'Please enter a movie title or IMDb ID, not a URL.';
+                statusDiv.className = 'lookup-status error';
+                statusDiv.style.display = 'block';
+            }
+            return;
+        }
+
         if (statusDiv) {
             statusDiv.textContent = 'Searching stinger metadata...';
             statusDiv.className = 'lookup-status';

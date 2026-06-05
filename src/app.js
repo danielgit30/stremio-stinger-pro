@@ -17,18 +17,22 @@ const app = express();
 app.use(compression());
 app.use(cors());
 
-// Optimized Security Headers Middleware
-const SECURITY_HEADERS = {
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy':
-        "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors 'none';",
-};
-
+// Security Headers Middleware (Selective and Iframe-compatible for Stremio)
 app.use((req, res, next) => {
-    res.set(SECURITY_HEADERS);
+    // Basic protection headers for all responses
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    const isHtmlRoute = req.path === '/' || req.path === '/configure' || req.path.endsWith('/configure');
+
+    if (isHtmlRoute) {
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        // Allow the configuration UI to be loaded in an iframe by Stremio clients (frame-ancestors *)
+        res.setHeader(
+            'Content-Security-Policy',
+            "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors *;"
+        );
+    }
     next();
 });
 
