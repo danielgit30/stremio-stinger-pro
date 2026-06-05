@@ -515,15 +515,15 @@ function initTestLookup() {
         }
     });
 
-    // Clear active test data if user clicks on any manual simulation checkbox
+    // Clear active test data if user clicks on any manual simulation checkbox and update preview
     const testCheckboxes = document.querySelectorAll('.test-controls input[type="checkbox"]');
     testCheckboxes.forEach((checkbox) => {
         checkbox.addEventListener('change', () => {
             if (activeTestData) {
                 activeTestData = null;
                 statusDiv.style.display = 'none';
-                updatePreview();
             }
+            updatePreview();
         });
     });
 }
