@@ -1031,14 +1031,16 @@ input[type='text']:focus {
 }
 
 .logo-aftercredits {
-    height: 18px;
+    height: 32px;
     width: auto;
 }
 
 .logo-tmdb {
-    height: 12px;
+    height: 32px;
+    width: auto;
 }
 
 .logo-wikipedia {
-    height: 12px;
+    height: 32px;
+    width: auto;
 }
