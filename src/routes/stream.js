@@ -421,7 +421,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
                 // Enrich style-specific cache
                 const enrichedStream = {
                     name: 'After-Credits Scenes',
-                    title: `${formatMessage(styleConfig, merged)}${styleConfig.showSource ? `\nSource: ${merged.source}` : ''}`,
+                    title: formatMessage(styleConfig, merged),
                     url: merged.url,
                 };
                 let enrichedStreams = [enrichedStream];
@@ -516,7 +516,7 @@ const processScrapingSequence = async (id, apiKey, cacheKey, styleConfig) => {
 
     const streamObj = {
         name: 'After-Credits Scenes',
-        title: `${formatMessage(styleConfig, resolvedResult)}${styleConfig.showSource ? `\nSource: ${resolvedResult.source}` : ''}`,
+        title: formatMessage(styleConfig, resolvedResult),
         url:
             resolvedResult.url ||
             `https://aftercredits.com/?s=${encodeURIComponent(year ? `${title} ${year}` : title).replace(/%20/g, '+')}`,

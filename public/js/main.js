@@ -42,7 +42,6 @@ function toggleApiKeyVisibility() {
 
 function updatePreview() {
     const style = document.getElementById('displayStyle').value;
-    const configShowSource = document.getElementById('showSource').checked;
     const configShowBloopers = document.getElementById('showBloopers').checked;
     const configShowSequel = document.getElementById('showSequel').checked;
     const configShowRelated = document.getElementById('showRelated').checked;
@@ -128,10 +127,6 @@ function updatePreview() {
         if (style === 'simple') lines.push('Sequel Setup');
         else if (style === 'monochrome') lines.push('⛶ Sets Up For A Sequel');
         else lines.push('🔮 Sets Up For A Sequel');
-    }
-
-    if (configShowSource) {
-        lines.push(`Source: ${actualSource}`);
     }
 
     previewText.textContent = '';
@@ -240,7 +235,6 @@ function installAddon() {
     const key = document.getElementById('apiKey').value.trim();
     let style = document.getElementById('displayStyle').value;
 
-    if (!document.getElementById('showSource').checked) style += '-nosource';
     if (document.getElementById('showBloopers').checked) style += '-bloopers';
     if (document.getElementById('showSequel').checked) style += '-sequel';
     if (document.getElementById('showRelated').checked) style += '-related';
@@ -379,14 +373,12 @@ function saveConfigToLocalStorage() {
     try {
         const key = document.getElementById('apiKey')?.value.trim() || '';
         const style = document.getElementById('displayStyle')?.value || 'colorful';
-        const showSource = document.getElementById('showSource')?.checked ?? true;
         const showBloopers = document.getElementById('showBloopers')?.checked ?? false;
         const showSequel = document.getElementById('showSequel')?.checked ?? false;
         const showRelated = document.getElementById('showRelated')?.checked ?? false;
 
         localStorage.setItem('stinger_apiKey', key);
         localStorage.setItem('stinger_style', style);
-        localStorage.setItem('stinger_showSource', showSource);
         localStorage.setItem('stinger_showBloopers', showBloopers);
         localStorage.setItem('stinger_showSequel', showSequel);
         localStorage.setItem('stinger_showRelated', showRelated);
@@ -399,7 +391,6 @@ function loadConfigFromLocalStorage() {
     try {
         const key = localStorage.getItem('stinger_apiKey');
         const style = localStorage.getItem('stinger_style');
-        const showSource = localStorage.getItem('stinger_showSource');
         const showBloopers = localStorage.getItem('stinger_showBloopers');
         const showSequel = localStorage.getItem('stinger_showSequel');
         const showRelated = localStorage.getItem('stinger_showRelated');
@@ -429,11 +420,6 @@ function loadConfigFromLocalStorage() {
                     option.classList.remove('selected');
                 }
             });
-        }
-
-        if (showSource !== null) {
-            const checkbox = document.getElementById('showSource');
-            if (checkbox) checkbox.checked = showSource === 'true';
         }
         if (showBloopers !== null) {
             const checkbox = document.getElementById('showBloopers');
