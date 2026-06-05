@@ -30,7 +30,7 @@ app.use((req, res, next) => {
         // Allow the configuration UI to be loaded in an iframe by Stremio clients (frame-ancestors *)
         res.setHeader(
             'Content-Security-Policy',
-            "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors *;"
+            "default-src 'self'; img-src 'self' https://github.com https://raw.githubusercontent.com https://aftercredits.com https://www.themoviedb.org https://upload.wikimedia.org data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors *;"
         );
     }
     next();

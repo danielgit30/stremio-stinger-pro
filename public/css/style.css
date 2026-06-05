@@ -958,9 +958,7 @@ input[type='text']:focus {
 
 /* Attributions Section */
 .attributions-section {
-    margin-top: 40px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    margin-top: 24px;
     text-align: center;
 }
 
@@ -1002,6 +1000,25 @@ input[type='text']:focus {
     box-shadow: 0 4px 15px rgba(139, 92, 246, 0.12);
 }
 
-.attribution-item svg {
+.logo-img {
     display: block;
+    width: auto;
+    opacity: 0.65;
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.attribution-item:hover .logo-img {
+    opacity: 1;
+}
+
+.logo-aftercredits {
+    height: 14px;
+}
+
+.logo-tmdb {
+    height: 16px;
+}
+
+.logo-wikipedia {
+    height: 18px;
 }
