@@ -110,7 +110,7 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         basedOnPromise = axiosInstance
             .get(`https://basedon.media/stream/movie/${encodeURIComponent(imdbId)}.json`, {
                 ...reqConfig,
-                timeout: 3000,
+                timeout: 10000,
             })
             .catch(() => null);
     }
