@@ -53,19 +53,31 @@ function updatePreview() {
 
     let isWiki, isMid, isPost, isBloopers, isSequel, isRelated, isAudioOnly, actualSource;
 
+    const testMidCb = document.getElementById('testMid');
+    const testPostCb = document.getElementById('testPost');
+    const testWikiCb = document.getElementById('testWiki');
+
     if (activeTestData) {
+        testMidCb.disabled = true;
+        testPostCb.disabled = true;
+        testWikiCb.disabled = true;
+
         isMid = activeTestData.mid;
         isPost = activeTestData.post;
-        isWiki = activeTestData.source === 'Wikipedia';
-        isBloopers = activeTestData.bloopers;
-        isSequel = activeTestData.sequel;
-        isRelated = !!activeTestData.relatedData;
+        isWiki = activeTestData.source ? activeTestData.source.includes('Wikipedia') : false;
+        isBloopers = activeTestData.bloopers && document.getElementById('testBloopers').checked;
+        isSequel = activeTestData.sequel && document.getElementById('testSequel').checked;
+        isRelated = !!activeTestData.relatedData && document.getElementById('testRelated').checked;
         isAudioOnly = activeTestData.audioOnly;
         actualSource = activeTestData.source;
     } else {
-        isMid = document.getElementById('testMid').checked;
-        isPost = document.getElementById('testPost').checked;
-        isWiki = document.getElementById('testWiki').checked;
+        testMidCb.disabled = false;
+        testPostCb.disabled = false;
+        testWikiCb.disabled = false;
+
+        isMid = testMidCb.checked;
+        isPost = testPostCb.checked;
+        isWiki = testWikiCb.checked;
         isBloopers = document.getElementById('testBloopers').checked;
         isSequel = document.getElementById('testSequel').checked;
         isRelated = document.getElementById('testRelated').checked;
@@ -489,7 +501,7 @@ function initTestLookup() {
             // Sync manual test toggles for visual feedback
             document.getElementById('testMid').checked = data.mid;
             document.getElementById('testPost').checked = data.post;
-            document.getElementById('testWiki').checked = data.source === 'Wikipedia';
+            document.getElementById('testWiki').checked = data.source ? data.source.includes('Wikipedia') : false;
             document.getElementById('testBloopers').checked = data.bloopers;
             document.getElementById('testSequel').checked = data.sequel;
             document.getElementById('testRelated').checked = !!data.relatedData;
@@ -515,16 +527,23 @@ function initTestLookup() {
         }
     });
 
-    // Clear active test data if user clicks on any manual simulation checkbox and update preview
+    // Update preview when simulation checkboxes change
     const testCheckboxes = document.querySelectorAll('.test-controls input[type="checkbox"]');
     testCheckboxes.forEach((checkbox) => {
         checkbox.addEventListener('change', () => {
-            if (activeTestData) {
-                activeTestData = null;
-                statusDiv.style.display = 'none';
-            }
             updatePreview();
         });
+    });
+
+    // Reset lookup and return to manual simulation mode if the search input is cleared
+    inputQuery.addEventListener('input', () => {
+        if (inputQuery.value.trim() === '') {
+            if (activeTestData) {
+                activeTestData = null;
+                if (statusDiv) statusDiv.style.display = 'none';
+                updatePreview();
+            }
+        }
     });
 }
 

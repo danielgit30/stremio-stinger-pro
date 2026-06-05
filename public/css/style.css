@@ -714,6 +714,12 @@ input[type='text']:focus {
     box-shadow: 0 0 10px rgba(139, 92, 246, 0.15);
 }
 
+.test-controls label:has(input:disabled) {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
 .test-controls input[type='checkbox'] {
     position: absolute;
     opacity: 0;
