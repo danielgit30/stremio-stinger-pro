@@ -527,7 +527,34 @@ function initTestLookup() {
     });
 }
 
+function initSidebarToggle() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const card = document.querySelector('.card');
+
+    if (!sidebarToggle || !card) return;
+
+    try {
+        const isCollapsed = localStorage.getItem('stinger_sidebar_collapsed') === 'true';
+        if (isCollapsed) {
+            card.classList.add('sidebar-collapsed');
+        }
+    } catch (e) {
+        console.warn('Failed to load sidebar collapsed state from localStorage:', e);
+    }
+
+    sidebarToggle.addEventListener('click', () => {
+        card.classList.toggle('sidebar-collapsed');
+        const isCollapsed = card.classList.contains('sidebar-collapsed');
+        try {
+            localStorage.setItem('stinger_sidebar_collapsed', isCollapsed);
+        } catch (e) {
+            console.warn('Failed to save sidebar collapsed state to localStorage:', e);
+        }
+    });
+}
+
 window.onload = () => {
+    initSidebarToggle();
     initCustomSelect();
     loadConfigFromLocalStorage();
     validateApiKey();

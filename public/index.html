@@ -14,10 +14,10 @@
             href="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
         />
         <link
-            href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="/css/style.css" />
+        <link rel="stylesheet" href="/css/style.css?v=3.0.1" />
     </head>
 
     <body>
@@ -27,6 +27,30 @@
         </div>
 
         <main class="card">
+            <!-- Sidebar toggle button on the right edge -->
+            <button
+                type="button"
+                id="sidebarToggle"
+                class="sidebar-toggle"
+                aria-label="Toggle Test Bench"
+                title="Toggle Test Bench"
+            >
+                <svg
+                    class="toggle-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+
             <div class="grid-container">
                 <!-- Left Panel: Configurations -->
                 <div class="config-panel">
@@ -35,6 +59,8 @@
                             src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
                             alt="Stremio Stinger Pro Logo"
                             class="brand-logo"
+                            width="52"
+                            height="52"
                         />
                         <h1 class="brand-title">Stremio Stinger <span class="pro-tag">PRO</span></h1>
                     </header>
@@ -222,15 +248,17 @@
                             <div class="streams-list">
                                 <!-- Stinger Addon Streams -->
                                 <div class="stream-box stinger-stream" id="previewStingerBox">
-                                    <div class="stream-icon-title">
-                                        <img
-                                            src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
-                                            class="stream-addon-logo"
-                                            alt=""
-                                        />
-                                        <span class="stream-title">After-Credits Scenes</span>
+                                    <div class="stream-details">
+                                        <div class="stream-title">After-Credits Scenes</div>
+                                        <div class="stream-desc" id="streamPreviewText"></div>
                                     </div>
-                                    <div class="stream-desc" id="streamPreviewText"></div>
+                                    <img
+                                        src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
+                                        class="stream-addon-logo"
+                                        alt="Stinger Pro Logo"
+                                        width="24"
+                                        height="24"
+                                    />
                                 </div>
 
                                 <div
@@ -238,36 +266,42 @@
                                     id="streamPreviewRelatedBox"
                                     style="display: none"
                                 >
-                                    <div class="stream-icon-title">
-                                        <img
-                                            src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
-                                            class="stream-addon-logo"
-                                            alt=""
-                                        />
-                                        <span class="stream-title" id="streamPreviewRelatedTitle"
-                                            >Part of Marvel Cinematic Universe (MCU)</span
-                                        >
+                                    <div class="stream-details">
+                                        <div class="stream-title" id="streamPreviewRelatedTitle">
+                                            Part of Marvel Cinematic Universe (MCU)
+                                        </div>
+                                        <div class="stream-desc" id="streamPreviewRelatedText"></div>
                                     </div>
-                                    <div class="stream-desc" id="streamPreviewRelatedText"></div>
+                                    <img
+                                        src="https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png"
+                                        class="stream-addon-logo"
+                                        alt="Stinger Pro Logo"
+                                        width="24"
+                                        height="24"
+                                    />
                                 </div>
 
                                 <!-- Dummy video streams to mimic Stremio -->
                                 <div class="stream-box dummy-stream">
-                                    <div class="dummy-stream-meta">
-                                        <span class="source-name">Torrentio RD+</span>
-                                        <span class="resolution">4K</span>
-                                    </div>
-                                    <div class="dummy-stream-filename">
-                                        Iron.Man.2008.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-FGT (52.4 GB)
+                                    <div class="stream-details">
+                                        <div class="dummy-stream-meta">
+                                            <span class="source-name">Torrentio RD+</span>
+                                            <span class="resolution">4K</span>
+                                        </div>
+                                        <div class="dummy-stream-filename">
+                                            Iron.Man.2008.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-FGT (52.4 GB)
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="stream-box dummy-stream">
-                                    <div class="dummy-stream-meta">
-                                        <span class="source-name">CyberFlix</span>
-                                        <span class="resolution">1080p</span>
-                                    </div>
-                                    <div class="dummy-stream-filename">
-                                        Iron.Man.2008.1080p.BrRip.x264.YIFY (1.8 GB)
+                                    <div class="stream-details">
+                                        <div class="dummy-stream-meta">
+                                            <span class="source-name">CyberFlix</span>
+                                            <span class="resolution">1080p</span>
+                                        </div>
+                                        <div class="dummy-stream-filename">
+                                            Iron.Man.2008.1080p.BrRip.x264.YIFY (1.8 GB)
+                                        </div>
                                     </div>
                                 </div>
                             </div>
