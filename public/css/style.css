@@ -127,22 +127,37 @@ body {
     left: 100%; /* Sits exactly flush after the right edge of the card */
     top: 50%;
     transform: translateY(-50%);
-    width: 24px;
-    height: 64px;
-    background: rgba(18, 18, 24, 0.65); /* Glassmorphic matching card bg */
+    width: 26px;
+    height: 120px;
+    background: rgba(18, 18, 24, 0.75); /* Glassmorphic matching card bg */
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1.5px solid rgba(139, 92, 246, 0.4);
-    border-left: none; /* Open on the left, flush against the border */
-    border-radius: 0 16px 16px 0; /* Rounded top-right and bottom-right */
+    border: 1.5px solid rgba(139, 92, 246, 0.45);
+    border-left: none; /* Open on the left, flush against the card border */
+    border-radius: 0 12px 12px 0; /* Rounded top-right and bottom-right, flat left */
     cursor: pointer;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     color: #c084fc;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 100;
     box-shadow: 6px 0 15px rgba(139, 92, 246, 0.15); /* Shadow extends to the right */
+    padding: 10px 0;
+}
+
+.sidebar-toggle .toggle-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #c084fc;
+    user-select: none;
+    transition: color 0.3s ease;
 }
 
 .sidebar-toggle:hover {
@@ -150,12 +165,16 @@ body {
     border-color: rgba(168, 85, 247, 0.8);
     border-left: none;
     color: #ffffff;
-    width: 28px; /* Expands slightly outwards on hover */
+    width: 30px; /* Expands slightly outwards on hover */
     box-shadow: 8px 0 20px rgba(139, 92, 246, 0.3);
 }
 
+.sidebar-toggle:hover .toggle-text {
+    color: #ffffff;
+}
+
 .sidebar-toggle:active {
-    width: 22px;
+    width: 24px;
 }
 
 .sidebar-toggle .toggle-icon {
