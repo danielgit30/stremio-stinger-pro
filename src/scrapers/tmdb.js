@@ -196,8 +196,33 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
             }
         }
 
-        if (!movie.belongs_to_collection && !sourceMaterial) {
-            log(`[TMDB - Related] No collection or source material found.`);
+        // Check if movie belongs to any collection or keywords in a mega-collection
+        let franchiseMatch = null;
+        const belongsId = movie.belongs_to_collection?.id;
+        
+        for (const mc of MEGA_COLLECTIONS) {
+            // Match by collection ID
+            if (belongsId && mc.collectionIds && mc.collectionIds.includes(Number(belongsId))) {
+                franchiseMatch = mc;
+                break;
+            }
+            
+            // Match by keyword ID or keyword name
+            if (movie.keywords && movie.keywords.keywords) {
+                const hasKw = movie.keywords.keywords.some(kw => 
+                    (mc.keywordIds && mc.keywordIds.includes(Number(kw.id))) ||
+                    (mc.keywordId === Number(kw.id)) ||
+                    (kw.name.toLowerCase() === mc.name.toLowerCase())
+                );
+                if (hasKw) {
+                    franchiseMatch = mc;
+                    break;
+                }
+            }
+        }
+
+        if (!movie.belongs_to_collection && !sourceMaterial && !franchiseMatch) {
+            log(`[TMDB - Related] No collection, franchise match, or source material found.`);
             return null;
         }
 
@@ -206,29 +231,48 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         let collectionUrl = null;
         let collectionName = null;
 
-        // Check if movie keywords match any mega-collection keyword
-        let franchiseMatch = null;
-        if (movie.keywords && movie.keywords.keywords) {
-            for (const kw of movie.keywords.keywords) {
-                const found = MEGA_COLLECTIONS.find(
-                    (mc) => mc.keywordId === Number(kw.id) || mc.name.toLowerCase() === kw.name.toLowerCase()
-                );
-                if (found) {
-                    franchiseMatch = found;
-                    break;
-                }
-            }
-        }
-
         if (franchiseMatch) {
             log(`[TMDB - Related] Detected mega-collection franchise: "${franchiseMatch.name}"`);
-            const targetDate = movie.release_date;
-            const neighbors = await getFranchiseNeighbors(franchiseMatch.keywordId, key, reqConfig, targetDate, tmdbId);
-            prequel = neighbors.prequel;
-            sequel = neighbors.sequel;
-
             collectionName = franchiseMatch.name;
-            collectionUrl = `https://www.themoviedb.org/keyword/${franchiseMatch.keywordId}`;
+
+            if (franchiseMatch.keywordId) {
+                // Keyword-based franchise (MCU, DCU, etc.)
+                const targetDate = movie.release_date;
+                const neighbors = await getFranchiseNeighbors(franchiseMatch.keywordId, key, reqConfig, targetDate, tmdbId);
+                prequel = neighbors.prequel;
+                sequel = neighbors.sequel;
+                collectionUrl = `https://www.themoviedb.org/keyword/${franchiseMatch.keywordId}`;
+            } else if (movie.belongs_to_collection) {
+                // Collection-based franchise (Wizarding World, Tolkien, X-Men, Conjuring, etc.)
+                const collectionId = movie.belongs_to_collection.id;
+                log(
+                    `[TMDB - Related] Belongs to collection: "${movie.belongs_to_collection.name}" (ID: ${collectionId}). Fetching collection details...`
+                );
+                const collectionRes = await axiosInstance.get(
+                    `https://api.themoviedb.org/3/collection/${encodeURIComponent(collectionId)}?api_key=${encodeURIComponent(key)}`,
+                    reqConfig
+                );
+                const collection = collectionRes.data;
+
+                let parts = collection.parts || [];
+                log(`[TMDB - Related] Collection has ${parts.length} parts.`);
+                // Filter out items without release date and sort by release date
+                parts = parts
+                    .filter((p) => p.release_date)
+                    .sort((a, b) => {
+                        return new Date(a.release_date) - new Date(b.release_date);
+                    });
+
+                const currentIndex = parts.findIndex((p) => p.id === Number(tmdbId));
+                if (currentIndex !== -1) {
+                    prequel = currentIndex > 0 ? parts[currentIndex - 1] : null;
+                    sequel = currentIndex < parts.length - 1 ? parts[currentIndex + 1] : null;
+                }
+                collectionUrl = `https://www.themoviedb.org/collection/${collectionId}`;
+            } else {
+                // Standalone movie matching franchise (e.g. SSU movie without collection)
+                collectionUrl = `https://www.themoviedb.org/movie/${tmdbId}`;
+            }
         } else if (movie.belongs_to_collection) {
             const collectionId = movie.belongs_to_collection.id;
             collectionName = movie.belongs_to_collection.name;
