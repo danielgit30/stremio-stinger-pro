@@ -2,11 +2,11 @@ const manifestHandler = (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.json({
         id: 'org.stinger.pro',
-        version: '3.0.10',
+        version: '3.0.11',
         name: 'Stremio Stinger Pro',
         description:
             'Instantly detect mid/post-credits scenes, outtakes, sequel setups, and extended franchise metadata (prequels, sequels, source material) in Stremio. Powered by AfterCredits, TMDb, and Wikipedia.',
-        logo: 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.10',
+        logo: 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png?v=3.0.11',
         types: ['movie'],
         catalogs: [],
         resources: ['stream'],
