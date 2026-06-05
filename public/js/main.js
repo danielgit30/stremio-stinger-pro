@@ -454,8 +454,15 @@ function initTestLookup() {
     const btnLookup = document.getElementById('btnTestLookup');
     const inputQuery = document.getElementById('movieNameInput');
     const statusDiv = document.getElementById('lookupStatus');
+    const clearBtn = document.getElementById('btnClearSearch');
 
     if (!btnLookup || !inputQuery) return;
+
+    const updateClearButtonVisibility = () => {
+        if (clearBtn) {
+            clearBtn.style.display = inputQuery.value.trim() !== '' ? 'flex' : 'none';
+        }
+    };
 
     const performLookup = async () => {
         const query = inputQuery.value.trim();
@@ -484,6 +491,7 @@ function initTestLookup() {
         }
         btnLookup.disabled = true;
         inputQuery.disabled = true;
+        if (clearBtn) clearBtn.style.display = 'none';
 
         const apiKey = document.getElementById('apiKey')?.value.trim() || '';
         let url = `/preview/${encodeURIComponent(query)}`;
@@ -523,6 +531,7 @@ function initTestLookup() {
         } finally {
             btnLookup.disabled = false;
             inputQuery.disabled = false;
+            updateClearButtonVisibility();
         }
     };
 
@@ -544,6 +553,7 @@ function initTestLookup() {
 
     // Reset lookup and return to manual simulation mode if the search input is cleared
     inputQuery.addEventListener('input', () => {
+        updateClearButtonVisibility();
         if (inputQuery.value.trim() === '') {
             if (activeTestData) {
                 activeTestData = null;
@@ -552,6 +562,19 @@ function initTestLookup() {
             }
         }
     });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            inputQuery.value = '';
+            updateClearButtonVisibility();
+            if (activeTestData) {
+                activeTestData = null;
+                if (statusDiv) statusDiv.style.display = 'none';
+                updatePreview();
+            }
+            inputQuery.focus();
+        });
+    }
 }
 
 function initSidebarToggle() {
