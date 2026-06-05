@@ -725,7 +725,6 @@ input[type='text']:focus {
     opacity: 0;
     width: 0;
     height: 0;
-    pointer-events: none;
 }
 
 /* Stremio Client Emulator Sidebar Mockup */
