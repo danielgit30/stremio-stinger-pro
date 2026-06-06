@@ -144,5 +144,4 @@ vite.config.ts.timestamp-*
 
 # Dist
 dist/
-node_modules/
 .agents/
