@@ -35,6 +35,24 @@ describe('Stremio Stinger Pro E2E', () => {
         const res2 = await request(app).get('/apple-touch-icon-precomposed.png');
         expect(res2.statusCode).toEqual(301);
         expect(res2.headers['location']).toEqual('https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+
+        const res3 = await request(app).get('/apple-touch-icon-120x120.png');
+        expect(res3.statusCode).toEqual(301);
+        expect(res3.headers['location']).toEqual('https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+
+        const res4 = await request(app).get('/apple-touch-icon-120x120-precomposed.png');
+        expect(res4.statusCode).toEqual(301);
+        expect(res4.headers['location']).toEqual('https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+    });
+
+    it('should redirect base configuration routes to their configure endpoints', async () => {
+        const res1 = await request(app).get('/colorful');
+        expect(res1.statusCode).toEqual(302);
+        expect(res1.headers['location']).toEqual('/colorful/configure');
+
+        const res2 = await request(app).get('/colorful/0287deb172a88d5d62c2ed82e863f4ee');
+        expect(res2.statusCode).toEqual(302);
+        expect(res2.headers['location']).toEqual('/colorful/0287deb172a88d5d62c2ed82e863f4ee/configure');
     });
 
     it('should serve robots.txt', async () => {

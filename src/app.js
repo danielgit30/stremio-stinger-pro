@@ -130,7 +130,7 @@ const isLocalRequest = (req) => {
 
 // Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress (except during local development)
 app.get(
-    ['/icon.png', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'],
+    ['/icon.png', '/favicon.ico', /^\/apple-touch-icon(?:-\d+x\d+)?(?:-precomposed)?\.png$/],
     (req, res, next) => {
         if (isLocalRequest(req)) {
             return next();
@@ -183,6 +183,23 @@ app.get('/stream/:type/:id.json', rateLimiter, streamHandler);
 app.get('/:p1/stream/:type/:id.json', rateLimiter, streamHandler);
 app.get('/:style/:apiKey/stream/:type/:id.json', rateLimiter, streamHandler);
 app.get('/preview/:id', rateLimiter, previewHandler);
+
+// Redirect truncated configuration paths to configure page instead of 404
+app.get('/:p1', (req, res, next) => {
+    const p1 = req.params.p1;
+    if (p1.includes('.') || ['health', 'configure'].includes(p1)) {
+        return next();
+    }
+    res.redirect(`/${p1}/configure`);
+});
+
+app.get('/:style/:apiKey', (req, res, next) => {
+    const { style, apiKey } = req.params;
+    if (apiKey && /^[a-f0-9]{32}$/i.test(apiKey)) {
+        return res.redirect(`/${style}/${apiKey}/configure`);
+    }
+    next();
+});
 
 // Global Error Boundary
 // eslint-disable-next-line no-unused-vars
