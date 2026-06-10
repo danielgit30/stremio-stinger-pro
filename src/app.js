@@ -129,16 +129,13 @@ const isLocalRequest = (req) => {
 };
 
 // Redirect icon/favicon to GitHub CDN with aggressive caching to eliminate egress (except during local development)
-app.get(
-    ['/icon.png', '/favicon.ico', /^\/apple-touch-icon(?:-\d+x\d+)?(?:-precomposed)?\.png$/],
-    (req, res, next) => {
-        if (isLocalRequest(req)) {
-            return next();
-        }
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+app.get(['/icon.png', '/favicon.ico', /^\/apple-touch-icon(?:-\d+x\d+)?(?:-precomposed)?\.png$/], (req, res, next) => {
+    if (isLocalRequest(req)) {
+        return next();
     }
-);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.redirect(301, 'https://raw.githubusercontent.com/schultz911/stremio-stinger-pro/main/public/icon.png');
+});
 
 // Redirect AfterCredits logo to GitHub CDN in production
 app.get('/ac.png', (req, res, next) => {
