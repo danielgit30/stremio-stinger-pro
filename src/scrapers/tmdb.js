@@ -4,6 +4,12 @@ const { getResultObj } = require('../utils/formatter');
 const { sanitizeError } = require('../utils/network');
 const { log, error } = require('../utils/logger');
 const { MEGA_COLLECTIONS, BLACKLIST_PATTERNS } = require('../constants');
+const { LRUCache } = require('lru-cache');
+
+const tmdbIdCache = new LRUCache({
+    max: 1000,
+    ttl: 24 * 60 * 60 * 1000, // 24 hours
+});
 
 /**
  * Shared helper: resolve a numeric TMDB ID from an IMDb ID via the TMDB /find endpoint.
@@ -11,12 +17,29 @@ const { MEGA_COLLECTIONS, BLACKLIST_PATTERNS } = require('../constants');
  */
 async function resolveTmdbIdFromImdb(imdbId, key, reqConfig) {
     if (!imdbId) return null;
-    const findRes = await axiosInstance.get(
-        `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
-        reqConfig
-    );
-    const movieMatch = findRes.data.movie_results?.[0];
-    return movieMatch ? Number(movieMatch.id) : null;
+    if (tmdbIdCache.has(imdbId)) {
+        log(`[TMDB Cache] Hit for IMDb ID: ${imdbId}`);
+        return tmdbIdCache.get(imdbId);
+    }
+
+    log(`[TMDB Cache] Miss for IMDb ID: ${imdbId}. Resolving via network...`);
+    const promise = (async () => {
+        try {
+            const findRes = await axiosInstance.get(
+                `https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${encodeURIComponent(key)}`,
+                reqConfig
+            );
+            const movieMatch = findRes.data.movie_results?.[0];
+            return movieMatch ? Number(movieMatch.id) : null;
+        } catch (err) {
+            // Delete cache entry on failure to allow retry on subsequent requests
+            tmdbIdCache.delete(imdbId);
+            throw err;
+        }
+    })();
+
+    tmdbIdCache.set(imdbId, promise);
+    return promise;
 }
 
 async function checkTmdb(imdbId, tmdbIdRaw, apiKey, reqConfig) {
