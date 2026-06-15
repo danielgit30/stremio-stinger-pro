@@ -11,6 +11,29 @@ const tmdbIdCache = new LRUCache({
     ttl: 24 * 60 * 60 * 1000, // 24 hours
 });
 
+const collectionIdMap = new Map();
+const keywordIdMap = new Map();
+const collectionNameMap = new Map();
+
+for (const mc of MEGA_COLLECTIONS) {
+    if (mc.collectionIds) {
+        for (const cid of mc.collectionIds) {
+            collectionIdMap.set(cid, mc);
+        }
+    }
+    if (mc.keywordId) {
+        keywordIdMap.set(mc.keywordId, mc);
+    }
+    if (mc.keywordIds) {
+        for (const kid of mc.keywordIds) {
+            keywordIdMap.set(kid, mc);
+        }
+    }
+    if (mc.name) {
+        collectionNameMap.set(mc.name.toLowerCase(), mc);
+    }
+}
+
 /**
  * Shared helper: resolve a numeric TMDB ID from an IMDb ID via the TMDB /find endpoint.
  * Extracted from both checkTmdb and getRelatedMovies to eliminate code duplication.
@@ -243,23 +266,20 @@ async function getRelatedMovies(tmdbIdRaw, apiKey, reqConfig, imdbId) {
         let franchiseMatch = null;
         const belongsId = movie.belongs_to_collection?.id;
 
-        for (const mc of MEGA_COLLECTIONS) {
-            // Match by collection ID
-            if (belongsId && mc.collectionIds && mc.collectionIds.includes(Number(belongsId))) {
-                franchiseMatch = mc;
-                break;
-            }
+        if (belongsId && collectionIdMap.has(Number(belongsId))) {
+            franchiseMatch = collectionIdMap.get(Number(belongsId));
+        }
 
-            // Match by keyword ID or keyword name
-            if (movie.keywords && movie.keywords.keywords) {
-                const hasKw = movie.keywords.keywords.some(
-                    (kw) =>
-                        (mc.keywordIds && mc.keywordIds.includes(Number(kw.id))) ||
-                        mc.keywordId === Number(kw.id) ||
-                        kw.name.toLowerCase() === mc.name.toLowerCase()
-                );
-                if (hasKw) {
-                    franchiseMatch = mc;
+        if (!franchiseMatch && movie.keywords && movie.keywords.keywords) {
+            for (const kw of movie.keywords.keywords) {
+                const kwId = Number(kw.id);
+                if (keywordIdMap.has(kwId)) {
+                    franchiseMatch = keywordIdMap.get(kwId);
+                    break;
+                }
+                const kwNameLower = kw.name.toLowerCase();
+                if (collectionNameMap.has(kwNameLower)) {
+                    franchiseMatch = collectionNameMap.get(kwNameLower);
                     break;
                 }
             }

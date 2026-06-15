@@ -8,12 +8,15 @@
 
 ## Discovered Optimizations
 
-- **Second Sweep Results (2026-06-15)**: Swept the codebase for redundancies and resource leaks. Discovered redundant TMDB API `/find` network requests when resolving TMDB ID from IMDb ID in concurrent scraper runs. Also investigated linter warnings for console.error usage, HTML decoding string creation, and nesting levels.
+- **Second Sweep Results (2026-06-15)**: Swept the codebase for redundancies and resource leaks. Discovered redundant TMDB API `/find` network requests when resolving TMDB ID from IMDb ID in concurrent scraper runs, and redundant loop/lower-case operations during collections checks. Also investigated linter warnings for console.error usage, HTML decoding string creation, nesting levels, and function lengths.
 - **Initial Sweep Results (2026-06-10)**: Conducted a thorough sweep of the codebase for Vector A (Sanitization) and Vector B (Runtime & Resource Optimization). No significant inefficiencies, dead code, unused packages, or CPU/Memory bottlenecks were discovered. The codebase is remarkably clean and functions as an enterprise-grade MVP.
 - **Potential Edge Cases**: Minor telemetry and connection resilience opportunities were identified (GCP Error Reporting, Redis exponential backoff).
 
 ## Previously Suggested
 
+- **[2026-06-15] Phase 2: TMDB Collections Lookup Optimization**: Suggested mapping `MEGA_COLLECTIONS` to Map lookup tables to optimize nested iteration loops from `O(N * M)` to `O(1)`/`O(K)`.
+- **[2026-06-15] Phase 2: Split parseAfterCreditsPage Function**: Suggested splitting the function in `src/scrapers/aftercredits.js:57` to reduce size.
+- **[2026-06-15] Phase 2: Split buildWikiIndex Function**: Suggested splitting the function in `src/scrapers/wikipedia.js:36` to reduce size.
 - **[2026-06-15] Phase 2: TMDB ID Resolution Caching**: Suggested adding an in-memory `LRUCache` wrapper for `resolveTmdbIdFromImdb` to prevent duplicate concurrent network queries to the TMDB API.
 - **[2026-06-15] Phase 2: Centralized Logger in Config**: Suggested replacing console.error with logger in `src/config.js:26`.
 - **[2026-06-15] Phase 2: AfterCredits HTML Decoding Optimization**: Suggested deferring/optimizing `decodeHtmlString` inside WordPress taxonomy loops.
@@ -23,11 +26,14 @@
 
 ## Approved and Implemented
 
+- **[2026-06-15] Phase 2: TMDB Collections Lookup Optimization**: Pre-mapped collections/keywords IDs and names into static lookup tables at module load to optimize franchise checks in `src/scrapers/tmdb.js:269`.
 - **[2026-06-15] Phase 2: TMDB ID Resolution Caching**: Implemented a 24-hour LRU cache for TMDB ID queries in `src/scrapers/tmdb.js`, coalescing concurrent requests and caching resolved IDs to prevent redundant requests.
 *(None in this sweep)*
 
 ## Denied or Not Implemented
 
+- **[2026-06-15] Phase 2: Split parseAfterCreditsPage Function**: Denied due to purely aesthetic refactoring containing regression risk without performance benefits.
+- **[2026-06-15] Phase 2: Split buildWikiIndex Function**: Denied due to purely aesthetic refactoring containing regression risk without performance benefits.
 - **[2026-06-15] Phase 2: Centralized Logger in Config**: Denied due to high risk of circular dependency and startup failures.
 - **[2026-06-15] Phase 2: AfterCredits HTML Decoding Optimization**: Denied due to micro-optimization with zero measurable performance gains on small tag arrays.
 - **[2026-06-15] Phase 2: Nested Code Blocks Flattening**: Denied due to purely aesthetic refactoring containing regression risk without performance benefits.
